@@ -56,7 +56,7 @@
   }
   .hero-content { position: absolute; bottom: 120px; left: 60px; z-index: 10; }
   .hero-eyebrow {
-    font-family: 'Barlow Condensed', sans-serif; font-size: 14px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
     letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 10px;
     text-shadow: 0 1px 8px rgba(0,0,0,0.9);
   }
@@ -83,7 +83,7 @@
   @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
   section { padding: 100px 60px; }
-  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(48px, 5vw, 80px); line-height: 0.95; color: var(--white); margin-bottom: 30px; }
   .section-body { font-size: 16px; line-height: 1.7; color: rgba(255,255,255,0.6); max-width: 600px; }
 
@@ -215,13 +215,13 @@
 <section class="about">
   <div class="about-left">
     <p class="section-label">Who We Are</p>
-    <h2 class="section-title">BROAD SKILLS. CREATIVE SYMPATHY. CONSISTENT STANDARDS.</h2>
-    <p class="section-body">Raven Staging is a specialist event infrastructure and fabrication company, delivering physical experiences for creative projects of every scale. The right skills and the right equipment, in service of your vision. As your project evolves, so do we.</p>
+    <h2 class="section-title">BROAD SKILLS.<br> CREATIVE SYMPATHY.<br> CONSISTENT STANDARDS.</h2>
+    <p class="section-body">Raven Staging is a specialist event infrastructure and fabrication company. The right skills and the right equipment, in service of the work. As your project evolves, so do we.</p>
   </div>
   <div class="about-right">
     <div class="about-feature">
       <h3>From Concept to Construction</h3>
-      <p>We are used to working alongside creatives, producers, directors and community leaders - from early design through to final delivery — bringing technical rigour to client vision.</p>
+      <p>We are experienced in working alongside creatives, producers, directors and community leaders - from early design through to final delivery — bringing technical rigour to ideas, from the fully formed to the back-of-a-napkin.</p>
     </div>
     <div class="about-feature">
       <h3>Specialists in the Unique</h3>
@@ -385,11 +385,20 @@ html, body {
   .footer-links { justify-content: center; flex-wrap: wrap; gap: 20px; }
   .hero-portfolio-btn { right: 24px; bottom: 60px; }
 }
+@media (max-width: 900px) {
+  .ticker { animation-duration: 7s; }
+}
 @media (max-width: 480px) {
   .hero-title .line1, .hero-title .line3 { font-size: clamp(52px, 14vw, 72px); }
   .hero-title .line2 { font-size: clamp(44px, 12vw, 60px); }
   .service-card { padding: 28px 20px; }
   .form-field input, .form-field textarea { font-size: 16px; } /* prevents iOS zoom */
+}
+@media (max-width: 900px) {
+  .section-title { font-size: clamp(38px, 6vw, 48px); }
+}
+@media (max-width: 900px) {
+  .service-card { border-bottom-color: var(--gold); }
 }
 </style>
 <script>

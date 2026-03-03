@@ -76,18 +76,9 @@
   }
   .hero-portfolio-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-  .stats-bar {
-    background: var(--dark2); border-top: 1px solid rgba(201,168,76,0.2); border-bottom: 1px solid rgba(201,168,76,0.2);
-    padding: 24px 60px; display: flex; align-items: center; justify-content: space-between;
-  }
-  .stats-items { display: flex; gap: 60px; }
-  .stat { display: flex; flex-direction: column; }
-  .stat-number { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--gold); line-height: 1; }
-  .stat-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 2px; }
-
-  .ticker-wrap { overflow: hidden; background: var(--dark3); padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .ticker-wrap { overflow: hidden; background: var(--dark3); padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
   .ticker { display: flex; white-space: nowrap; animation: ticker 30s linear infinite; }
-  .ticker-item { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.35); padding: 0 30px; display: flex; align-items: center; gap: 30px; }
+  .ticker-item { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.6); padding: 0 30px; display: flex; align-items: center; gap: 30px; }
   .ticker-item::after { content: '—'; color: var(--gold); opacity: 0.5; }
   @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
@@ -197,37 +188,27 @@
   <a href="#portfolio" class="hero-portfolio-btn">View Portfolio →</a>
 </section>
 
-<div class="stats-bar">
-  <div class="stats-items">
-    <div class="stat"><span class="stat-number">20+</span><span class="stat-label">Years</span></div>
-    <div class="stat"><span class="stat-number">500+</span><span class="stat-label">Events</span></div>
-    <div class="stat"><span class="stat-number">BD25</span><span class="stat-label">City of Culture</span></div>
-    <div class="stat"><span class="stat-number">Intl.</span><span class="stat-label">Reach</span></div>
-  </div>
-</div>
-
 <div class="ticker-wrap">
   <div class="ticker">
-    <span class="ticker-item">Container Conversion</span>
-    <span class="ticker-item">Projection towers</span>
-    <span class="ticker-item">Community Projects</span>
-    <span class="ticker-item">Bradford 2025</span>
-    <span class="ticker-item">Scenic Design</span>
-    <span class="ticker-item">International Clients</span>
-    <span class="ticker-item">Stage Construction</span>
+    <span class="ticker-item">Staging</span>
+    <span class="ticker-item">Crew Provision</span>
+    <span class="ticker-item">Fabrication</span>
+    <span class="ticker-item">Projections</span>
+    <span class="ticker-item">Community Support</span>
+    <span class="ticker-item">Set Builds</span>
+    <span class="ticker-item">Structural Conversions</span>
     <span class="ticker-item">Event Infrastructure</span>
-    <span class="ticker-item">Set Fabrication</span>
-    <span class="ticker-item">Outdoor Installations</span>
-    <span class="ticker-item">Container Conversion</span>
-    <span class="ticker-item">Projection Support</span>
-    <span class="ticker-item">Community Projects</span>
-    <span class="ticker-item">Bradford 2025</span>
-    <span class="ticker-item">Scenic Design</span>
-    <span class="ticker-item">International Clients</span>
-    <span class="ticker-item">Stage Construction</span>
+    <span class="ticker-item">Installations</span>
+    <!-- Duplicate for seamless loop -->
+    <span class="ticker-item">Staging</span>
+    <span class="ticker-item">Crew Provision</span>
+    <span class="ticker-item">Fabrication</span>
+    <span class="ticker-item">Projections</span>
+    <span class="ticker-item">Community Support</span>
+    <span class="ticker-item">Set Builds</span>
+    <span class="ticker-item">Structural Conversions</span>
     <span class="ticker-item">Event Infrastructure</span>
-    <span class="ticker-item">Set Fabrication</span>
-    <span class="ticker-item">Outdoor Installations</span>
+    <span class="ticker-item">Installations</span>
   </div>
 </div>
 
@@ -393,8 +374,6 @@ html, body {
   nav { padding: 16px 24px; }
   section { padding: 70px 24px; }
   .hero-content { bottom: 100px; left: 24px; right: 24px; }
-  .stats-bar { padding: 20px 24px; flex-direction: column; gap: 20px; align-items: flex-start; }
-  .stats-items { gap: 32px; flex-wrap: wrap; }
   .about { grid-template-columns: 1fr; gap: 40px; }
   .portfolio-header { flex-direction: column; align-items: flex-start; gap: 16px; }
   .pair-row { grid-template-columns: 1fr; }
@@ -409,7 +388,6 @@ html, body {
 @media (max-width: 480px) {
   .hero-title .line1, .hero-title .line3 { font-size: clamp(52px, 14vw, 72px); }
   .hero-title .line2 { font-size: clamp(44px, 12vw, 60px); }
-  .stats-items { flex-direction: column; gap: 16px; }
   .service-card { padding: 28px 20px; }
   .form-field input, .form-field textarea { font-size: 16px; } /* prevents iOS zoom */
 }

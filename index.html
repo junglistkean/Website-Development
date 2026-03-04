@@ -26,7 +26,20 @@
     text-decoration: none; border: 1px solid rgba(255,255,255,0.4); padding: 10px 20px; transition: all 0.3s;
   }
   .nav-cta:hover { border-color: var(--gold); color: var(--gold); }
-
+.carousel-slide.video-slide video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120%;
+  height: 120%;
+  object-fit: cover !important;
+  z-index: 0;
+}
+.carousel-slide.video-slide {
+  position: absolute;
+  inset: 0;
+}
   .hero { position: relative; height: 100vh; min-height: 600px; overflow: hidden; }
   .carousel { position: absolute; inset: 0; }
   .carousel-slide {
@@ -161,14 +174,26 @@
 <section class="hero">
   <div class="carousel" id="carousel">
     <div class="carousel-slide active" style="background-image: url('images/WebsiteHeroImages/IMG-20251220-WA0006.jpg')"></div>
-    <div class="carousel-slide steelball-gif" style="background-image: url('images/WebsiteHeroImages/SteelBallRev.gif')"data-duration="6000"></div>
+   <div class="carousel-slide video-slide" data-duration="6000">
+    <video autoplay muted playsinline loop>
+    <source src="images/WebsiteHeroImages/SteelBallRev.mp4" type="video/mp4">
+  </video>
+</div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/16789_A-Good-Yarn-BD10-Roll_Benjamin-Smith_Big-Blue-Whale-UK-2048x1365.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/BD25_BrighterStill_CNCDims_EastWestCircle.png')"></div>
-    <div class="carousel-slide flyby-gif" style="background-image: url('images/WebsiteHeroImages/BrighterStill_StageFlyby.gif')"data-duration="13000"></div>    
+    <div class="carousel-slide video-slide" data-duration="13000">
+    <video autoplay muted playsinline loop>
+    <source src="images/WebsiteHeroImages/BrighterStill_StageFlyby.mp4" type="video/mp4">
+     </video>
+</div> 
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250120_153207.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250410_115730.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20230131_105028.jpg')"></div>
-    <div class="carousel-slide sirens-gif" style="background-image: url('images/WebsiteHeroImages/Sirens_SalfordQuays.gif')"data-duration="12000"></div>
+    <div class="carousel-slide video-slide" data-duration="12000">
+    <video autoplay muted playsinline loop>
+    <source src="images/WebsiteHeroImages/Sirens_SalfordQuays.mp4" type="video/mp4">
+    </video>
+</div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20231211_185411.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/Leeds_BID_Queens_Projections_TM-3-1536x1025 (1).jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250701_183959.jpg')"></div>

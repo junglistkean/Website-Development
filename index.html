@@ -467,12 +467,21 @@
     dotsContainer.appendChild(dot);
   });
   function goTo(n) {
-    slides[current].classList.remove('active');
-    dotsContainer.children[current].classList.remove('active');
-    current = n;
-    slides[current].classList.add('active');
-    dotsContainer.children[current].classList.add('active');
+  const currentVideo = slides[current].querySelector('video');
+  if (currentVideo) {
+    currentVideo.pause();
+    currentVideo.currentTime = 0;
   }
+  slides[current].classList.remove('active');
+  dotsContainer.children[current].classList.remove('active');
+  current = n;
+  slides[current].classList.add('active');
+  dotsContainer.children[current].classList.add('active');
+  const nextVideo = slides[current].querySelector('video');
+  if (nextVideo) {
+    nextVideo.play();
+  }
+}
   function scheduleNext() {
     const duration = parseInt(slides[current].dataset.duration) || 5000;
     setTimeout(function() {

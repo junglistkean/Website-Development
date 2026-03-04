@@ -167,3 +167,8 @@
   align-items: center;
   text-align: center;
 }
+@media (max-width: 900px) {
+  #portfolio {
+    padding-top: 80px;
+  }
+}

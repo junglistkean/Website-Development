@@ -460,6 +460,11 @@
   const slides = document.querySelectorAll('.carousel-slide');
   const dotsContainer = document.getElementById('dots');
   let current = 0;
+  const slides = document.querySelectorAll('.carousel-slide');
+const dotsContainer = document.getElementById('dots');
+let current = 0;
+document.querySelectorAll('.carousel-slide video').forEach(v => v.pause());
+slides.forEach((_, i) => {
   slides.forEach((_, i) => {
     const dot = document.createElement('div');
     dot.className = 'dot' + (i === 0 ? ' active' : '');

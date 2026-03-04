@@ -174,24 +174,24 @@
   <div class="carousel" id="carousel">
     <div class="carousel-slide active" style="background-image: url('images/WebsiteHeroImages/IMG-20251220-WA0006.jpg')"></div>
    <div class="carousel-slide video-slide" data-duration="6000">
-   <video muted playsinline preload="none">
-  <source src="images/WebsiteHeroImages/SteelBallRev.mp4" type="video/mp4">
-</video>
+    <video muted playsinline loop>
+    <source src="images/WebsiteHeroImages/SteelBallRev.mp4" type="video/mp4">
+  </video>
 </div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/16789_A-Good-Yarn-BD10-Roll_Benjamin-Smith_Big-Blue-Whale-UK-2048x1365.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/BD25_BrighterStill_CNCDims_EastWestCircle.png')"></div>
     <div class="carousel-slide video-slide" data-duration="13000">
-   <video muted playsinline preload="none">
-  <source src="images/WebsiteHeroImages/BrighterStill_StageFlyby.mp4" type="video/mp4">
-</video>
+    <video muted playsinline loop>
+    <source src="images/WebsiteHeroImages/BrighterStill_StageFlyby.mp4" type="video/mp4">
+     </video>
 </div> 
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250120_153207.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250410_115730.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20230131_105028.jpg')"></div>
     <div class="carousel-slide video-slide" data-duration="12000">
-   <video muted playsinline preload="none">
-  <source src="images/WebsiteHeroImages/Sirens_SalfordQuays.mp4" type="video/mp4">
-</video>
+    <video muted playsinline loop>
+    <source src="images/WebsiteHeroImages/Sirens_SalfordQuays.mp4" type="video/mp4">
+    </video>
 </div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20231211_185411.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/Leeds_BID_Queens_Projections_TM-3-1536x1025 (1).jpg')"></div>
@@ -457,36 +457,37 @@
 </footer>
 
 <script>
+  <script>
   const slides = document.querySelectorAll('.carousel-slide');
   const dotsContainer = document.getElementById('dots');
   let current = 0;
-  const slides = document.querySelectorAll('.carousel-slide');
-const dotsContainer = document.getElementById('dots');
-let current = 0;
-document.querySelectorAll('.carousel-slide video').forEach(v => v.pause());
-slides.forEach((_, i) => {
+
+  document.querySelectorAll('.carousel-slide video').forEach(v => v.pause());
+
   slides.forEach((_, i) => {
     const dot = document.createElement('div');
     dot.className = 'dot' + (i === 0 ? ' active' : '');
     dot.addEventListener('click', () => goTo(i));
     dotsContainer.appendChild(dot);
   });
+
   function goTo(n) {
-  const currentVideo = slides[current].querySelector('video');
-  if (currentVideo) {
-    currentVideo.pause();
-    currentVideo.currentTime = 0;
+    const currentVideo = slides[current].querySelector('video');
+    if (currentVideo) {
+      currentVideo.pause();
+    }
+    slides[current].classList.remove('active');
+    dotsContainer.children[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    dotsContainer.children[current].classList.add('active');
+    const nextVideo = slides[current].querySelector('video');
+    if (nextVideo) {
+      nextVideo.loop = true;
+      nextVideo.play();
+    }
   }
-  slides[current].classList.remove('active');
-  dotsContainer.children[current].classList.remove('active');
-  current = n;
-  slides[current].classList.add('active');
-  dotsContainer.children[current].classList.add('active');
-  const nextVideo = slides[current].querySelector('video');
-  if (nextVideo) {
-    nextVideo.play();
-  }
-}
+
   function scheduleNext() {
     const duration = parseInt(slides[current].dataset.duration) || 5000;
     setTimeout(function() {
@@ -494,7 +495,9 @@ slides.forEach((_, i) => {
       scheduleNext();
     }, duration);
   }
+
   scheduleNext();
+</script>
 </script>
 <style>
 @media (max-width: 800px) {

@@ -98,7 +98,7 @@
   .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(48px, 5vw, 80px); line-height: 0.95; color: var(--white); margin-bottom: 30px; }
   .section-body { font-size: 16px; line-height: 1.7; color: rgba(255,255,255,0.6); max-width: 600px; }
-
+  .section-title span {color: var(--gold);}
   .about { background: var(--dark2); display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
   .about-right { display: flex; flex-direction: column; gap: 40px; }
   .about-feature { border-left: 2px solid var(--gold); padding-left: 24px; }
@@ -135,12 +135,7 @@
   }
 
   .services { background: var(--dark2); }
-  .services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 60px; }
-  .service-card { background: var(--dark3); padding: 40px; border-bottom: 2px solid transparent; transition: all 0.3s; }
-  .service-card:hover { border-bottom-color: var(--gold); background: #1e1e1e; }
-  .service-number { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: rgba(201,168,76,0.15); line-height: 1; margin-bottom: 16px; }
-  .service-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
-  .service-desc { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.45); }
+ 
 
   .contact { background: var(--dark); display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
   .contact-form { display: flex; flex-direction: column; gap: 16px; }
@@ -291,7 +286,7 @@
 <section class="services" id="services">
   
   <p class="section-label">What We Do</p>
-  <h2 class="section-title">OUR SERVICES</h2>
+  <h2 class="section-title">OUR <span>SERVICES</span></h2>
   <div class="services-grid">
 
     <!-- 01 Staging -->
@@ -406,11 +401,8 @@
   </div>
 </section>
 <section id="portfolio">
-<p class="section-label">What We've Done</p>
-  <div class="portfolio-header">
-    <h2>Our <span>Work</span></h2>
-    <p>Selected projects</p>
-  </div>
+  <p class="section-label">What We've Done</p>
+  <h2 class="section-title">OUR <span>WORK</span></h2>
 
   <div class="portfolio-grid">
 

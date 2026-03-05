@@ -137,9 +137,12 @@
 @media (max-width: 900px) {
 
   #portfolio {
-    padding-top: 140px;
+    padding-top: 80px;
   }
 }
 #portfolio .section-title {
   margin-bottom: 30px;
 }
+#portfolio {
+    padding-top: 140px;
+  }

@@ -1,5 +1,10 @@
 /* ── Service Cards with Image Carousels ── */
-
+/* v2 */
+/* ── Portfolio Section ── */
+#portfolio {
+  background: #0a0a0a;
+  padding: 140px 40px;
+}
 .services-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

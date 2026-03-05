@@ -1,7 +1,7 @@
 /* ── Portfolio Section ── */
 #portfolio {
   background: #0a0a0a;
-  padding: 130px 40px;
+  padding: 140px 40px;
 }
 
 .portfolio-grid {
@@ -143,6 +143,3 @@
 #portfolio .section-title {
   margin-bottom: 30px;
 }
-#portfolio {
-    padding-top: 140px;
-  }

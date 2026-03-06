@@ -671,22 +671,16 @@ footer {
   scheduleNext();
  scheduleNext();
 
-  const nav = document.querySelector('nav');
-const textSections = document.querySelectorAll('.about, .contact');
+ const contactSection = document.getElementById('contact');
+const navEl = document.querySelector('nav');
 
 window.addEventListener('scroll', function() {
   if (window.innerWidth <= 900) {
-    let overText = false;
-    textSections.forEach(function(section) {
-      const rect = section.getBoundingClientRect();
-      if (rect.top <= 80 && rect.bottom >= 0) {
-        overText = true;
-      }
-    });
-    if (overText) {
-      nav.classList.add('at-contact');
+    const rect = contactSection.getBoundingClientRect();
+    if (rect.top <= 100) {
+      navEl.classList.add('at-contact');
     } else {
-      nav.classList.remove('at-contact');
+      navEl.classList.remove('at-contact');
     }
   }
 });

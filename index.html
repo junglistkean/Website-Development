@@ -80,7 +80,6 @@
   .dot { width: 24px; height: 3px; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.3s; }
   .dot.active { background: var(--gold); width: 40px; }
   .hero-portfolio-btn {
-    position: absolute; bottom: 80px; right: 60px; z-index: 10;
     font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
     letter-spacing: 3px; text-transform: uppercase; color: var(--white);
     text-decoration: none; border: 1px solid rgba(255,255,255,0.4);
@@ -211,6 +210,14 @@ footer {
     transition: opacity 0.5s ease;
   }
 }
+.hero-btns {
+  position: absolute;
+  bottom: 80px;
+  right: 60px;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+}
 </style>
 <link rel="stylesheet" href="css/portfolio.css?v=2">
 <link rel="stylesheet" href="css/services.css?v=2">
@@ -269,7 +276,11 @@ footer {
     </h1>
   </div>
   <div class="carousel-dots" id="dots"></div>
-  <a href="#portfolio" class="hero-portfolio-btn">View Portfolio →</a>
+ <div class="hero-btns">
+  <a href="#about" class="hero-portfolio-btn">About</a>
+  <a href="#services" class="hero-portfolio-btn">Services</a>
+  <a href="#portfolio" class="hero-portfolio-btn">Portfolio</a>
+</div>
 </section>
 
 <div class="ticker-wrap">

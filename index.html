@@ -815,13 +815,18 @@ html, body {
   .form-field input, .form-field textarea { font-size: 16px; } /* prevents iOS zoom */
 }
 @media (max-width: 900px) {
-  .section-title { font-size: clamp(38px, 6vw, 48px); }
-}
-@media (max-width: 900px) {
-  .service-card { border-bottom-color: var(--gold); }
-}
-.about {
-  padding-top: 140px;
+  section {
+    padding: 60px 24px;
+  }
+  #portfolio {
+    padding: 60px 24px !important;
+  }
+  .services {
+    padding-top: 60px !important;
+  }
+  .about {
+    padding-top: 60px !important;
+  }
 }
 </style>
 <script>

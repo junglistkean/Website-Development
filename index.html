@@ -671,19 +671,25 @@ footer {
   scheduleNext();
  scheduleNext();
 
-  const contactSection = document.getElementById('contact');
   const nav = document.querySelector('nav');
+const textSections = document.querySelectorAll('.about, .contact');
 
-  window.addEventListener('scroll', function() {
-    if (window.innerWidth <= 900) {
-      const rect = contactSection.getBoundingClientRect();
-      if (rect.top <= 100) {
-        nav.classList.add('at-contact');
-      } else {
-        nav.classList.remove('at-contact');
+window.addEventListener('scroll', function() {
+  if (window.innerWidth <= 900) {
+    let overText = false;
+    textSections.forEach(function(section) {
+      const rect = section.getBoundingClientRect();
+      if (rect.top <= 80 && rect.bottom >= 0) {
+        overText = true;
       }
+    });
+    if (overText) {
+      nav.classList.add('at-contact');
+    } else {
+      nav.classList.remove('at-contact');
     }
-  });  
+  }
+});
 </script>
 </script>
 <style>

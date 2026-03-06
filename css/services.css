@@ -184,3 +184,10 @@
 .services {
   padding-bottom: 30px;
 }
+@media (max-width: 900px) {
+  .service-desc {
+    max-height: 200px;
+    opacity: 1;
+    margin-top: 12px;
+  }
+}

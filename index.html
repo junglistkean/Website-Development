@@ -219,6 +219,26 @@ footer {
   display: flex;
   gap: 12px;
 }
+@keyframes pulse-gold {
+  0%, 100% {
+    border-color: rgba(255,255,255,0.4);
+    color: var(--white);
+  }
+  50% {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+}
+
+.hero-portfolio-btn {
+  animation: pulse-gold 3s ease-in-out infinite;
+}
+
+.hero-portfolio-btn:hover {
+  animation: none;
+  border-color: var(--gold);
+  color: var(--gold);
+}
 </style>
 <link rel="stylesheet" href="css/portfolio.css?v=2">
 <link rel="stylesheet" href="css/services.css?v=2">

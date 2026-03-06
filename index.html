@@ -633,21 +633,20 @@ footer {
   </div>
   <div class="contact-form-wrap">
     <form class="contact-form" id="contactForm" novalidate>
+      <div class="form-field" id="field-title">
+        <label for="title">Project Title</label>
+        <input type="text" id="title" name="title" placeholder="e.g. Summer Festival 2026">
+      </div>
       <div class="form-row">
-        <div class="form-field" id="field-title">
-  <label for="title">Project Title</label>
-  <input type="text" id="title" name="title" placeholder="e.g. Summer Festival 2026">
-</div>
-<div class="form-row">
-  <div class="form-field" id="field-name">
-    <label for="name">Full Name</label>
-    <input type="text" id="name" name="name" placeholder="Barrington Barrysworth" autocomplete="name">
-  </div>
-  <div class="form-field" id="field-email">
-    <label for="email">Email Address</label>
-    <input type="email" id="email" name="from_email" placeholder="barringtonbarrysworth@example.com" autocomplete="email">
-  </div>
-</div>
+        <div class="form-field" id="field-name">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" name="name" placeholder="Barrington Barrysworth" autocomplete="name">
+        </div>
+        <div class="form-field" id="field-email">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="from_email" placeholder="barringtonbarrysworth@example.com" autocomplete="email">
+        </div>
+      </div>
       <div class="form-field" id="field-message">
         <label for="message">Your Message</label>
         <textarea id="message" name="message" placeholder="Tell us about your project..."></textarea>

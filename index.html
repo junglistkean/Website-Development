@@ -189,6 +189,28 @@ footer {
 #contact {
   scroll-margin-top: 140px;
 }
+@media (max-width: 900px) {
+  #contact {
+    scroll-margin-top: 0;
+  }
+  footer {
+    padding-bottom: 0;
+  }
+}
+@media (max-width: 900px) {
+  nav.at-contact .nav-cta {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  nav.at-contact img {
+    opacity: 0.15;
+    transition: opacity 0.5s ease;
+  }
+  nav img, nav .nav-cta {
+    transition: opacity 0.5s ease;
+  }
+}
 </style>
 <link rel="stylesheet" href="css/portfolio.css?v=2">
 <link rel="stylesheet" href="css/services.css?v=2">
@@ -647,6 +669,21 @@ footer {
   }
 
   scheduleNext();
+ scheduleNext();
+
+  const contactSection = document.getElementById('contact');
+  const nav = document.querySelector('nav');
+
+  window.addEventListener('scroll', function() {
+    if (window.innerWidth <= 900) {
+      const rect = contactSection.getBoundingClientRect();
+      if (rect.top <= 100) {
+        nav.classList.add('at-contact');
+      } else {
+        nav.classList.remove('at-contact');
+      }
+    }
+  });  
 </script>
 </script>
 <style>

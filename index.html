@@ -259,7 +259,7 @@ footer {
 <a href="#main-content" class="skip-link">Skip to main content</a>
 <nav>
   <div>
-    <a href="#" aria-label="Raven Staging — return to top"><img src="images/RavenStaging-White_Crop.png" alt="Raven Staging logo" height="120"></a>
+    <a href="/" aria-label="Raven Staging — return to top"><img src="images/RavenStaging-White_Crop.png" alt="Raven Staging logo" height="120"></a>
   </div>
   <div class="nav-links">
     <a href="#about" class="nav-link">About</a>
@@ -582,7 +582,7 @@ footer {
     <form class="contact-form" id="contactForm" novalidate>
       <div class="form-field" id="field-title">
         <label for="title">Project Title</label>
-        <input type="text" id="title" name="title" placeholder="e.g. Summer Festival 2026">
+        <input type="text" id="title" name="title" placeholder="e.g. Summer Festival 2026" autocomplete="off">
       </div>
       <div class="form-row">
         <div class="form-field" id="field-name">
@@ -782,6 +782,12 @@ html, body {
   #contact {
     padding-top: 100px !important;
     scroll-margin-top: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 </style>

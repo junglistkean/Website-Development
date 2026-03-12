@@ -252,8 +252,8 @@ footer {
   top: 0;
 }
 </style>
-<link rel="stylesheet" href="css/portfolio.css?v=2">
-<link rel="stylesheet" href="css/services.css?v=2">
+<link rel="stylesheet" href="css/portfolio.css?v=3">
+<link rel="stylesheet" href="css/services.css?v=3">
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -268,9 +268,9 @@ footer {
   </div>
   <a href="#contact" class="nav-cta">Get in Touch</a>
 </nav>
-
+<main id="main-content"></main>>
 <section class="hero" id="main-content">
-  <div class="carousel" id="carousel">
+ <div class="carousel" id="carousel" role="region" aria-label="Hero image carousel">
     <div class="carousel-slide active" style="background-image: url('images/WebsiteHeroImages/IMG-20251220-WA0006.jpg')"></div>
    <div class="carousel-slide video-slide" data-duration="6000" aria-hidden="true">
    <video muted playsinline loop aria-label="Steel ball kinetic sculpture rotating on stage">
@@ -376,7 +376,7 @@ footer {
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
       <div class="service-card-content">
-        <div class="service-number">01</div>
+        <div class="service-number" aria-hidden="true">01</div>
         <div class="service-name">Staging</div>
         <p class="service-desc">Our mobile trailer stage and scalable Litedeck inventory cover everything from one-off shows to major productions, backed by a broad, bespoke fabrication capability.</p>
       </div>
@@ -394,7 +394,7 @@ footer {
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
       <div class="service-card-content">
-        <div class="service-number">02</div>
+        <div class="service-number" aria-hidden="true">02</div>
         <div class="service-name">Crew Provision</div>
         <p class="service-desc">From load-in to get-out, we provide skilled, ticketed and local crew for productions of any scale. Reliable, experienced and ready to work.</p>
       </div>
@@ -412,7 +412,7 @@ footer {
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
       <div class="service-card-content">
-        <div class="service-number">03</div>
+        <div class="service-number" aria-hidden="true">03</div>
         <div class="service-name">Fabrication</div>
         <p class="service-desc">From the delicate to the robust, our workshop team brings any brief to life. Carpentry, metalwork, mechanics, electrics — and much more besides.</p>
       </div>
@@ -430,7 +430,7 @@ footer {
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
       <div class="service-card-content">
-        <div class="service-number">04</div>
+        <div class="service-number" aria-hidden="true">04</div>
         <div class="service-name">FOH / Projections</div>
         <p class="service-desc">Purpose-built and adaptable, our projection support ranges from covered Layher towers to submersible screens — infrastructure tailored to the demands of high-impact experience.</p>
       </div>
@@ -449,7 +449,7 @@ footer {
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
       <div class="service-card-content">
-        <div class="service-number">05</div>
+        <div class="service-number" aria-hidden="true">05</div>
         <div class="service-name">Equipment Hire</div>
         <p class="service-desc">The essentials that keep events running. Truss, ballast, festoon, fencing, cable ramps, gazebos — we stock the fundamentals so you don't have to source them elsewhere. One supplier, less hassle.</p>
       </div>
@@ -467,7 +467,7 @@ footer {
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
       <div class="service-card-content">
-        <div class="service-number">06</div>
+        <div class="service-number" aria-hidden="true">06</div>
         <div class="service-name">Full Event Delivery</div>
         <p class="service-desc">We have delivered multiple events end-to-end — city centre festivals spanning culture, food, drink and entertainment. Documentation, logistics, infrastructure, personnel, partner liaison and marketing all handled in-house, from first brief to final close.</p>
       </div>
@@ -618,6 +618,7 @@ footer {
     <span class="ticker-item">✦</span>
   </div>
 </div>
+</main>
 <footer>
   <span class="footer-copy">© 2026 Raven Trades Ltd. All rights reserved.</span>
   <div class="footer-links">

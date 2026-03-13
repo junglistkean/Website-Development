@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strike — BD25 | Raven Staging</title>
+  <meta name="description" content="Raven Staging supported the technical delivery of Strike, a major outdoor public artwork for Bradford 2025 involving illuminated mill chimneys.">
+  <link rel="canonical" href="https://ravenstaging.co.uk/projects/strike.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/project-page.css">
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="../index.html" aria-label="Raven Staging — return to home"><img src="../images/RavenStaging-White_Crop.png" alt="Raven Staging logo" height="120"></a>
+    </div>
+    <div class="nav-links">
+      <a href="../index.html#about" class="nav-link">About</a>
+      <a href="../index.html#services" class="nav-link">Services</a>
+      <a href="../index.html#portfolio" class="nav-link">Portfolio</a>
+    </div>
+    <a href="../index.html#contact" class="nav-cta">Get in Touch</a>
+    <button class="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="nav-mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-mobile-menu" aria-hidden="true" id="nav-mobile-menu">
+      <a href="../index.html#about" class="nav-mobile-link">About</a>
+      <a href="../index.html#services" class="nav-mobile-link">Services</a>
+      <a href="../index.html#portfolio" class="nav-mobile-link">Portfolio</a>
+      <a href="../index.html#contact" class="nav-mobile-link nav-mobile-cta">Get in Touch</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="project-hero">
+      <img src="../images/PortfolioImages/Strike_ChimneyLitUp.jpg" alt="Strike — BD25">
+      <div class="project-hero-overlay">
+        <p class="project-eyebrow">Project</p>
+        <h1 class="project-title">Strike — BD25</h1>
+        <p class="project-year">2025</p>
+      </div>
+    </section>
+
+    <div class="project-body">
+      <a href="../index.html#portfolio" class="project-back">Back to Portfolio</a>
+      <div class="project-divider"></div>
+      <p class="project-description">Strike was one of <a href="https://www.bradford2025.co.uk/" target="_blank" rel="noopener">Bradford 2025</a>'s most visually iconic commissions — a dramatic illumination and activation of the city's historic mill chimneys as a statement of industrial heritage and civic pride. Raven Staging provided the on-site technical and structural support to bring the installation to life, coordinating access, rigging, and power infrastructure across a challenging urban environment. The project required careful planning around listed structures and public safety, delivered under tight event deadlines.</p>
+      <div class="project-gallery gallery-2">
+      <div class="gallery-item">
+        <img src="../images/PortfolioImages/Strike_ChimneyLitUp.jpg" alt="STRIKE — large scale projection onto Bradford chimney stack, BD25 2025" loading="lazy">
+        <div class="gallery-item-overlay"></div>
+      </div>
+      <div class="gallery-item">
+        <img src="../images/PortfolioImages/" alt="" loading="lazy">
+        <div class="gallery-item-overlay"></div>
+      </div>
+      <div class="gallery-item">
+        <img src="../images/PortfolioImages/Strike_Install.jpg" alt="Strike — installation and rigging in progress on site" loading="lazy">
+        <div class="gallery-item-overlay"></div>
+      </div>
+    </div>
+      <div class="project-cta">
+        <p>Working on something similar?</p>
+        <a href="../index.html#contact">Start a Conversation</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span class="footer-copy">© 2026 Raven Trades Ltd. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="#" aria-label="Raven Staging on Instagram">Instagram</a>
+      <a href="#" aria-label="Raven Staging on LinkedIn">LinkedIn</a>
+      <a href="../index.html#contact" aria-label="Contact Raven Staging">Contact</a>
+    </div>
+  </footer>
+
+  
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+    <button class="lightbox-prev" id="lightbox-prev" aria-label="Previous">&#8592;</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <button class="lightbox-next" id="lightbox-next" aria-label="Next">&#8594;</button>
+    <p class="lightbox-counter" id="lightbox-counter"></p>
+  </div>
+  <script>
+    (function() {
+      const lb = document.getElementById("lightbox");
+      const img = document.getElementById("lightbox-img");
+      const counter = document.getElementById("lightbox-counter");
+      const items = Array.from(document.querySelectorAll(".gallery-item"));
+      let current = 0;
+
+      function open(index) {
+        current = index;
+        const src = items[current].querySelector("img").src;
+        const alt = items[current].querySelector("img").alt;
+        img.src = src;
+        img.alt = alt;
+        counter.textContent = (current + 1) + " / " + items.length;
+        lb.classList.add("active");
+        document.body.style.overflow = "hidden";
+      }
+
+      function close() {
+        lb.classList.remove("active");
+        document.body.style.overflow = "";
+      }
+
+      function prev() { open((current - 1 + items.length) % items.length); }
+      function next() { open((current + 1) % items.length); }
+
+      items.forEach((item, i) => item.addEventListener("click", () => open(i)));
+      document.getElementById("lightbox-close").addEventListener("click", close);
+      document.getElementById("lightbox-prev").addEventListener("click", prev);
+      document.getElementById("lightbox-next").addEventListener("click", next);
+      lb.addEventListener("click", e => { if (e.target === lb) close(); });
+      document.addEventListener("keydown", e => {
+        if (!lb.classList.contains("active")) return;
+        if (e.key === "Escape") close();
+        if (e.key === "ArrowLeft") prev();
+        if (e.key === "ArrowRight") next();
+      });
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Summer Garden — Bradford Council | Raven Staging</title>
+  <meta name="description" content="Raven Staging delivered infrastructure and installation for Bradford Council's Summer Garden, a public realm activation in the city centre.">
+  <link rel="canonical" href="https://ravenstaging.co.uk/projects/summer-garden.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/project-page.css">
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="../index.html" aria-label="Raven Staging — return to home"><img src="../images/RavenStaging-White_Crop.png" alt="Raven Staging logo" height="120"></a>
+    </div>
+    <div class="nav-links">
+      <a href="../index.html#about" class="nav-link">About</a>
+      <a href="../index.html#services" class="nav-link">Services</a>
+      <a href="../index.html#portfolio" class="nav-link">Portfolio</a>
+    </div>
+    <a href="../index.html#contact" class="nav-cta">Get in Touch</a>
+    <button class="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="nav-mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-mobile-menu" aria-hidden="true" id="nav-mobile-menu">
+      <a href="../index.html#about" class="nav-mobile-link">About</a>
+      <a href="../index.html#services" class="nav-mobile-link">Services</a>
+      <a href="../index.html#portfolio" class="nav-mobile-link">Portfolio</a>
+      <a href="../index.html#contact" class="nav-mobile-link nav-mobile-cta">Get in Touch</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="project-hero">
+      <img src="../images/PortfolioImages/PicnicBenches_SummerGarden.jpg" alt="Summer Garden — Bradford Council">
+      <div class="project-hero-overlay">
+        <p class="project-eyebrow">Project</p>
+        <h1 class="project-title">Summer Garden — Bradford Council</h1>
+        <p class="project-year">2025</p>
+      </div>
+    </section>
+
+    <div class="project-body">
+      <a href="../index.html#portfolio" class="project-back">Back to Portfolio</a>
+      <div class="project-divider"></div>
+                  <p class="project-description"><a href="https://www.bradford.gov.uk/" target="_blank" rel="noopener">Bradford Council</a> commissioned Raven Staging to design and fabricate 40 collapsible 6-seater picnic benches and 40 box hedge planters for the Bradford Summer Garden — a pop-up outdoor event space in Bradford city centre. The brief was twofold: provide functional event infrastructure for the summer activation, while also creating assets with genuine legacy value for the city.<br><br>Both deliverables have fulfilled that remit. The picnic benches remain in active use across Bradford Council events, and the box hedge planters have since become a staple piece of infrastructure in the Bradford events toolkit — performing the task of crowd and zone delineation that standard hoarding or fencing would otherwise handle, but with considerably more character.<br><br>The project also included bespoke hand-cut decorative timber pieces, produced in-house, which demonstrate the breadth of craft work the Raven fabrication team can turn its hand to alongside structural and event infrastructure builds.</p>
+                  <div class="project-gallery">
+        <div class="gallery-item">
+          <img src="../images/SummerGarden/20210802_180130.jpg" alt="Bradford Summer Garden — 40 picnic benches and box hedge planters in full use at Bradford city centre event space" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+        <div class="gallery-item">
+          <img src="../images/SummerGarden/20210726_172157.jpg" alt="Bradford Summer Garden — site setup showing box hedge planters deployed as zone delineation, Bradford city centre" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+        <div class="gallery-item">
+          <img src="../images/PortfolioImages/SummerHospitality_Workshop.jpg" alt="Summer Garden — workshop fabrication of picnic benches, Raven Staging" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+        <div class="gallery-item">
+          <img src="../images/SummerGarden/20210719_173751.jpg" alt="Summer Garden — completed picnic benches stacked in workshop, ready for delivery" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+        <div class="gallery-item">
+          <img src="../images/SummerGarden/20210720_183045.jpg" alt="Summer Garden — bespoke hand-cut decorative owl, produced in-house by Raven Staging as part of the project" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+      </div>
+      <div class="project-cta">
+        <p>Working on something similar?</p>
+        <a href="../index.html#contact">Start a Conversation</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span class="footer-copy">© 2026 Raven Trades Ltd. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="#" aria-label="Raven Staging on Instagram">Instagram</a>
+      <a href="#" aria-label="Raven Staging on LinkedIn">LinkedIn</a>
+      <a href="../index.html#contact" aria-label="Contact Raven Staging">Contact</a>
+    </div>
+  </footer>
+
+  
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+    <button class="lightbox-prev" id="lightbox-prev" aria-label="Previous">&#8592;</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <button class="lightbox-next" id="lightbox-next" aria-label="Next">&#8594;</button>
+    <p class="lightbox-counter" id="lightbox-counter"></p>
+  </div>
+  <script>
+    (function() {
+      const lb = document.getElementById("lightbox");
+      const img = document.getElementById("lightbox-img");
+      const counter = document.getElementById("lightbox-counter");
+      const items = Array.from(document.querySelectorAll(".gallery-item"));
+      let current = 0;
+
+      function open(index) {
+        current = index;
+        const src = items[current].querySelector("img").src;
+        const alt = items[current].querySelector("img").alt;
+        img.src = src;
+        img.alt = alt;
+        counter.textContent = (current + 1) + " / " + items.length;
+        lb.classList.add("active");
+        document.body.style.overflow = "hidden";
+      }
+
+      function close() {
+        lb.classList.remove("active");
+        document.body.style.overflow = "";
+      }
+
+      function prev() { open((current - 1 + items.length) % items.length); }
+      function next() { open((current + 1) % items.length); }
+
+      items.forEach((item, i) => item.addEventListener("click", () => open(i)));
+      document.getElementById("lightbox-close").addEventListener("click", close);
+      document.getElementById("lightbox-prev").addEventListener("click", prev);
+      document.getElementById("lightbox-next").addEventListener("click", next);
+      lb.addEventListener("click", e => { if (e.target === lb) close(); });
+      document.addEventListener("keydown", e => {
+        if (!lb.classList.contains("active")) return;
+        if (e.key === "Escape") close();
+        if (e.key === "ArrowLeft") prev();
+        if (e.key === "ArrowRight") next();
+      });
+    })();
+  </script>
+
+</body>
+</html>

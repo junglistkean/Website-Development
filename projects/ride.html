@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ride — Spin Arts / BD25 | Raven Staging</title>
+  <meta name="description" content="Raven Staging provided event infrastructure and technical support for Ride, a large-scale outdoor aerial performance by Spin Arts for Bradford 2025.">
+  <link rel="canonical" href="https://ravenstaging.co.uk/projects/ride.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/project-page.css">
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="../index.html" aria-label="Raven Staging — return to home"><img src="../images/RavenStaging-White_Crop.png" alt="Raven Staging logo" height="120"></a>
+    </div>
+    <div class="nav-links">
+      <a href="../index.html#about" class="nav-link">About</a>
+      <a href="../index.html#services" class="nav-link">Services</a>
+      <a href="../index.html#portfolio" class="nav-link">Portfolio</a>
+    </div>
+    <a href="../index.html#contact" class="nav-cta">Get in Touch</a>
+    <button class="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="nav-mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-mobile-menu" aria-hidden="true" id="nav-mobile-menu">
+      <a href="../index.html#about" class="nav-mobile-link">About</a>
+      <a href="../index.html#services" class="nav-mobile-link">Services</a>
+      <a href="../index.html#portfolio" class="nav-mobile-link">Portfolio</a>
+      <a href="../index.html#contact" class="nav-mobile-link nav-mobile-cta">Get in Touch</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="project-hero">
+      <img src="../images/BD25Ride/23703_Karol-Wyszynski.jpg" alt="Ride — BD25 live performance with projection screens and Layher structure, Bradford 2025">
+      <div class="project-hero-overlay">
+        <p class="project-eyebrow">Project</p>
+        <h1 class="project-title">Ride — Spin Arts / BD25</h1>
+        <p class="project-year">2025</p>
+      </div>
+    </section>
+
+    <div class="project-body">
+      <a href="../index.html#portfolio" class="project-back">Back to Portfolio</a>
+      <div class="project-divider"></div>
+      <p class="project-description">Ride was a large-scale theatrical production by <a href="https://www.spin-arts.com/" target="_blank" rel="noopener">Spin Arts</a>, presented as part of Bradford's UK City of Culture year at a major indoor venue. Raven Staging designed and built the core structural infrastructure for the show — a multi-level Layher scaffold platform system, erected on top of a Litedeck stage base. Across the front face of the Layher structure, we fabricated three bespoke 4m x 3m projection screens mounted on runners, allowing the creative team to slide and reposition the screens mid-performance. This system enabled a constantly shifting theatrical environment, with each screen configuration creating an entirely different visual set — from intimate domestic scenes to expansive urban landscapes. The result was a production infrastructure that gave the creative team genuine flexibility, built to the precision that a technically ambitious live show demands.</p>
+      <div class="project-gallery">
+        <div class="gallery-item">
+          <img src="../images/BD25Ride/23703_Karol-Wyszynski.jpg" alt="Ride — BD25 live performance, projection screens and Layher structure visible, Bradford 2025" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+        <div class="gallery-item">
+          <img src="../images/BD25Ride/IMG-20250925-WA0005.jpg" alt="Ride — projection screens on runners creating theatrical set, performers on Litedeck platform" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+        <div class="gallery-item">
+          <img src="../images/BD25Ride/20250914_142802.jpg" alt="Ride — Layher scaffold structure during build, Bradford 2025" loading="lazy">
+          <div class="gallery-item-overlay"></div>
+        </div>
+      </div>
+      <div class="project-cta">
+        <p>Working on something similar?</p>
+        <a href="../index.html#contact">Start a Conversation</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span class="footer-copy">© 2026 Raven Trades Ltd. All rights reserved.</span>
+    <div class="footer-links">
+      <a href="#" aria-label="Raven Staging on Instagram">Instagram</a>
+      <a href="#" aria-label="Raven Staging on LinkedIn">LinkedIn</a>
+      <a href="../index.html#contact" aria-label="Contact Raven Staging">Contact</a>
+    </div>
+  </footer>
+
+  
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+    <button class="lightbox-prev" id="lightbox-prev" aria-label="Previous">&#8592;</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <button class="lightbox-next" id="lightbox-next" aria-label="Next">&#8594;</button>
+    <p class="lightbox-counter" id="lightbox-counter"></p>
+  </div>
+  <script>
+    (function() {
+      const lb = document.getElementById("lightbox");
+      const img = document.getElementById("lightbox-img");
+      const counter = document.getElementById("lightbox-counter");
+      const items = Array.from(document.querySelectorAll(".gallery-item"));
+      let current = 0;
+
+      function open(index) {
+        current = index;
+        const src = items[current].querySelector("img").src;
+        const alt = items[current].querySelector("img").alt;
+        img.src = src;
+        img.alt = alt;
+        counter.textContent = (current + 1) + " / " + items.length;
+        lb.classList.add("active");
+        document.body.style.overflow = "hidden";
+      }
+
+      function close() {
+        lb.classList.remove("active");
+        document.body.style.overflow = "";
+      }
+
+      function prev() { open((current - 1 + items.length) % items.length); }
+      function next() { open((current + 1) % items.length); }
+
+      items.forEach((item, i) => item.addEventListener("click", () => open(i)));
+      document.getElementById("lightbox-close").addEventListener("click", close);
+      document.getElementById("lightbox-prev").addEventListener("click", prev);
+      document.getElementById("lightbox-next").addEventListener("click", next);
+      lb.addEventListener("click", e => { if (e.target === lb) close(); });
+      document.addEventListener("keydown", e => {
+        if (!lb.classList.contains("active")) return;
+        if (e.key === "Escape") close();
+        if (e.key === "ArrowLeft") prev();
+        if (e.key === "ArrowRight") next();
+      });
+    })();
+  </script>
+
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+    <button class="lightbox-prev" id="lightbox-prev" aria-label="Previous">&#8592;</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <button class="lightbox-next" id="lightbox-next" aria-label="Next">&#8594;</button>
+    <p class="lightbox-counter" id="lightbox-counter"></p>
+  </div>
+  <script>
+    (function() {
+      const lb = document.getElementById("lightbox");
+      const img = document.getElementById("lightbox-img");
+      const counter = document.getElementById("lightbox-counter");
+      const items = Array.from(document.querySelectorAll(".gallery-item"));
+      let current = 0;
+      function open(index) {
+        current = index;
+        img.src = items[current].querySelector("img").src;
+        img.alt = items[current].querySelector("img").alt;
+        counter.textContent = (current + 1) + " / " + items.length;
+        lb.classList.add("active");
+        document.body.style.overflow = "hidden";
+      }
+      function close() { lb.classList.remove("active"); document.body.style.overflow = ""; }
+      function prev() { open((current - 1 + items.length) % items.length); }
+      function next() { open((current + 1) % items.length); }
+      items.forEach((item, i) => item.addEventListener("click", () => open(i)));
+      document.getElementById("lightbox-close").addEventListener("click", close);
+      document.getElementById("lightbox-prev").addEventListener("click", prev);
+      document.getElementById("lightbox-next").addEventListener("click", next);
+      lb.addEventListener("click", e => { if (e.target === lb) close(); });
+      document.addEventListener("keydown", e => {
+        if (!lb.classList.contains("active")) return;
+        if (e.key === "Escape") close();
+        if (e.key === "ArrowLeft") prev();
+        if (e.key === "ArrowRight") next();
+      });
+    })();
+  </script>
+
+</body>
+</html>

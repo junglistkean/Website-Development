@@ -1032,13 +1032,18 @@ html, body {
       this.closest('.form-field').classList.remove('invalid');
     });
   });
-  const hamburger = document.querySelector('.nav-hamburger');
+const hamburger = document.querySelector('.nav-hamburger');
 const mobileMenu = document.querySelector('.nav-mobile-menu');
+
+// Add aria-controls linking button to menu
+hamburger.setAttribute('aria-controls', 'nav-mobile-menu');
+mobileMenu.setAttribute('id', 'nav-mobile-menu');
 
 hamburger.addEventListener('click', function() {
   const isOpen = hamburger.classList.toggle('open');
   mobileMenu.classList.toggle('open');
   hamburger.setAttribute('aria-expanded', isOpen);
+  hamburger.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
   mobileMenu.setAttribute('aria-hidden', !isOpen);
 });
 
@@ -1047,8 +1052,21 @@ document.querySelectorAll('.nav-mobile-link').forEach(function(link) {
     hamburger.classList.remove('open');
     mobileMenu.classList.remove('open');
     hamburger.setAttribute('aria-expanded', 'false');
+    hamburger.setAttribute('aria-label', 'Open navigation menu');
     mobileMenu.setAttribute('aria-hidden', 'true');
   });
+});
+
+// Escape key closes menu
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && hamburger.classList.contains('open')) {
+    hamburger.classList.remove('open');
+    mobileMenu.classList.remove('open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    hamburger.setAttribute('aria-label', 'Open navigation menu');
+    mobileMenu.setAttribute('aria-hidden', 'true');
+    hamburger.focus();
+  }
 });
 </script>
 <script>

@@ -298,6 +298,17 @@ footer {
     <a href="#portfolio" class="nav-link">Portfolio</a>
   </div>
   <a href="#contact" class="nav-cta">Get in Touch</a>
+  <button class="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+  <div class="nav-mobile-menu" aria-hidden="true">
+    <a href="#about" class="nav-mobile-link">About</a>
+    <a href="#services" class="nav-mobile-link">Services</a>
+    <a href="#portfolio" class="nav-mobile-link">Portfolio</a>
+    <a href="#contact" class="nav-mobile-link nav-mobile-cta">Get in Touch</a>
+  </div>
 </nav>
 <main id="main-content">
 <section class="hero" id="main-content">
@@ -834,7 +845,92 @@ html, body {
   clip: rect(0,0,0,0);
   border: 0;
 }
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  z-index: 101;
+}
 
+.nav-hamburger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--white);
+  transition: all 0.3s ease;
+}
+
+.nav-hamburger.open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.nav-hamburger.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-hamburger.open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.nav-mobile-menu {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10,10,10,0.97);
+  padding: 100px 40px 40px;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 99;
+  transform: translateY(-100%);
+  transition: transform 0.4s ease;
+}
+
+.nav-mobile-menu.open {
+  transform: translateY(0);
+}
+
+.nav-mobile-link {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--white);
+  text-decoration: none;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  transition: color 0.3s;
+}
+
+.nav-mobile-link:hover {
+  color: var(--gold);
+}
+
+.nav-mobile-cta {
+  color: var(--gold);
+  border-bottom: none;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .nav-hamburger {
+    display: flex;
+  }
+  .nav-cta {
+    display: none;
+  }
+}
 </style>
 <script>
   emailjs.init("YuuoH0Y7xxMkz_Pbi");
@@ -897,6 +993,24 @@ html, body {
       this.closest('.form-field').classList.remove('invalid');
     });
   });
+  const hamburger = document.querySelector('.nav-hamburger');
+const mobileMenu = document.querySelector('.nav-mobile-menu');
+
+hamburger.addEventListener('click', function() {
+  const isOpen = hamburger.classList.toggle('open');
+  mobileMenu.classList.toggle('open');
+  hamburger.setAttribute('aria-expanded', isOpen);
+  mobileMenu.setAttribute('aria-hidden', !isOpen);
+});
+
+document.querySelectorAll('.nav-mobile-link').forEach(function(link) {
+  link.addEventListener('click', function() {
+    hamburger.classList.remove('open');
+    mobileMenu.classList.remove('open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    mobileMenu.setAttribute('aria-hidden', 'true');
+  });
+});
 </script>
 <script>
   // Service card image carousels

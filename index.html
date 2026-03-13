@@ -116,10 +116,13 @@
   .hero-portfolio-btn:hover { border-color: var(--gold); color: var(--gold); }
 
   .ticker-wrap { overflow: hidden; background: var(--dark3); padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .ticker { display: flex; white-space: nowrap; animation: ticker 30s linear infinite; }
+  .ticker { display: flex; white-space: nowrap; animation: ticker 20s linear infinite; }
   .ticker-item { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.9); padding: 0 30px; display: flex; align-items: center; gap: 30px; }
   .ticker-item::after { content: '—'; color: var(--gold); opacity: 0.5; }
-  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  @keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(var(--ticker-offset, -50%)); }
+}
 
   section { padding: 100px 60px; }
   .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
@@ -803,7 +806,7 @@ html, body {
   .hero-portfolio-btn { right: 24px; bottom: 60px; }
 }
 @media (max-width: 900px) {
-  .ticker { animation-duration: 7s; }
+  .ticker { animation-duration: 20s; }
 }
 @media (max-width: 480px) {
   .hero-title .line1, .hero-title .line3 { font-size: clamp(52px, 14vw, 72px); }
@@ -970,6 +973,17 @@ html, body {
     letter-spacing: 2px;
   }
 }
+@media (max-width: 480px) {
+  .about .section-title {
+    font-size: 11vw;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 900px) {
+  .about .section-title {
+    font-size: 7vw;
+  }
+}
 </style>
 <script>
   emailjs.init("YuuoH0Y7xxMkz_Pbi");
@@ -1068,6 +1082,14 @@ document.addEventListener('keydown', function(e) {
     hamburger.focus();
   }
 });
+function fixTicker() {
+  const ticker = document.querySelector('.ticker');
+  if (!ticker) return;
+  const halfWidth = ticker.scrollWidth / 2;
+  ticker.style.setProperty('--ticker-offset', '-' + halfWidth + 'px');
+}
+fixTicker();
+window.addEventListener('resize', fixTicker);
 </script>
 <script>
   // Service card image carousels
@@ -1110,6 +1132,7 @@ document.addEventListener('keydown', function(e) {
     card.addEventListener('mouseenter', startCarousel);
     card.addEventListener('mouseleave', stopCarousel);
   });
+  
 </script>
 </body>
 </html>

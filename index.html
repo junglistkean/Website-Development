@@ -680,15 +680,14 @@ footer {
 
   document.querySelectorAll('.carousel-slide video').forEach(v => v.pause());
 
-  slides.forEach((_, i) => {
-    const dot = document.createElement('div');
-    dot.className = 'dot' + (i === 0 ? ' active' : '');
-    dot.setAttribute('role', 'button');
-    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
-    dot.setAttribute('tabindex', '0');
-    dot.addEventListener('click', () => goTo(i));
-    dotsContainer.appendChild(dot);
-  });
+ slides.forEach((_, i) => {
+  const dot = document.createElement('button');
+  dot.className = 'dot' + (i === 0 ? ' active' : '');
+  dot.setAttribute('type', 'button');
+  dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+  dot.addEventListener('click', () => goTo(i));
+  dotsContainer.appendChild(dot);
+});
 
   function goTo(n) {
     const currentVideo = slides[current].querySelector('video');

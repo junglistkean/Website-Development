@@ -931,18 +931,31 @@ html, body {
 }
 @media (max-width: 900px) {
   .nav-cta {
-    font-size: 11px;
-    padding: 8px 12px;
+    font-size: 13px;
+    padding: 8px 14px;
     letter-spacing: 2px;
-    background: var(--gold);
-    color: #000;
-    border-color: var(--gold);
-  }
-  .nav-cta:hover {
-    background: transparent;
-    color: var(--gold);
   }
 }
+@media (max-width: 900px) {
+  nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+  }
+  nav > div:first-child {
+    justify-self: start;
+  }
+  .nav-cta {
+    justify-self: center;
+    font-size: 13px;
+    padding: 8px 14px;
+    letter-spacing: 2px;
+  }
+  .nav-hamburger {
+    justify-self: end;
+  }
+}
+</style>
 <script>
   emailjs.init("YuuoH0Y7xxMkz_Pbi");
 

@@ -927,11 +927,22 @@ html, body {
   .nav-hamburger {
     display: flex;
   }
+
+}
+@media (max-width: 900px) {
   .nav-cta {
-    display: none;
+    font-size: 11px;
+    padding: 8px 12px;
+    letter-spacing: 2px;
+    background: var(--gold);
+    color: #000;
+    border-color: var(--gold);
+  }
+  .nav-cta:hover {
+    background: transparent;
+    color: var(--gold);
   }
 }
-</style>
 <script>
   emailjs.init("YuuoH0Y7xxMkz_Pbi");
 

@@ -1,41 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Raven Staging provides event staging, fabrication, crew provision and projection & FOH support. Based in Bradford, West Yorkshire.">
-<meta property="og:title" content="Raven Staging — Event Infrastructure, Fabrication & Crew">
-<meta property="og:description" content="Specialist event infrastructure and fabrication company based in Bradford. Staging, crew, fabrication, projection & FOH support and full event delivery.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://ravenstaging.co.uk">
-<meta property="og:image" content="https://ravenstaging.co.uk/images/PortfolioImages/BrighterStill_Show.jpg">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Raven Staging — Event Infrastructure, Fabrication & Crew">
-<meta name="twitter:description" content="Specialist event infrastructure and fabrication company based in Bradford. Staging, crew, fabrication, projection & FOH support and full event delivery.">
-<meta name="twitter:image" content="https://ravenstaging.co.uk/images/PortfolioImages/BrighterStill_Show.jpg">
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  "name": "Raven Staging",
-  "description": "Specialist event infrastructure and fabrication company based in Bradford, West Yorkshire. Staging, crew provision, fabrication, projection & FOH support and full event delivery.",
-  "url": "https://ravenstaging.co.uk",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "Bradford",
-    "addressRegion": "West Yorkshire",
-    "addressCountry": "GB"
-  },
-  "areaServed": "United Kingdom",
-  "serviceType": ["Event Staging", "Crew Provision", "Fabrication", "Projection & FOH Support", "Equipment Hire", "Event Production"]
-}
-</script>
-<link rel="canonical" href="https://ravenstaging.co.uk">
-<title>Raven Staging — Event Infrastructure, Fabrication & Crew | Bradford</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/portfolio.css?v=3">
-<link rel="stylesheet" href="css/services.css?v=3">
-<link rel="stylesheet" href="css/main.css">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Raven Staging provides event staging, fabrication, crew provision and projection & FOH support. Based in Bradford, West Yorkshire.">
+  <meta property="og:title" content="Raven Staging — Event Infrastructure, Fabrication & Crew">
+  <meta property="og:description" content="Specialist event infrastructure and fabrication company based in Bradford. Staging, crew, fabrication, projection & FOH support and full event delivery.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ravenstaging.co.uk">
+  <meta property="og:image" content="https://ravenstaging.co.uk/images/PortfolioImages/BrighterStill_Show.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Raven Staging — Event Infrastructure, Fabrication & Crew">
+  <meta name="twitter:description" content="Specialist event infrastructure and fabrication company based in Bradford. Staging, crew, fabrication, projection & FOH support and full event delivery.">
+  <meta name="twitter:image" content="https://ravenstaging.co.uk/images/PortfolioImages/BrighterStill_Show.jpg">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Raven Staging",
+    "description": "Specialist event infrastructure and fabrication company based in Bradford, West Yorkshire. Staging, crew provision, fabrication, projection & FOH support and full event delivery.",
+    "url": "https://ravenstaging.co.uk",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Bradford",
+      "addressRegion": "West Yorkshire",
+      "addressCountry": "GB"
+    },
+    "areaServed": "United Kingdom",
+    "serviceType": ["Event Staging", "Crew Provision", "Fabrication", "Projection & FOH Support", "Equipment Hire", "Event Production"]
+  }
+  </script>
+  <link rel="canonical" href="https://ravenstaging.co.uk">
+  <title>Raven Staging — Event Infrastructure, Fabrication & Crew | Bradford</title>
+
+  <!-- Preconnect for faster font loading -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Non-blocking Google Fonts -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Barlow:wght@300;400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Barlow:wght@300;400;500&display=swap"></noscript>
+
+  <link rel="stylesheet" href="css/portfolio.css?v=3">
+  <link rel="stylesheet" href="css/services.css?v=3">
+  <link rel="stylesheet" href="css/main.css">
+
+  <!-- EmailJS deferred — loads after page is interactive -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -64,7 +75,17 @@
 <main id="main-content">
 <section class="hero" id="main-content">
  <div class="carousel" id="carousel" role="region" aria-label="Hero image carousel">
-    <div class="carousel-slide active" style="background-image: url('images/WebsiteHeroImages/IMG-20251220-WA0006.jpg')"></div>
+
+  <!-- LCP preload hint — hidden but tells browser to fetch this image first -->
+  <img src="images/WebsiteHeroImages/IMG-20251220-WA0006.jpg" 
+       fetchpriority="high" 
+       loading="eager" 
+       decoding="sync"
+       alt="" 
+       aria-hidden="true" 
+       style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+
+  <div class="carousel-slide active" style="background-image: url('images/WebsiteHeroImages/IMG-20251220-WA0006.jpg')"></div>
    <div class="carousel-slide video-slide" data-duration="6000" aria-hidden="true">
    <video muted playsinline loop aria-hidden="true">
     <source src="images/WebsiteHeroImages/SteelBallRev.mp4" type="video/mp4">

@@ -491,8 +491,7 @@
   }
 
   scheduleNext();
- scheduleNext();
-
+ 
  const contactSection = document.getElementById('contact');
 const navEl = document.querySelector('nav');
 
@@ -506,7 +505,6 @@ window.addEventListener('scroll', function() {
     }
   }
 });
-</script>
 </script>
 <script>
   emailjs.init("YuuoH0Y7xxMkz_Pbi");
@@ -556,12 +554,6 @@ window.addEventListener('scroll', function() {
         btn.classList.remove('loading');
         btn.disabled = false;
       });
-  });
-
-  form.querySelectorAll('input, textarea').forEach(function(el) {
-    el.addEventListener('input', function() {
-      this.closest('.form-field').classList.remove('invalid');
-    });
   });
 
   form.querySelectorAll('input, textarea').forEach(function(el) {

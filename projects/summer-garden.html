@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
                   <p class="project-description"><a href="https://www.bradford.gov.uk/" target="_blank" rel="noopener">Bradford Council</a> commissioned Raven Staging to design and fabricate 40 collapsible 6-seater picnic benches and 40 box hedge planters for the Bradford Summer Garden — a pop-up outdoor event space in Bradford city centre. The brief was twofold: provide functional event infrastructure for the summer activation, while also creating assets with genuine legacy value for the city.<br><br>Both deliverables have fulfilled that remit. The picnic benches remain in active use across Bradford Council events, and the box hedge planters have since become a staple piece of infrastructure in the Bradford events toolkit — performing the task of crowd and zone delineation that standard hoarding or fencing would otherwise handle, but with considerably more character.<br><br>The project also included bespoke hand-cut decorative timber pieces, produced in-house, which demonstrate the breadth of craft work the Raven fabrication team can turn its hand to alongside structural and event infrastructure builds.</p>
                   <div class="project-gallery">

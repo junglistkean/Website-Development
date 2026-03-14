@@ -44,10 +44,10 @@
     <a href="/" aria-label="Raven Staging — return to top"><img src="images/RavenStaging-White_Crop.png" alt="Raven Staging logo" height="120"></a>
   </div>
   <div class="nav-links">
-    <a href="#about" class="nav-link">About</a>
-    <a href="#services" class="nav-link">Services</a>
-    <a href="#portfolio" class="nav-link">Portfolio</a>
-  </div>
+  <a href="#services" class="nav-link">Services</a>
+  <a href="#portfolio" class="nav-link">Portfolio</a>
+  <a href="#about" class="nav-link">About</a>
+</div>
   <a href="#contact" class="nav-cta">Get in Touch</a>
   <button class="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false">
     <span></span>
@@ -55,9 +55,9 @@
     <span></span>
   </button>
   <div class="nav-mobile-menu" aria-hidden="true">
-    <a href="#about" class="nav-mobile-link">About</a>
-    <a href="#services" class="nav-mobile-link">Services</a>
+        <a href="#services" class="nav-mobile-link">Services</a>
     <a href="#portfolio" class="nav-mobile-link">Portfolio</a>
+    <a href="#about" class="nav-mobile-link">About</a>
     <a href="#contact" class="nav-mobile-link nav-mobile-cta">Get in Touch</a>
   </div>
 </nav>
@@ -66,14 +66,14 @@
  <div class="carousel" id="carousel" role="region" aria-label="Hero image carousel">
     <div class="carousel-slide active" style="background-image: url('images/WebsiteHeroImages/IMG-20251220-WA0006.jpg')"></div>
    <div class="carousel-slide video-slide" data-duration="6000" aria-hidden="true">
-   <video muted playsinline loop aria-label="Steel ball kinetic sculpture rotating on stage">
+   <video muted playsinline loop aria-hidden="true">
     <source src="images/WebsiteHeroImages/SteelBallRev.mp4" type="video/mp4">
   </video>
 </div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/16789_A-Good-Yarn-BD10-Roll_Benjamin-Smith_Big-Blue-Whale-UK-2048x1365.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/BD25_BrighterStill_CNCDims_EastWestCircle.png')"></div>
     <div class="carousel-slide video-slide" data-duration="13000" aria-hidden="true">
-    <video muted playsinline loop aria-label="Brighter Still — stage flyby aerial view">
+    <video muted playsinline loop aria-hidden="true">
     <source src="images/WebsiteHeroImages/BrighterStill_StageFlyby.mp4" type="video/mp4">
      </video>
 </div> 
@@ -81,7 +81,7 @@
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250410_115730.jpg')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20230131_105028.jpg')"></div>
     <div class="carousel-slide video-slide" data-duration="12000" aria-hidden="true">
-    <video muted playsinline loop aria-label="Sirens installation at Salford Quays">
+    <video muted playsinline loop aria-hidden="true">
     <source src="images/WebsiteHeroImages/Sirens_SalfordQuays.mp4" type="video/mp4">
     </video>
 </div>
@@ -128,32 +128,9 @@
   </div>
 </div>
 
-<section class="about" id="about">
-
-  <div class="about-left">
-    <p class="section-label">Who We Are</p>
-    <h2 class="section-title">BROAD <span>SKILLS.</span><br> CREATIVE <span>EMPATHY.</span><br> CONSISTENT <span>STANDARDS.</span></h2>
-    <p class="section-body">Raven Staging is a specialist event infrastructure and fabrication company. The right skills and the right equipment, in service of the work. As your project evolves, so do we.</p>
-  </div>
-  <div class="about-right">
-    <div class="about-feature">
-      <h3>From Concept to Construction</h3>
-      <p>Whether our clients are experienced professionals or first-time community organisers, we bring technical rigour to every idea — from the back-of-a-napkin sketch through to final delivery.</p>
-    </div>
-    <div class="about-feature">
-      <h3>Specialists in the Unique</h3>
-      <p>No two projects are the same, and neither are the people behind them. We come to every brief with an open mind, adapting our approach to serve the vision — not the other way around.</p>
-    </div>
-    <div class="about-feature">
-      <h3>Reliable By Nature</h3>
-      <p>We understand the pressure of tight timelines and last-minute changes — and we have the experience, the team and the resources to deliver.</p>
-    </div>
-  </div>
-</section>
-
 <section class="services" id="services">
   
-  <p class="section-label">What We Do</p>
+  <p class="section-label">Services</p>
   <h2 class="section-title">OUR <span>SERVICES</span></h2>
   <div class="services-grid">
 
@@ -269,13 +246,13 @@
   </div>
 </section>
 <section id="portfolio">
-  <p class="section-label">What We've Done</p>
+  <p class="section-label">Portfolio</p>
   <h2 class="section-title">OUR <span>WORK</span></h2>
 
   <div class="portfolio-grid">
 
    <figure class="portfolio-item">
-  <a href="projects/brighter-still.html" class="portfolio-item-link" aria-label="View project: Brighter Still">
+  <a href="projects/brighter-still.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Brighter Still">
     <img src="images/PortfolioImages/BrighterStill_Show.jpg" alt="Brighter Still closing ceremony — live performance with fire effects and dancers on stage, Bradford 2025" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Brighter Still - BD25 closing ceremony</p>
@@ -285,7 +262,7 @@
 </figure>
 
     <figure class="portfolio-item">
-  <a href="projects/we-will-sing.html" class="portfolio-item-link" aria-label="View project: We Will Sing">
+  <a href="projects/we-will-sing.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: We Will Sing">
     <img src="images/PortfolioImages/We-Will-Sing-Ann-Hamilton.jpg" alt="We Will Sing — Ann Hamilton installation at Salts Mill, Saltaire, Bradford 2025" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">We Will Sing - Ann Hamilton/BD25</p>
@@ -295,7 +272,7 @@
 </figure>
 
     <figure class="portfolio-item">
-  <a href="projects/ride.html" class="portfolio-item-link" aria-label="View project: Ride">
+  <a href="projects/ride.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Ride">
     <img src="images/PortfolioImages/Ride_Show.jpg" alt="Ride — theatrical staging with bespoke projection surfaces, Bradford 2025" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Ride - Spin Arts/BD25</p>
@@ -305,7 +282,7 @@
 </figure>
 
     <figure class="portfolio-item">
-  <a href="projects/doha-debates.html" class="portfolio-item-link" aria-label="View project: Doha Debates">
+  <a href="projects/doha-debates.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Doha Debates">
     <img src="images/PortfolioImages/DohaDebates.jpg" alt="Doha Debates — circular stage and set construction at St George's Hall, Bradford" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Doha Debates - Bradford Literature Festival</p>
@@ -314,7 +291,7 @@
   </a>
 </figure>
     <figure class="portfolio-item">
-  <a href="projects/radiobox.html" class="portfolio-item-link" aria-label="View project: RadioBox">
+  <a href="projects/radiobox.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: RadioBox">
     <img src="images/PortfolioImages/BCBRadioBox_WideViewAlternate.jpg" alt="BCB Radio Box — shipping container converted to mobile broadcast studio, Bradford city centre 2025" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">RadioBox - BCB</p>
@@ -324,7 +301,7 @@
 </figure>
 
     <figure class="portfolio-item">
-  <a href="projects/sirens.html" class="portfolio-item-link" aria-label="View project: Sirens">
+  <a href="projects/sirens.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Sirens">
     <img src="images/PortfolioImages/BristolLightFestival_ScreenInstall.jpg" alt="Bristol Light Festival — floating projection platform and booth installed on Bristol harbourside 2023" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Sirens - Studio MacGuire</p>
@@ -333,7 +310,7 @@
   </a>
 </figure>
     <figure class="portfolio-item">
-  <a href="projects/summer-garden.html" class="portfolio-item-link" aria-label="View project: Summer Garden">
+  <a href="projects/summer-garden.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Summer Garden">
     <img src="images/PortfolioImages/PicnicBenches_SummerGarden.jpg" alt="Summer Garden — fabricated picnic benches and box hedge planters, Bradford city centre 2025" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Summer Garden - Bradford Council</p>
@@ -342,7 +319,7 @@
   </a>
 </figure>
 <figure class="portfolio-item">
-  <a href="projects/queens-hotel.html" class="portfolio-item-link" aria-label="View project: Queens Hotel Projection Mapping">
+  <a href="projects/queens-hotel.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Queens Hotel Projection Mapping">
     <img src="images/QueensHotelChristmasProjectionTowers/Queens-4-scaled.jpg" alt="Queens Hotel Leeds — aerial view of Christmas projection mapping with OnionLab, Leeds BID 2023 & 2024" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Queens Hotel Projection Mapping — Leeds BID</p>
@@ -351,7 +328,7 @@
   </a>
 </figure>
     <figure class="portfolio-item">
-  <a href="projects/sign-of-the-times.html" class="portfolio-item-link" aria-label="View project: Sign of the Times">
+  <a href="projects/sign-of-the-times.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Sign of the Times">
     <img src="images/PortfolioImages/SingoOftheTimes_Install.jpg" alt="Sign of the Times — mosaic tile planters fabricated from salvaged tiles, installed at Darley Street Market Bradford 2025" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Sign of the Times - Bernd Trasberger</p>
@@ -361,7 +338,7 @@
 </figure>
 
     <figure class="portfolio-item">
-  <a href="projects/lighthouse-commission.html" class="portfolio-item-link" aria-label="View project: Lighthouse Commission">
+  <a href="projects/lighthouse-commission.html" class="portfolio-item-link" onclick="sessionStorage.setItem('fromPortfolio','1')" aria-label="View project: Lighthouse Commission">
     <img src="images/PortfolioImages/SouthSquare_Lighthouse_InSitu.jpg" alt="South Square — bespoke lighthouse sculpture commission installed in courtyard, Bradford 2021" loading="lazy">
     <figcaption class="portfolio-overlay">
       <p class="portfolio-overlay-title">Lighthouse Commission - South Square</p>
@@ -370,8 +347,31 @@
   </a>
 </figure>
   </div>
-
 </section>
+  <section class="about" id="about">
+
+<div class="about-left">
+    <p class="section-label">About Us</p>
+    <h2 class="section-title">BROAD <span>SKILLS.</span><br> CREATIVE <span>EMPATHY.</span><br> CONSISTENT <span>STANDARDS.</span></h2>
+    <p class="section-body">Raven Staging is a specialist event infrastructure and fabrication company. The right skills and the right equipment, in service of the work. As your project evolves, so do we.</p>
+  </div>
+  <div class="about-right">
+    <div class="about-feature">
+      <h3>From Concept to Construction</h3>
+      <p>Whether our clients are experienced professionals or first-time community organisers, we bring technical rigour to every idea — from the back-of-a-napkin sketch through to final delivery.</p>
+    </div>
+    <div class="about-feature">
+      <h3>Specialists in the Unique</h3>
+      <p>No two projects are the same, and neither are the people behind them. We come to every brief with an open mind, adapting our approach to serve the vision — not the other way around.</p>
+    </div>
+    <div class="about-feature">
+      <h3>Reliable By Nature</h3>
+      <p>We understand the pressure of tight timelines and last-minute changes — and we have the experience, the team and the resources to deliver.</p>
+    </div>
+  </div>
+</section>
+
+
 <section class="contact" id="contact">
   <div class="contact-left">
     <p class="section-label">Get In Touch</p>

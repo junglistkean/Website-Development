@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
       <p class="project-description">Commissioned by <a href="https://www.leedsbid.co.uk/" target="_blank" rel="noopener">Leeds BID</a> and delivered in partnership with <a href="https://www.pasystems.co.uk/" target="_blank" rel="noopener">Pro Audio Systems Ltd</a>, Raven Staging designed and built bespoke Layher projection towers for the Queens Hotel's annual Christmas projection mapping event — installed across two consecutive years in the heart of Leeds city centre. Each year, the towers were erected overnight in a tight operational window, working around the live Christmas Markets and the demands of a busy public thoroughfare. The 2023 show, <em>Magical Night</em>, was voiced by Celia Imrie. The 2024 show, <em>To Leeds, With Love</em>, was voiced by Richard Armitage. Both productions were created by Barcelona-based projection studio OnionLab, whose large-scale mapping work has been seen at major events worldwide. Raven Staging's role was to deliver the structural platform — precisely engineered, safely installed, and ready on time — so the creative could land exactly as intended.</p>
       <div class="project-gallery">

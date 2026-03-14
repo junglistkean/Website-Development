@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
             <p class="project-description">RadioBox is a mobile broadcast unit built for Bradford Community Broadcasting (<a href="https://www.bcbradio.co.uk/" target="_blank" rel="noopener">BCB</a>), designed to take the station out into the city and broadcast live from events across Bradford. Raven Staging received the 20ft shipping container and were tasked with transforming it from its original form into a fully functional, versatile mobile broadcast unit.<br><br>All structural adaptations were carried out in-house by our fabrication team — including the installation of a sliding door and retractable awning, full internal and external wiring, and a branded paint job. The result is a self-contained unit that deploys quickly on-site, provides a professional broadcast environment, and acts as a strong visual presence for BCB at public events.</p>
                         <div class="project-gallery">

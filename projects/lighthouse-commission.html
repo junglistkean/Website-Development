@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
             <p class="project-description"><a href="https://www.southsquarecentre.co.uk/" target="_blank" rel="noopener">South Square Centre</a> in Thornton commissioned Raven Staging to transform their courtyard and newly refurbished garden with a nautical theme — a project that called for both imaginative fabrication and precise installation across two distinct centrepiece pieces.<br><br>The lighthouse was designed to slot over a period Victorian lamppost, so that the existing structure became the lighthouse itself — the lamppost's original lantern forming the working light at the top. The lighthouse body was fabricated and finished in-house, then installed directly over the lamppost in the courtyard, where it remains a permanent feature of the space.<br><br>The garden received a buried boat installation — a full boat set into the garden bed, appearing to emerge from the ground as though surfacing through the planting. Both pieces were fabricated and installed by Raven Staging.</p>
             <div class="project-gallery">

@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
       <p class="project-description">Ride was a large-scale theatrical production by <a href="https://www.spin-arts.com/" target="_blank" rel="noopener">Spin Arts</a>, presented as part of Bradford's UK City of Culture year at a major indoor venue. Raven Staging designed and built the core structural infrastructure for the show — a multi-level Layher scaffold platform system, erected on top of a Litedeck stage base. Across the front face of the Layher structure, we fabricated three bespoke 4m x 3m projection screens mounted on runners, allowing the creative team to slide and reposition the screens mid-performance. This system enabled a constantly shifting theatrical environment, with each screen configuration creating an entirely different visual set — from intimate domestic scenes to expansive urban landscapes. The result was a production infrastructure that gave the creative team genuine flexibility, built to the precision that a technically ambitious live show demands.</p>
       <div class="project-gallery">

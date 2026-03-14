@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
             <p class="project-description">Brighter Still was the closing ceremony of <a href="https://www.bradford2025.co.uk/" target="_blank" rel="noopener">Bradford 2025</a>. Raven Staging was commissioned to deliver the performance structure — a 40m² circular outdoor stage built to host over 200 performers, completed in winter conditions to a fixed show deadline.<br><br>The platform was built using over 150 Litedeck panels at 1.8m, with three extending runways and a north ramp. Bespoke curved infills completed the circular stage edge. The show floor was inherited from the Railway Children production — we were asked to repurpose the panels, but needed double the quantity. <a href="https://www.facebook.com/barejoinery/" target="_blank" rel="noopener">Bare Joinery</a> in Leeds CNC-cut matching panels to specification; both sets were then scenic-painted and aged to match before gold detailing was hand-applied across the full surface.<br><br>Additional infrastructure included FOH, AVP, festoon, gazebos, and site support structures.</p>
             <div class="project-gallery">

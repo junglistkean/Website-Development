@@ -46,7 +46,19 @@
     </section>
 
     <div class="project-body">
-      <a href="../index.html#portfolio" class="project-back" onclick="if(document.referrer.includes('index.html') || document.referrer.includes('ravenstaging')) { history.back(); return false; }">Back to Portfolio</a>
+      <a href="../index.html#portfolio" class="project-back" id="back-btn">Back to Portfolio</a>
+    <script>
+      (function() {
+        var btn = document.getElementById('back-btn');
+        btn.addEventListener('click', function(e) {
+          if (sessionStorage.getItem('fromPortfolio') === '1') {
+            e.preventDefault();
+            sessionStorage.removeItem('fromPortfolio');
+            history.back();
+          }
+        });
+      })();
+    </script>
       <div class="project-divider"></div>
       <p class="project-description">Strike was one of <a href="https://www.bradford2025.co.uk/" target="_blank" rel="noopener">Bradford 2025</a>'s most visually iconic commissions — a dramatic illumination and activation of the city's historic mill chimneys as a statement of industrial heritage and civic pride. Raven Staging provided the on-site technical and structural support to bring the installation to life, coordinating access, rigging, and power infrastructure across a challenging urban environment. The project required careful planning around listed structures and public safety, delivered under tight event deadlines.</p>
       <div class="project-gallery gallery-2">

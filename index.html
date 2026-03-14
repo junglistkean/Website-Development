@@ -456,30 +456,25 @@
 
   document.querySelectorAll('.carousel-slide video').forEach(v => v.pause());
 
- slides.forEach((_, i) => {
-  const dot = document.createElement('button');
-  dot.className = 'dot' + (i === 0 ? ' active' : '');
-  dot.setAttribute('type', 'button');
-  dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
-  dot.addEventListener('click', () => goTo(i));
-  dotsContainer.appendChild(dot);
-});
+  slides.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('type', 'button');
+    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    dot.addEventListener('click', () => goTo(i));
+    dotsContainer.appendChild(dot);
+  });
 
   function goTo(n) {
     const currentVideo = slides[current].querySelector('video');
-    if (currentVideo) {
-      currentVideo.pause();
-    }
+    if (currentVideo) currentVideo.pause();
     slides[current].classList.remove('active');
     dotsContainer.children[current].classList.remove('active');
     current = n;
     slides[current].classList.add('active');
     dotsContainer.children[current].classList.add('active');
     const nextVideo = slides[current].querySelector('video');
-    if (nextVideo) {
-      nextVideo.loop = true;
-      nextVideo.play();
-    }
+    if (nextVideo) { nextVideo.loop = true; nextVideo.play(); }
   }
 
   function scheduleNext() {
@@ -491,130 +486,126 @@
   }
 
   scheduleNext();
- 
- const contactSection = document.getElementById('contact');
-const navEl = document.querySelector('nav');
 
-window.addEventListener('scroll', function() {
-  if (window.innerWidth <= 900) {
-    const rect = contactSection.getBoundingClientRect();
-    if (rect.top <= 100) {
-      navEl.classList.add('at-contact');
-    } else {
-      navEl.classList.remove('at-contact');
+  const contactSection = document.getElementById('contact');
+  const navEl = document.querySelector('nav');
+
+  window.addEventListener('scroll', function() {
+    if (window.innerWidth <= 900) {
+      const rect = contactSection.getBoundingClientRect();
+      navEl.classList.toggle('at-contact', rect.top <= 100);
     }
-  }
-});
-</script>
-<script>
-  emailjs.init("YuuoH0Y7xxMkz_Pbi");
-
-  const form = document.getElementById('contactForm');
-  const btn = document.getElementById('submitBtn');
-  const feedback = document.getElementById('formFeedback');
-
-  function showFeedback(type, msg) {
-    feedback.className = 'form-feedback ' + type;
-    feedback.textContent = msg;
-  }
-
-  function validateField(inputEl, wrapId) {
-    const wrap = document.getElementById(wrapId);
-    const val = inputEl.value.trim();
-    if (!val) { wrap.classList.add('invalid'); return false; }
-    if (inputEl.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-      wrap.classList.add('invalid'); return false;
-    }
-    wrap.classList.remove('invalid');
-    return true;
-  }
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const ok =
-      validateField(document.getElementById('name'), 'field-name') &
-      validateField(document.getElementById('email'), 'field-email') &
-      validateField(document.getElementById('message'), 'field-message');
-    if (!ok) { showFeedback('error', 'Please fill in all required fields.'); return; }
-
-    btn.classList.add('loading');
-    btn.disabled = true;
-    feedback.className = 'form-feedback';
-
-    emailjs.sendForm("service_jcehrc7", "template_os4z2yp", form)
-      .then(function() {
-        showFeedback('success', "Message sent — we'll be in touch within 24 hours.");
-        form.reset();
-      })
-      .catch(function(err) {
-        console.error(err);
-        showFeedback('error', 'Something went wrong. Please try again.');
-      })
-      .finally(function() {
-        btn.classList.remove('loading');
-        btn.disabled = false;
-      });
   });
+</script>
 
-  form.querySelectorAll('input, textarea').forEach(function(el) {
-    el.addEventListener('input', function() {
-      this.closest('.form-field').classList.remove('invalid');
+<script>
+  window.addEventListener('load', function() {
+    if (typeof emailjs === 'undefined') return;
+    emailjs.init("YuuoH0Y7xxMkz_Pbi");
+
+    const form = document.getElementById('contactForm');
+    const btn = document.getElementById('submitBtn');
+    const feedback = document.getElementById('formFeedback');
+
+    function showFeedback(type, msg) {
+      feedback.className = 'form-feedback ' + type;
+      feedback.textContent = msg;
+    }
+
+    function validateField(inputEl, wrapId) {
+      const wrap = document.getElementById(wrapId);
+      const val = inputEl.value.trim();
+      if (!val) { wrap.classList.add('invalid'); return false; }
+      if (inputEl.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        wrap.classList.add('invalid'); return false;
+      }
+      wrap.classList.remove('invalid');
+      return true;
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const ok =
+        validateField(document.getElementById('name'), 'field-name') &
+        validateField(document.getElementById('email'), 'field-email') &
+        validateField(document.getElementById('message'), 'field-message');
+      if (!ok) { showFeedback('error', 'Please fill in all required fields.'); return; }
+      btn.classList.add('loading');
+      btn.disabled = true;
+      feedback.className = 'form-feedback';
+      emailjs.sendForm("service_jcehrc7", "template_os4z2yp", form)
+        .then(function() {
+          showFeedback('success', "Message sent — we'll be in touch within 24 hours.");
+          form.reset();
+        })
+        .catch(function(err) {
+          console.error(err);
+          showFeedback('error', 'Something went wrong. Please try again.');
+        })
+        .finally(function() {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        });
+    });
+
+    form.querySelectorAll('input, textarea').forEach(function(el) {
+      el.addEventListener('input', function() {
+        this.closest('.form-field').classList.remove('invalid');
+      });
     });
   });
-const hamburger = document.querySelector('.nav-hamburger');
-const mobileMenu = document.querySelector('.nav-mobile-menu');
 
-// Add aria-controls linking button to menu
-hamburger.setAttribute('aria-controls', 'nav-mobile-menu');
-mobileMenu.setAttribute('id', 'nav-mobile-menu');
+  const hamburger = document.querySelector('.nav-hamburger');
+  const mobileMenu = document.querySelector('.nav-mobile-menu');
+  hamburger.setAttribute('aria-controls', 'nav-mobile-menu');
+  mobileMenu.setAttribute('id', 'nav-mobile-menu');
 
-hamburger.addEventListener('click', function() {
-  const isOpen = hamburger.classList.toggle('open');
-  mobileMenu.classList.toggle('open');
-  hamburger.setAttribute('aria-expanded', isOpen);
-  hamburger.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
-  mobileMenu.setAttribute('aria-hidden', !isOpen);
-});
-
-document.querySelectorAll('.nav-mobile-link').forEach(function(link) {
-  link.addEventListener('click', function() {
-    hamburger.classList.remove('open');
-    mobileMenu.classList.remove('open');
-    hamburger.setAttribute('aria-expanded', 'false');
-    hamburger.setAttribute('aria-label', 'Open navigation menu');
-    mobileMenu.setAttribute('aria-hidden', 'true');
+  hamburger.addEventListener('click', function() {
+    const isOpen = hamburger.classList.toggle('open');
+    mobileMenu.classList.toggle('open');
+    hamburger.setAttribute('aria-expanded', isOpen);
+    hamburger.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+    mobileMenu.setAttribute('aria-hidden', !isOpen);
   });
-});
 
-// Escape key closes menu
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && hamburger.classList.contains('open')) {
-    hamburger.classList.remove('open');
-    mobileMenu.classList.remove('open');
-    hamburger.setAttribute('aria-expanded', 'false');
-    hamburger.setAttribute('aria-label', 'Open navigation menu');
-    mobileMenu.setAttribute('aria-hidden', 'true');
-    hamburger.focus();
+  document.querySelectorAll('.nav-mobile-link').forEach(function(link) {
+    link.addEventListener('click', function() {
+      hamburger.classList.remove('open');
+      mobileMenu.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', 'false');
+      hamburger.setAttribute('aria-label', 'Open navigation menu');
+      mobileMenu.setAttribute('aria-hidden', 'true');
+    });
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && hamburger.classList.contains('open')) {
+      hamburger.classList.remove('open');
+      mobileMenu.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', 'false');
+      hamburger.setAttribute('aria-label', 'Open navigation menu');
+      mobileMenu.setAttribute('aria-hidden', 'true');
+      hamburger.focus();
+    }
+  });
+
+  function fixTicker() {
+    const ticker = document.querySelector('.ticker');
+    if (!ticker) return;
+    const halfWidth = ticker.scrollWidth / 2;
+    ticker.style.setProperty('--ticker-offset', '-' + halfWidth + 'px');
   }
-});
-function fixTicker() {
-  const ticker = document.querySelector('.ticker');
-  if (!ticker) return;
-  const halfWidth = ticker.scrollWidth / 2;
-  ticker.style.setProperty('--ticker-offset', '-' + halfWidth + 'px');
-}
-fixTicker();
-window.addEventListener('resize', fixTicker);
+  fixTicker();
+  window.addEventListener('resize', fixTicker);
 </script>
+
 <script>
-  // Service card image carousels
   document.querySelectorAll('.service-card[data-carousel]').forEach(function(card) {
     const imgs = card.querySelectorAll('.service-card-img');
     const dotsContainer = card.querySelector('.service-card-dots');
     let current = 0;
     let interval = null;
 
-    // Build dots
     imgs.forEach(function(_, i) {
       const dot = document.createElement('div');
       dot.className = 'service-card-dot' + (i === 0 ? ' active' : '');
@@ -633,9 +624,7 @@ window.addEventListener('resize', fixTicker);
 
     function startCarousel() {
       if (imgs.length <= 1) return;
-      interval = setInterval(function() {
-        goTo(current + 1);
-      }, 1200);
+      interval = setInterval(function() { goTo(current + 1); }, 1200);
     }
 
     function stopCarousel() {
@@ -647,7 +636,6 @@ window.addEventListener('resize', fixTicker);
     card.addEventListener('mouseenter', startCarousel);
     card.addEventListener('mouseleave', stopCarousel);
   });
-  
 </script>
 </body>
 </html>

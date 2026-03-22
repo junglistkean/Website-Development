@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Litedeck Stage Planner — Raven Staging</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap');
+
+  :root {
+    --bg:        #0f1117;
+    --surface:   #181c27;
+    --border:    #2a2f3e;
+    --accent:    #f5a623;
+    --accent2:   #3b82f6;
+    --danger:    #ef4444;
+    --success:   #22c55e;
+    --text:      #e8eaf0;
+    --muted:     #6b7280;
+    --panel-8x4: #3b5bdb;
+    --panel-8x2: #2f9e44;
+    --panel-4x4: #e67700;
+    --panel-4x2: #9c36b5;
+    --node-corner:   #ef4444;
+    --node-edge:     #f59e0b;
+    --node-internal: #3b82f6;
+    --cell: 28px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .logo span { color: var(--text); font-weight: 400; }
+  .header-actions { display: flex; gap: 8px; }
+
+  /* ── Layout ── */
+  .app {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .unit-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .unit-toggle.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 600;
+  }
+  .sidebar-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Panel selector */
+  .panel-types { display: flex; flex-direction: column; gap: 6px; }
+  .panel-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+    text-align: left;
+  }
+  .panel-btn:hover { border-color: var(--accent); }
+  .panel-btn.active {
+    border-color: var(--accent);
+    background: rgba(245,166,35,0.08);
+  }
+  .panel-btn.active .panel-swatch { box-shadow: 0 0 0 2px var(--accent); }
+  .panel-swatch {
+    width: 28px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .panel-key {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* Tool buttons */
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tool-btn {
+    flex: 1;
+    min-width: 60px;
+    padding: 7px 6px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tool-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .tool-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.08); }
+
+  /* Config inputs */
+  .config-grid { display: flex; flex-direction: column; gap: 8px; }
+  .config-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .config-row label { font-size: 12px; color: var(--muted); flex: 1; }
+  .config-row input {
+    width: 72px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 4px 8px;
+    text-align: right;
+  }
+  .config-row input:focus { outline: none; border-color: var(--accent); }
+
+  /* Legend */
+  .legend { display: flex; flex-direction: column; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  }
+  .legend-swatch {
+    width: 20px; height: 12px; border-radius: 2px; flex-shrink: 0;
+  }
+
+  /* Stats */
+  .stats { display: flex; flex-direction: column; gap: 6px; }
+  .stat-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .stat-label { font-size: 12px; color: var(--muted); }
+  .stat-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  /* ── Canvas area ── */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .canvas-toolbar {
+    padding: 8px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .canvas-hint { margin-left: auto; }
+
+  .canvas-scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+    cursor: crosshair;
+  }
+
+  #stageCanvas {
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* ── Schedule panel ── */
+  .schedule-panel {
+    width: 280px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .schedule-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .schedule-body { flex: 1; overflow-y: auto; padding: 12px; }
+
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .schedule-table th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .schedule-table td {
+    padding: 6px 6px;
+    border-bottom: 1px solid rgba(42,47,62,0.5);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    vertical-align: middle;
+  }
+  .schedule-table tr:last-child td { border-bottom: none; }
+  .type-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .badge-corner  { background: rgba(239,68,68,0.2);  color: #ef4444; }
+  .badge-edge    { background: rgba(245,158,11,0.2); color: #f59e0b; }
+  .badge-internal{ background: rgba(59,130,246,0.2); color: #3b82f6; }
+
+  .schedule-totals {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .totals-section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .total-row.grand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--accent);
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 8px;
+  }
+  .total-row .tval {
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 7px 14px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #e09510; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--text); }
+
+  /* ── Print styles ── */
+  @media print {
+    body { background: white; color: black; font-size: 11pt; }
+    .sidebar, .canvas-toolbar, header, .canvas-area, .schedule-panel { display: none !important; }
+    .print-view { display: block !important; }
+  }
+  .print-view { display: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .empty-state .big { font-size: 28px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Raven <span>Staging</span> — Litedeck Planner</div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="clearStage()">Clear</button>
+    <button class="btn btn-primary" onclick="printSchedule()">Print Schedule</button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Panel Type</div>
+      <div class="panel-types">
+        <button class="panel-btn active" onclick="selectPanel('8x4')" id="btn-8x4">
+          <div class="panel-swatch" style="background:var(--panel-8x4)"></div>
+          <span>8′ × 4′</span>
+          <span class="panel-key">1</span>
+        </button>
+        <button class="panel-btn" onclick="selectPanel('8x2')" id="btn-8x2">
+          <div class="panel-swatch" style="background:var(--panel-8x2)"></div>
+          <span>8′ × 2′</span>
+          <span class="panel-key">2</span>
+        </button>
+        <button class="panel-btn" onclick="selectPanel('4x4')" id="btn-4x4">
+          <div class="panel-swatch" style="background:var(--panel-4x4)"></div>
+          <span>4′ × 4′</span>
+          <span class="panel-key">3</span>
+        </button>
+        <button class="panel-btn" onclick="selectPanel('4x2')" id="btn-4x2">
+          <div class="panel-swatch" style="background:var(--panel-4x2)"></div>
+          <span>4′ × 2′</span>
+          <span class="panel-key">4</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tool</div>
+      <div class="tools">
+        <button class="tool-btn active" id="btn-tool-place" onclick="setTool('place')">✦ Place</button>
+        <button class="tool-btn" id="btn-tool-select" onclick="setTool('select')">↖ Select</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Actions</div>
+      <div class="tools">
+        <button class="tool-btn" id="btn-rotate" onclick="rotatePending()">↻ Rotate</button>
+        <button class="tool-btn danger" onclick="deleteSelected()">✕ Delete</button>
+      </div>
+      <div style="margin-top:8px; font-size:11px; color:var(--muted); line-height:1.6;">
+        R = rotate · Del = delete selected · Esc = deselect
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">
+        Stage Config
+        <span style="margin-left:6px">
+          <button class="unit-toggle active" id="cfg-unit-mm" onclick="setCfgUnit('mm')">mm</button>
+          <button class="unit-toggle" id="cfg-unit-ft" onclick="setCfgUnit('ft')">ft</button>
+        </span>
+      </div>
+      <div class="config-grid">
+        <div class="config-row">
+          <label id="lbl-height">Finished height</label>
+          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="recalcSchedule()">
+        </div>
+        <div class="config-row">
+          <label id="lbl-socket">Leg socket</label>
+          <input type="number" id="cfg-socket" value="18" min="0" step="1" oninput="recalcSchedule()">
+        </div>
+        <div class="config-row">
+          <label id="lbl-splitter">Splitter deduction</label>
+          <input type="number" id="cfg-splitter" value="155" min="0" step="1" oninput="recalcSchedule()">
+        </div>
+        <div class="config-row">
+          <label id="lbl-baseplate">Base plate</label>
+          <input type="number" id="cfg-baseplate" value="18" min="0" step="1" oninput="recalcSchedule()">
+        </div>
+        <div class="config-row">
+          <label id="lbl-jack">Screw jack min</label>
+          <input type="number" id="cfg-jack" value="50" min="0" step="1" oninput="recalcSchedule()">
+        </div>
+        <div class="config-row">
+          <label id="lbl-threshold">Jack threshold</label>
+          <input type="number" id="cfg-threshold" value="609.6" min="0" step="1" oninput="recalcSchedule()">
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">
+        Auto-Fill Stage
+        <span style="margin-left:6px">
+          <button class="unit-toggle" id="unit-m" onclick="setUnit('m')">m</button>
+          <button class="unit-toggle active" id="unit-ft" onclick="setUnit('ft')">ft</button>
+        </span>
+      </div>
+      <div class="config-grid">
+        <div class="config-row">
+          <label id="autofill-w-label">Width (ft)</label>
+          <input type="number" id="autofill-w" value="24" min="1" step="0.1" style="width:72px">
+        </div>
+        <div class="config-row">
+          <label id="autofill-d-label">Depth (ft)</label>
+          <input type="number" id="autofill-d" value="16" min="1" step="0.1" style="width:72px">
+        </div>
+      </div>
+      <div id="autofill-preview" style="margin-top:8px; font-size:11px; color:var(--muted); line-height:1.7;"></div>
+      <button class="btn btn-primary" style="width:100%; margin-top:8px; font-size:12px; padding:8px" onclick="autoFill()">Generate Layout</button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-8x4)"></div> 8′ × 4′ panel</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-8x2)"></div> 8′ × 2′ panel</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-4x4)"></div> 4′ × 4′ panel</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-4x2)"></div> 4′ × 2′ panel</div>
+        <div class="legend-item" style="margin-top:6px"><div class="legend-dot" style="background:var(--node-corner)"></div> Corner — no splitter</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--node-edge)"></div> Edge — 2-way splitter</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--node-internal)"></div> Internal — 4-way splitter</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Canvas ── -->
+  <div class="canvas-area">
+    <div class="canvas-toolbar">
+      <span>Grid: 2ft units</span>
+      <span id="cursor-pos">—</span>
+      <span id="pending-info" style="color:var(--accent)"></span>
+      <span class="canvas-hint" id="canvas-hint">Place mode: click grid to place panel</span>
+    </div>
+    <div class="canvas-scroll" id="canvas-scroll">
+      <canvas id="stageCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="schedule-panel">
+    <div class="schedule-header">Load Schedule</div>
+    <div class="schedule-body" id="schedule-body">
+      <div class="empty-state">
+        <div class="big">📐</div>
+        Place panels on the grid to generate a load schedule.
+      </div>
+    </div>
+    <div class="schedule-totals" id="schedule-totals" style="display:none">
+
+      <div class="totals-section-label">LEGS</div>
+      <div class="total-row"><span>Corner leg</span><span class="tval" id="tot-corner">—</span></div>
+      <div class="total-row"><span>Splitter leg</span><span class="tval" id="tot-splitter">—</span></div>
+      <div class="total-row grand"><span>TOTAL LEGS</span><span class="tval" id="tot-all">—</span></div>
+
+      <div class="totals-section-label" style="margin-top:14px">HARDWARE</div>
+      <div class="total-row" id="jack-row" style="display:none"><span>Screw jack</span><span class="tval" id="tot-jacks">—</span></div>
+      <div class="total-row" id="baseplate-row" style="display:none"><span>Base plate</span><span class="tval" id="tot-baseplates">—</span></div>
+
+      <div class="totals-section-label" style="margin-top:14px">PANELS</div>
+      <div class="total-row" id="panel-row-8x4" style="display:none"><span>8′×4′</span><span class="tval" id="count-8x4">0</span></div>
+      <div class="total-row" id="panel-row-8x2" style="display:none"><span>8′×2′</span><span class="tval" id="count-8x2">0</span></div>
+      <div class="total-row" id="panel-row-4x4" style="display:none"><span>4′×4′</span><span class="tval" id="count-4x4">0</span></div>
+      <div class="total-row" id="panel-row-4x2" style="display:none"><span>4′×2′</span><span class="tval" id="count-4x2">0</span></div>
+      <div class="total-row grand"><span>TOTAL PANELS</span><span class="tval" id="tot-panels">—</span></div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Print view -->
+<div class="print-view" id="print-view"></div>
+
+<script>
+// ── Constants ────────────────────────────────────────────────────────────────
+const CELL = 24;          // px per 2ft grid unit (slightly smaller to fit larger grid)
+const GRID_W = 56;        // grid units wide  (112ft / ~34m)
+const GRID_H = 44;        // grid units tall  (88ft  / ~27m)
+const FT2 = 609.6;        // mm per 2ft
+
+// Panel sizes in 2ft grid units [w, h]
+const PANEL_SIZES = {
+  '8x4': [4, 2],
+  '8x2': [4, 1],
+  '4x4': [2, 2],
+  '4x2': [2, 1],
+};
+
+const PANEL_COLORS = {
+  '8x4': '#3b5bdb',
+  '8x2': '#2f9e44',
+  '4x4': '#e67700',
+  '4x2': '#9c36b5',
+};
+
+const PANEL_LABELS = {
+  '8x4': "8'×4'",
+  '8x2': "8'×2'",
+  '4x4': "4'×4'",
+  '4x2': "4'×2'",
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let panels = [];
+let selectedId = null;
+let pendingType = '8x4';
+let pendingRotated = false;
+let activeTool = 'place';   // 'place' | 'select'
+let nextId = 1;
+
+// ── Tool switching ────────────────────────────────────────────────────────────
+function setTool(tool) {
+  activeTool = tool;
+  if (tool === 'place') {
+    selectedId = null;
+    canvas.style.cursor = 'crosshair';
+  } else {
+    canvas.style.cursor = 'default';
+  }
+  document.getElementById('btn-tool-place').classList.toggle('active', tool === 'place');
+  document.getElementById('btn-tool-select').classList.toggle('active', tool === 'select');
+  // Dim panel type selector when in select mode
+  document.querySelectorAll('.panel-btn').forEach(b => {
+    b.style.opacity = tool === 'select' ? '0.4' : '1';
+    b.style.pointerEvents = tool === 'select' ? 'none' : '';
+  });
+  updatePendingInfo();
+  redraw();
+}
+
+// ── Canvas setup ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('stageCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width  = GRID_W * CELL + 1;
+canvas.height = GRID_H * CELL + 1;
+
+// ── Keyboard shortcuts ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '1') selectPanel('8x4');
+  if (e.key === '2') selectPanel('8x2');
+  if (e.key === '3') selectPanel('4x4');
+  if (e.key === '4') selectPanel('4x2');
+  if (e.key === 'r' || e.key === 'R') rotatePending();
+  if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+  if (e.key === 'Escape') { selectedId = null; setTool('place'); redraw(); }
+  if (e.key === 's' || e.key === 'S') setTool('select');
+  if (e.key === 'p' || e.key === 'P') setTool('place');
+});
+
+// ── Panel management ─────────────────────────────────────────────────────────
+function selectPanel(type) {
+  pendingType = type;
+  selectedId = null;
+  document.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + type.replace('x','')).classList.add('active');
+  updatePendingInfo();
+  redraw();
+}
+
+// Fix button ID lookup
+function selectPanel(type) {
+  pendingType = type;
+  selectedId = null;
+  document.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('active'));
+  const map = {'8x4':'btn-8x4','8x2':'btn-8x2','4x4':'btn-4x4','4x2':'btn-4x2'};
+  document.getElementById(map[type]).classList.add('active');
+  updatePendingInfo();
+  redraw();
+}
+
+function rotatePending() {
+  if (selectedId !== null) {
+    const p = panels.find(p => p.id === selectedId);
+    if (p) {
+      [p.gw, p.gh] = [p.gh, p.gw];
+      p.rotated = !p.rotated;
+      if (!canPlace(p, p.gx, p.gy, p.id)) {
+        [p.gw, p.gh] = [p.gh, p.gw];
+        p.rotated = !p.rotated;
+      }
+      recalcSchedule(); redraw(); return;
+    }
+  }
+  pendingRotated = !pendingRotated;
+  updatePendingInfo();
+  redraw();
+}
+
+function updatePendingInfo() {
+  const [w, h] = getPendingDims();
+  if (activeTool === 'place') {
+    document.getElementById('pending-info').textContent =
+      `Placing: ${PANEL_LABELS[pendingType]}${pendingRotated ? ' (rotated)' : ''}`;
+    document.getElementById('canvas-hint').textContent =
+      'Place mode: click grid to place · S = select mode · R = rotate';
+  } else {
+    document.getElementById('pending-info').textContent = '';
+    document.getElementById('canvas-hint').textContent =
+      'Select mode: click panel to select · Del = delete · P = place mode';
+  }
+}
+
+function getPendingDims() {
+  const [w, h] = PANEL_SIZES[pendingType];
+  return pendingRotated ? [h, w] : [w, h];
+}
+
+function deleteSelected() {
+  if (selectedId === null) return;
+  panels = panels.filter(p => p.id !== selectedId);
+  selectedId = null;
+  recalcSchedule(); redraw();
+}
+
+function clearStage() {
+  if (panels.length && !confirm('Clear all panels?')) return;
+  panels = []; selectedId = null;
+  recalcSchedule(); redraw();
+}
+
+// ── Collision detection ───────────────────────────────────────────────────────
+function canPlace(candidate, gx, gy, excludeId = -1) {
+  if (gx < 0 || gy < 0 || gx + candidate.gw > GRID_W || gy + candidate.gh > GRID_H) return false;
+  for (const p of panels) {
+    if (p.id === excludeId) continue;
+    if (gx < p.gx + p.gw && gx + candidate.gw > p.gx &&
+        gy < p.gy + p.gh && gy + candidate.gh > p.gy) return false;
+  }
+  return true;
+}
+
+// ── Canvas events ─────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const {gx, gy} = getGridPos(e);
+  document.getElementById('cursor-pos').textContent = `${gx*2}ft, ${gy*2}ft`;
+  redraw(gx, gy);
+});
+
+canvas.addEventListener('mouseleave', () => {
+  document.getElementById('cursor-pos').textContent = '—';
+  redraw();
+});
+
+canvas.addEventListener('click', e => {
+  const {gx, gy} = getGridPos(e);
+
+  // Hit test: find panel under cursor
+  const hit = panels.slice().reverse().find(p =>
+    gx >= p.gx && gx < p.gx + p.gw && gy >= p.gy && gy < p.gy + p.gh
+  );
+
+  if (activeTool === 'select') {
+    selectedId = hit ? (selectedId === hit.id ? null : hit.id) : null;
+    redraw(); return;
+  }
+
+  // Place tool
+  if (hit) {
+    // Clicking an existing panel in place mode selects it without placing
+    selectedId = (selectedId === hit.id) ? null : hit.id;
+    redraw(); return;
+  }
+
+  // Place new panel
+  const [gw, gh] = getPendingDims();
+  const candidate = { id: nextId++, type: pendingType, gx, gy, gw, gh, rotated: pendingRotated };
+  if (canPlace(candidate, gx, gy)) {
+    panels.push(candidate);
+    selectedId = null;
+    recalcSchedule(); redraw();
+  }
+});
+
+function getGridPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  return { gx: Math.floor(x / CELL), gy: Math.floor(y / CELL) };
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+function redraw(hoverGx = -1, hoverGy = -1) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  ctx.strokeStyle = '#1e2230';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= GRID_W; x++) {
+    ctx.beginPath(); ctx.moveTo(x*CELL+0.5, 0); ctx.lineTo(x*CELL+0.5, GRID_H*CELL); ctx.stroke();
+  }
+  for (let y = 0; y <= GRID_H; y++) {
+    ctx.beginPath(); ctx.moveTo(0, y*CELL+0.5); ctx.lineTo(GRID_W*CELL, y*CELL+0.5); ctx.stroke();
+  }
+
+  // Placed panels
+  for (const p of panels) {
+    const isSelected = p.id === selectedId;
+    const col = PANEL_COLORS[p.type];
+    ctx.fillStyle = col + (isSelected ? 'ee' : '99');
+    ctx.fillRect(p.gx*CELL+1, p.gy*CELL+1, p.gw*CELL-2, p.gh*CELL-2);
+    ctx.strokeStyle = isSelected ? '#f5a623' : col;
+    ctx.lineWidth = isSelected ? 2 : 1.5;
+    ctx.strokeRect(p.gx*CELL+1, p.gy*CELL+1, p.gw*CELL-2, p.gh*CELL-2);
+
+    // Label
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = `bold ${Math.min(11, p.gw*CELL/5)}px "Barlow Condensed"`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(PANEL_LABELS[p.type], (p.gx+p.gw/2)*CELL, (p.gy+p.gh/2)*CELL);
+  }
+
+  // Node markers
+  const nodes = computeNodes();
+  for (const [key, node] of nodes) {
+    const col = node.type === 'corner' ? '#ef4444' : node.type === 'edge' ? '#f59e0b' : '#3b82f6';
+    const px = node.gx * CELL;
+    const py = node.gy * CELL;
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, Math.PI*2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    ctx.strokeStyle = '#0f1117';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Hover preview (place mode only)
+  if (activeTool === 'place' && hoverGx >= 0) {
+    const [gw, gh] = getPendingDims();
+    const ok = canPlace({gw, gh}, hoverGx, hoverGy);
+    ctx.fillStyle = ok ? 'rgba(245,166,35,0.15)' : 'rgba(239,68,68,0.15)';
+    ctx.fillRect(hoverGx*CELL+1, hoverGy*CELL+1, gw*CELL-2, gh*CELL-2);
+    ctx.strokeStyle = ok ? '#f5a623' : '#ef4444';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,3]);
+    ctx.strokeRect(hoverGx*CELL+1, hoverGy*CELL+1, gw*CELL-2, gh*CELL-2);
+    ctx.setLineDash([]);
+  }
+
+  // Hover highlight in select mode
+  if (activeTool === 'select' && hoverGx >= 0) {
+    const hit = panels.slice().reverse().find(p =>
+      hoverGx >= p.gx && hoverGx < p.gx + p.gw && hoverGy >= p.gy && hoverGy < p.gy + p.gh
+    );
+    if (hit && hit.id !== selectedId) {
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
+    }
+  }
+}
+
+// ── Node computation ──────────────────────────────────────────────────────────
+// A node exists at every corner of every panel.
+// Node type is determined by how many panel edges meet at that point.
+// We collect all unique node positions, then for each node count
+// how many panels have that point as one of their corners/edges.
+
+function computeNodes() {
+  // Only the four corners of each panel are leg positions
+  const nodeSet = new Set();
+  for (const p of panels) {
+    nodeSet.add(`${p.gx},${p.gy}`);
+    nodeSet.add(`${p.gx + p.gw},${p.gy}`);
+    nodeSet.add(`${p.gx},${p.gy + p.gh}`);
+    nodeSet.add(`${p.gx + p.gw},${p.gy + p.gh}`);
+  }
+
+  const nodes = new Map();
+
+  for (const key of nodeSet) {
+    const [gx, gy] = key.split(',').map(Number);
+
+    // Count how many panels have this exact point as one of their 4 corners
+    let cornerCount = 0;
+    for (const p of panels) {
+      if (
+        (p.gx === gx || p.gx + p.gw === gx) &&
+        (p.gy === gy || p.gy + p.gh === gy)
+      ) cornerCount++;
+    }
+
+    if (cornerCount === 0) continue;
+
+    // Type is determined purely by how many panel corners meet here:
+    // 1 corner  → outer corner of stage (no splitter)
+    // 2 corners → two panels meeting at an edge (2-way splitter)
+    // 3 or 4    → three or four panels meeting at a junction (4-way splitter)
+    let type;
+    if (cornerCount >= 3) {
+      type = 'internal';
+    } else if (cornerCount === 2) {
+      type = 'edge';
+    } else {
+      type = 'corner';
+    }
+
+    nodes.set(key, { gx, gy, type, cornerCount });
+  }
+
+  return nodes;
+}
+
+// ── Leg length calculation ────────────────────────────────────────────────────
+function calcLegLength(splitterCount) {
+  const h         = getCfgMm('height');
+  const socket    = getCfgMm('socket');
+  const splitter  = getCfgMm('splitter');
+  const baseplate = getCfgMm('baseplate');
+  const jack      = getCfgMm('jack');
+  const threshold = getCfgMm('threshold');
+
+  const jackDeduct = h > threshold ? jack : 0;
+  const mm = h - socket - baseplate - (splitter * splitterCount) - jackDeduct;
+  return mm;
+}
+
+function mmToLabel(mm) {
+  if (mm < 304.8) return `${Math.round(mm)} mm`;
+  // Integer-safe floor to nearest half-foot
+  const halfFeet = Math.floor(mm * 10 / 1524);
+  const wholeFt  = Math.floor(halfFeet / 2);
+  const hasHalf  = halfFeet % 2 === 1;
+  return hasHalf ? `${wholeFt}' 6"` : `${wholeFt}ft`;
+}
+
+// ── Schedule generation ───────────────────────────────────────────────────────
+function recalcSchedule() {
+  const nodes = computeNodes();
+
+  // Panel counts
+  const counts = {'8x4':0,'8x2':0,'4x4':0,'4x2':0};
+  for (const p of panels) counts[p.type]++;
+
+  // Update panel count rows — only show types that are in use
+  let totalPanels = 0;
+  for (const [type, count] of Object.entries(counts)) {
+    const row = document.getElementById(`panel-row-${type}`);
+    const cell = document.getElementById(`count-${type}`);
+    if (row && cell) {
+      row.style.display = count > 0 ? 'flex' : 'none';
+      cell.textContent = count;
+    }
+    totalPanels += count;
+  }
+
+  if (nodes.size === 0) {
+    document.getElementById('schedule-body').innerHTML = `
+      <div class="empty-state"><div class="big">📐</div>Place panels on the grid to generate a leg schedule.</div>`;
+    document.getElementById('schedule-totals').style.display = 'none';
+    return;
+  }
+
+  // Group nodes by type and leg length
+  const cornerMm   = calcLegLength(0);
+  const splitterMm = calcLegLength(1);
+
+  let cornerCount = 0, splitterCount = 0;
+
+  // Build rows grouped: corner, edge, internal
+  const typeOrder = ['corner','edge','internal'];
+  const groups = {corner:[],edge:[],internal:[]};
+  for (const [key, node] of nodes) {
+    groups[node.type].push(node);
+  }
+
+  let html = `<table class="schedule-table">
+    <thead><tr><th>Type</th><th>Leg Length</th><th>Qty</th></tr></thead><tbody>`;
+
+  // Corner
+  const nc = groups.corner.length;
+  const ne = groups.edge.length;
+  const ni = groups.internal.length;
+
+  if (nc > 0) {
+    html += `<tr>
+      <td><span class="type-badge badge-corner">Corner</span></td>
+      <td>${mmToLabel(cornerMm)}</td>
+      <td>${nc}</td>
+    </tr>`;
+    cornerCount += nc;
+  }
+  if (ne > 0) {
+    html += `<tr>
+      <td><span class="type-badge badge-edge">2-way</span></td>
+      <td>${mmToLabel(splitterMm)}</td>
+      <td>${ne}</td>
+    </tr>`;
+    splitterCount += ne;
+  }
+  if (ni > 0) {
+    html += `<tr>
+      <td><span class="type-badge badge-internal">4-way</span></td>
+      <td>${mmToLabel(splitterMm)}</td>
+      <td>${ni}</td>
+    </tr>`;
+    splitterCount += ni;
+  }
+
+  html += `</tbody></table>`;
+  document.getElementById('schedule-body').innerHTML = html;
+
+  document.getElementById('schedule-totals').style.display = 'block';
+  document.getElementById('tot-corner').textContent   = `${cornerCount} × ${mmToLabel(cornerMm)}`;
+  document.getElementById('tot-splitter').textContent = `${splitterCount} × ${mmToLabel(splitterMm)}`;
+  document.getElementById('tot-all').textContent      = cornerCount + splitterCount;
+  document.getElementById('tot-panels').textContent   = totalPanels;
+
+  // Hardware: 1 jack and 1 base plate per leg position
+  const totalLegs   = cornerCount + splitterCount;
+  const jacksNeeded = getCfgMm('height') > getCfgMm('threshold');
+
+  const jackRow = document.getElementById('jack-row');
+  const bpRow   = document.getElementById('baseplate-row');
+  jackRow.style.display = jacksNeeded ? 'flex' : 'none';
+  bpRow.style.display   = totalLegs > 0 ? 'flex' : 'none';
+  document.getElementById('tot-jacks').textContent      = totalLegs;
+  document.getElementById('tot-baseplates').textContent = totalLegs;
+
+  redraw();
+}
+
+// ── Print ─────────────────────────────────────────────────────────────────────
+function printSchedule() {
+  const nodes = computeNodes();
+  const h = getCfgMm('height');
+  const cornerMm   = calcLegLength(0);
+  const splitterMm = calcLegLength(1);
+
+  const counts = {'8x4':0,'8x2':0,'4x4':0,'4x2':0};
+  for (const p of panels) counts[p.type]++;
+
+  const groups = {corner:0, edge:0, internal:0};
+  for (const [,node] of nodes) groups[node.type]++;
+
+  const now = new Date().toLocaleDateString('en-GB');
+
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`<!DOCTYPE html><html><head>
+  <title>Litedeck Leg Schedule</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; padding: 20mm; }
+    h1 { font-size: 18pt; margin: 0 0 4px; }
+    .sub { color: #666; font-size: 10pt; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #222; color: #fff; padding: 8px 10px; text-align: left; font-size: 10pt; }
+    td { padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 11pt; }
+    tr:last-child td { border-bottom: none; }
+    .load-box { border: 3px solid #222; border-radius: 4px; padding: 16px 20px; margin-bottom: 20px; }
+    .load-box h2 { margin: 0 0 12px; font-size: 14pt; }
+    .load-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; font-size: 14pt; font-weight: bold; }
+    .load-row:last-child { border-bottom: none; }
+    .load-total { font-size: 18pt; color: #000; border-top: 3px solid #222; margin-top: 8px; padding-top: 12px; }
+    .footer { color: #999; font-size: 9pt; margin-top: 20px; }
+  </style></head><body>
+  <h1>Litedeck Leg Schedule</h1>
+  <div class="sub">Generated ${now} — Finished height: ${h}mm</div>
+
+  <div class="load-box">
+    <h2>Load List</h2>
+    ${groups.corner > 0 ? `<div class="load-row"><span>Corner leg</span><span>${mmToLabel(cornerMm)}</span><span>× ${groups.corner}</span></div>` : ''}
+    ${(groups.edge+groups.internal) > 0 ? `<div class="load-row"><span>Splitter leg</span><span>${mmToLabel(splitterMm)}</span><span>× ${groups.edge+groups.internal}</span></div>` : ''}
+    <div class="load-row load-total"><span>TOTAL LEGS</span><span>${groups.corner+groups.edge+groups.internal}</span></div>
+  </div>
+
+  <table>
+    <thead><tr><th>Position Type</th><th>Splitter</th><th>Leg Length</th><th>Qty</th></tr></thead>
+    <tbody>
+      ${groups.corner>0?`<tr><td>Outer corner</td><td>None</td><td>${mmToLabel(cornerMm)}</td><td>${groups.corner}</td></tr>`:''}
+      ${groups.edge>0?`<tr><td>Outer edge</td><td>2-way</td><td>${mmToLabel(splitterMm)}</td><td>${groups.edge}</td></tr>`:''}
+      ${groups.internal>0?`<tr><td>Internal junction</td><td>4-way</td><td>${mmToLabel(splitterMm)}</td><td>${groups.internal}</td></tr>`:''}
+    </tbody>
+  </table>
+
+  <table>
+    <thead><tr><th>Panel Type</th><th>Qty</th></tr></thead>
+    <tbody>
+      ${Object.entries(counts).filter(([,v])=>v>0).map(([k,v])=>`<tr><td>${PANEL_LABELS[k]}</td><td>${v}</td></tr>`).join('')}
+    </tbody>
+  </table>
+
+  <div class="footer">Raven Staging — Litedeck Stage Planner</div>
+  </body></html>`);
+  printWin.document.close();
+  printWin.print();
+}
+
+// ── Config unit switching ─────────────────────────────────────────────────────
+let cfgUnit = 'mm';
+
+const CFG_FIELDS = ['height','socket','splitter','baseplate','jack','threshold'];
+const CFG_LABELS = {
+  height:    'Finished height',
+  socket:    'Leg socket',
+  splitter:  'Splitter deduction',
+  baseplate: 'Base plate',
+  jack:      'Screw jack min',
+  threshold: 'Jack threshold',
+};
+const CFG_DEFAULTS_MM = {
+  height: 600, socket: 18, splitter: 155, baseplate: 18, jack: 50, threshold: 609.6
+};
+
+function cfgMmToFt(mm) { return Math.round(mm / 304.8 * 1000) / 1000; }
+function cfgFtToMm(ft) { return Math.round(ft * 304.8 * 100) / 100; }
+
+function setCfgUnit(unit) {
+  const prev = cfgUnit;
+  cfgUnit = unit;
+  document.getElementById('cfg-unit-mm').classList.toggle('active', unit === 'mm');
+  document.getElementById('cfg-unit-ft').classList.toggle('active', unit === 'ft');
+
+  CFG_FIELDS.forEach(id => {
+    const input = document.getElementById(`cfg-${id}`);
+    const val = parseFloat(input.value) || 0;
+    if (unit === 'ft' && prev === 'mm') {
+      input.value = cfgMmToFt(val);
+      input.step = '0.001';
+    } else if (unit === 'mm' && prev === 'ft') {
+      input.value = cfgFtToMm(val);
+      input.step = '1';
+    }
+    document.getElementById(`lbl-${id}`).textContent =
+      `${CFG_LABELS[id]} (${unit})`;
+  });
+  recalcSchedule();
+}
+
+function getCfgMm(id) {
+  const val = parseFloat(document.getElementById(`cfg-${id}`).value) || 0;
+  return cfgUnit === 'ft' ? val * 304.8 : val;
+}
+
+// Init labels
+CFG_FIELDS.forEach(id => {
+  document.getElementById(`lbl-${id}`).textContent = `${CFG_LABELS[id]} (mm)`;
+});
+let autofillUnit = 'ft';  // 'ft' | 'm'
+
+function setUnit(u) {
+  const wInput = document.getElementById('autofill-w');
+  const dInput = document.getElementById('autofill-d');
+  // Convert current values
+  if (u === 'm' && autofillUnit === 'ft') {
+    wInput.value = (parseFloat(wInput.value) * 0.3048).toFixed(2);
+    dInput.value = (parseFloat(dInput.value) * 0.3048).toFixed(2);
+    wInput.step = '0.1'; dInput.step = '0.1';
+  } else if (u === 'ft' && autofillUnit === 'm') {
+    wInput.value = (parseFloat(wInput.value) / 0.3048).toFixed(1);
+    dInput.value = (parseFloat(dInput.value) / 0.3048).toFixed(1);
+    wInput.step = '0.5'; dInput.step = '0.5';
+  }
+  autofillUnit = u;
+  document.getElementById('unit-m').classList.toggle('active', u === 'm');
+  document.getElementById('unit-ft').classList.toggle('active', u === 'ft');
+  document.getElementById('autofill-w-label').textContent = `Width (${u})`;
+  document.getElementById('autofill-d-label').textContent = `Depth (${u})`;
+  updateAutofillPreview();
+}
+
+function getAutofillMm() {
+  const w = parseFloat(document.getElementById('autofill-w').value) || 0;
+  const d = parseFloat(document.getElementById('autofill-d').value) || 0;
+  const factor = autofillUnit === 'm' ? 1000 : 304.8;
+  return { wMm: w * factor, dMm: d * factor };
+}
+
+// Given a length in mm, return the best panel strip fitting within it.
+// Strategy: maximise 8' (2438.4mm) fills, then try 4' (1219.2mm), then 2' (609.6mm).
+// Returns array of grid-unit widths in order.
+function bestFit1D(mm) {
+  // Width axis: panels up to 8ft wide (4 GU)
+  const MM_8 = 2438.4, MM_4 = 1219.2, MM_2 = 609.6;
+  let remaining = mm;
+  const strips = [];
+  while (remaining >= MM_8) { strips.push(4); remaining -= MM_8; }
+  while (remaining >= MM_4) { strips.push(2); remaining -= MM_4; }
+  while (remaining >= MM_2) { strips.push(1); remaining -= MM_2; }
+  return strips;
+}
+
+function bestFit1D_depth(mm) {
+  // Depth axis: panels max 4ft deep (2 GU) — 8'×4' is 4ft deep, not 8ft
+  const MM_4 = 1219.2, MM_2 = 609.6;
+  let remaining = mm;
+  const strips = [];
+  while (remaining >= MM_4) { strips.push(2); remaining -= MM_4; }
+  while (remaining >= MM_2) { strips.push(1); remaining -= MM_2; }
+  return strips;
+}
+
+function calcActualMm(strips) {
+  return strips.reduce((s, gu) => s + gu * 609.6 / 2, 0);
+  // grid unit = 2ft = 609.6mm, so 1 GU = 609.6/2? No:
+  // 1 GU = 2ft = 2*304.8 = 609.6mm
+}
+
+function stripsToMm(strips) {
+  return strips.reduce((s, gu) => s + gu * 609.6, 0);
+}
+
+function updateAutofillPreview() {
+  const { wMm, dMm } = getAutofillMm();
+  if (!wMm || !dMm) { document.getElementById('autofill-preview').textContent = ''; return; }
+  const wStrips = bestFit1D(wMm);
+  const dStrips = bestFit1D_depth(dMm);
+  const actualW = stripsToMm(wStrips);
+  const actualD = stripsToMm(dStrips);
+  const actualWft = (actualW / 304.8).toFixed(1);
+  const actualDft = (actualD / 304.8).toFixed(1);
+  const actualWm  = (actualW / 1000).toFixed(2);
+  const actualDm  = (actualD / 1000).toFixed(2);
+  const panels8x4 = wStrips.filter(w=>w===4).length * dStrips.filter(d=>d===2).length
+                  + wStrips.filter(w=>w===4).length * dStrips.filter(d=>d===2).length;
+  document.getElementById('autofill-preview').innerHTML =
+    `Actual size: <b style="color:var(--text)">${actualWft}′ × ${actualDft}′</b> (${actualWm}m × ${actualDm}m)` +
+    (Math.abs(actualW - wMm) > 1 || Math.abs(actualD - dMm) > 1
+      ? `<br><span style="color:var(--accent)">▼ Fills to nearest panel boundary</span>` : '');
+}
+
+document.getElementById('autofill-w').addEventListener('input', updateAutofillPreview);
+document.getElementById('autofill-d').addEventListener('input', updateAutofillPreview);
+
+function autoFill() {
+  const { wMm, dMm } = getAutofillMm();
+  if (!wMm || !dMm) return;
+
+  const wStrips = bestFit1D(wMm);        // column strips: up to 8ft wide
+  const dStrips = bestFit1D_depth(dMm); // row strips: up to 4ft deep
+
+  if (!wStrips.length || !dStrips.length) {
+    alert('Dimensions too small to fit any panels.'); return;
+  }
+
+  if (!confirm(`This will clear the current layout and generate a ${
+    (stripsToMm(wStrips)/304.8).toFixed(1)}′ × ${
+    (stripsToMm(dStrips)/304.8).toFixed(1)}′ stage. Continue?`)) return;
+
+  panels = [];
+  nextId = 1;
+  selectedId = null;
+
+  // Build layout: for each (col strip, row strip) pair, place the appropriate panel
+  // Panel type determined by strip widths:
+  //   w=4, h=2 → 8'×4'
+  //   w=4, h=1 → 8'×2'
+  //   w=2, h=2 → 4'×4'
+  //   w=2, h=1 → 4'×2'
+  //   w=1, h=2 → 2'×4' — not in stock; use 4'×2' rotated (gw=1,gh=2)
+  //   w=1, h=1 → 2'×2' — not in stock; skip (too small for any panel)
+
+  let gy = 0;
+  for (const gh of dStrips) {
+    let gx = 0;
+    for (const gw of wStrips) {
+      let type = null;
+      let finalGw = gw, finalGh = gh;
+
+      if      (gw === 4 && gh === 2) { type = '8x4'; }
+      else if (gw === 4 && gh === 1) { type = '8x2'; }
+      else if (gw === 2 && gh === 2) { type = '4x4'; }
+      else if (gw === 2 && gh === 1) { type = '4x2'; }
+      else if (gw === 1 && gh === 2) { type = '4x2'; finalGw = 1; finalGh = 2; } // 4'×2' rotated
+      else if (gw === 1 && gh === 1) { type = null; } // no panel fits a 2'×2' slot
+
+      if (type) {
+        panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: false });
+      }
+      gx += gw;
+    }
+    gy += gh;
+  }
+
+  setTool('place');
+  recalcSchedule();
+  redraw();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+setTool('place');
+recalcSchedule();
+redraw();
+updateAutofillPreview();
+</script>
+</body>
+</html>

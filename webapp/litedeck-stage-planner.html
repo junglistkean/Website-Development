@@ -1218,10 +1218,11 @@ function bestFit1D(mm) {
 }
 
 function bestFit1D_depth(mm) {
-  // Depth axis: panels max 4ft deep (2 GU)
-  const MM_4 = 1219.2, MM_2 = 609.6;
+  // Depth axis: prefer largest panels first (8ft rotated → 4ft → 2ft)
+  const MM_8 = 2438.4, MM_4 = 1219.2, MM_2 = 609.6;
   let remaining = mm;
   const strips = [];
+  while (remaining >= MM_8) { strips.push(4); remaining -= MM_8; }
   while (remaining >= MM_4) { strips.push(2); remaining -= MM_4; }
   while (remaining >= MM_2) { strips.push(1); remaining -= MM_2; }
   return strips;
@@ -1294,10 +1295,13 @@ function autoFill() {
       let type = null;
       let finalGw = gw, finalGh = gh;
 
-      if      (gw === 4 && gh === 2) { type = '8x4'; }
+      if      (gw === 4 && gh === 4) { type = '8x4'; finalGw = 2; finalGh = 4; } // 8'×4' rotated
+      else if (gw === 4 && gh === 2) { type = '8x4'; }
       else if (gw === 4 && gh === 1) { type = '8x2'; }
+      else if (gw === 2 && gh === 4) { type = '8x4'; finalGw = 2; finalGh = 4; } // 8'×4' rotated
       else if (gw === 2 && gh === 2) { type = '4x4'; }
       else if (gw === 2 && gh === 1) { type = '4x2'; }
+      else if (gw === 1 && gh === 4) { type = '8x2'; finalGw = 1; finalGh = 4; } // 8'×2' rotated
       else if (gw === 1 && gh === 2) { type = '4x2'; finalGw = 1; finalGh = 2; } // 4'×2' rotated
       else if (gw === 1 && gh === 1) { type = null; } // no panel fits a 2'×2' slot
 

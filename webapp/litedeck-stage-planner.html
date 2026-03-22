@@ -1195,16 +1195,12 @@ function getAutofillMm() {
 // Strategy: maximise 8' (2438.4mm) fills, then try 4' (1219.2mm), then 2' (609.6mm).
 // Returns array of grid-unit widths in order.
 function bestFit1D(mm) {
-  // Width axis: fill greedily with largest panels first (8ft → 4ft → 2ft)
-  // Then consolidate any adjacent 2ft remainders into 4ft strips
   const MM_8 = 2438.4, MM_4 = 1219.2, MM_2 = 609.6;
-  let remaining = mm;
+  let remaining = Math.round(mm * 1000) / 1000;
   const strips = [];
-  while (remaining >= MM_8) { strips.push(4); remaining -= MM_8; }
-  while (remaining >= MM_4) { strips.push(2); remaining -= MM_4; }
-  while (remaining >= MM_2) { strips.push(1); remaining -= MM_2; }
-  // Consolidate pairs of GU=1 strips into GU=2 (4ft) strips
-  // e.g. [1,1] → [2], [1,1,1] → [2,1]
+  while (remaining >= MM_8) { strips.push(4); remaining = Math.round((remaining - MM_8) * 1000) / 1000; }
+  while (remaining >= MM_4) { strips.push(2); remaining = Math.round((remaining - MM_4) * 1000) / 1000; }
+  while (remaining >= MM_2) { strips.push(1); remaining = Math.round((remaining - MM_2) * 1000) / 1000; }
   const consolidated = [];
   let i = 0;
   while (i < strips.length) {
@@ -1218,13 +1214,12 @@ function bestFit1D(mm) {
 }
 
 function bestFit1D_depth(mm) {
-  // Depth axis: prefer largest panels first (8ft rotated → 4ft → 2ft)
   const MM_8 = 2438.4, MM_4 = 1219.2, MM_2 = 609.6;
-  let remaining = mm;
+  let remaining = Math.round(mm * 1000) / 1000;
   const strips = [];
-  while (remaining >= MM_8) { strips.push(4); remaining -= MM_8; }
-  while (remaining >= MM_4) { strips.push(2); remaining -= MM_4; }
-  while (remaining >= MM_2) { strips.push(1); remaining -= MM_2; }
+  while (remaining >= MM_8) { strips.push(4); remaining = Math.round((remaining - MM_8) * 1000) / 1000; }
+  while (remaining >= MM_4) { strips.push(2); remaining = Math.round((remaining - MM_4) * 1000) / 1000; }
+  while (remaining >= MM_2) { strips.push(1); remaining = Math.round((remaining - MM_2) * 1000) / 1000; }
   return strips;
 }
 
@@ -1290,25 +1285,43 @@ function autoFill() {
 
   let gy = 0;
   for (const gh of dStrips) {
-    let gx = 0;
-    for (const gw of wStrips) {
-      let type = null;
-      let finalGw = gw, finalGh = gh;
-
-      if      (gw === 4 && gh === 4) { type = '8x4'; finalGw = 2; finalGh = 4; } // 8'×4' rotated
-      else if (gw === 4 && gh === 2) { type = '8x4'; }
-      else if (gw === 4 && gh === 1) { type = '8x2'; }
-      else if (gw === 2 && gh === 4) { type = '8x4'; finalGw = 2; finalGh = 4; } // 8'×4' rotated
-      else if (gw === 2 && gh === 2) { type = '4x4'; }
-      else if (gw === 2 && gh === 1) { type = '4x2'; }
-      else if (gw === 1 && gh === 4) { type = '8x2'; finalGw = 1; finalGh = 4; } // 8'×2' rotated
-      else if (gw === 1 && gh === 2) { type = '4x2'; finalGw = 1; finalGh = 2; } // 4'×2' rotated
-      else if (gw === 1 && gh === 1) { type = null; } // no panel fits a 2'×2' slot
-
-      if (type) {
-        panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: false });
+    // For a 4GU deep strip, we place rotated 8ft panels (2GU wide × 4GU deep)
+    // but we need to fill the full width — so decompose the width strips into
+    // 2GU-wide columns, each taking a rotated 8'×4', then handle remainders.
+    if (gh === 4) {
+      // Decompose wStrips into individual 2GU and 1GU columns
+      const cols = [];
+      for (const gw of wStrips) {
+        if (gw === 4) { cols.push(2); cols.push(2); }
+        else { cols.push(gw); }
       }
-      gx += gw;
+      let gx = 0;
+      for (const cw of cols) {
+        let type = null;
+        let finalGw = cw, finalGh = gh;
+        if      (cw === 2) { type = '8x4'; finalGw = 2; finalGh = 4; } // 8'×4' rotated
+        else if (cw === 1) { type = '8x2'; finalGw = 1; finalGh = 4; } // 8'×2' rotated
+        if (type) {
+          panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: true });
+        }
+        gx += cw;
+      }
+    } else {
+      let gx = 0;
+      for (const gw of wStrips) {
+        let type = null;
+        let finalGw = gw, finalGh = gh;
+        if      (gw === 4 && gh === 2) { type = '8x4'; }
+        else if (gw === 4 && gh === 1) { type = '8x2'; }
+        else if (gw === 2 && gh === 2) { type = '4x4'; }
+        else if (gw === 2 && gh === 1) { type = '4x2'; }
+        else if (gw === 1 && gh === 2) { type = '4x2'; finalGw = 1; finalGh = 2; }
+        else if (gw === 1 && gh === 1) { type = null; }
+        if (type) {
+          panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: false });
+        }
+        gx += gw;
+      }
     }
     gy += gh;
   }

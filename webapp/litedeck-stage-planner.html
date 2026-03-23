@@ -1286,12 +1286,12 @@ const TIER_COLORS = ['#3b82f6','#f5a623','#22c55e','#e879f9','#f87171','#34d399'
 
 function drawSideView() {
   if (!panels.length) {
-    const W = 800, H = 300;
+    const W = sideCanvas.width, H = sideCanvas.height;
     sideCanvas.width  = W;
     sideCanvas.height = H;
     sctx.clearRect(0, 0, W, H);
     sctx.fillStyle    = '#6b7280';
-    sctx.font         = '14px Barlow, sans-serif';
+    sctx.font         = `${Math.round(H * 0.055)}px Barlow, sans-serif`;
     sctx.textAlign    = 'center';
     sctx.textBaseline = 'middle';
     sctx.fillText('No panels placed.', W/2, H/2);
@@ -1915,67 +1915,52 @@ function generateElevationImages() {
     }
   }
 
-  // Legend
-  let ly = gH * PCELL + 12;
-  const legendItems = [
-    ...tiers.filter(t => panels.some(p => p.tier === t.id)).map(t => ({
-      color: TIER_COLORS[(t.id-1) % TIER_COLORS.length] + 'bb',
-      stroke: TIER_COLORS[(t.id-1) % TIER_COLORS.length],
-      label: `${t.label} — ${t.finishedHeight}mm`,
-      dot: false
-    })),
-    { color: '#ef4444', label: 'Corner (no splitter)',   dot: true },
-    { color: '#f59e0b', label: 'Edge (2-way splitter)',  dot: true },
-    { color: '#3b82f6', label: 'Internal (4-way splitter)', dot: true },
-  ];
-  pc.font = '11px Arial';
-  pc.textBaseline = 'middle';
-  let lx = 8;
-  for (const item of legendItems) {
-    if (item.dot) {
-      pc.beginPath();
-      pc.arc(lx + 6, ly + 7, 5, 0, Math.PI*2);
-      pc.fillStyle = item.color;
-      pc.fill();
-    } else {
-      pc.fillStyle   = item.color;
-      pc.strokeStyle = item.stroke;
-      pc.lineWidth   = 1;
-      pc.fillRect(lx, ly, 20, 14);
-      pc.strokeRect(lx, ly, 20, 14);
-    }
-    pc.fillStyle = '#333333';
-    pc.fillText(item.label, lx + (item.dot ? 14 : 24), ly + 7);
-    lx += pc.measureText(item.label).width + (item.dot ? 28 : 38);
-    if (lx > planW - 150) { lx = 8; ly += 20; }
+// Legend
+let ly = gH * PCELL + 12;
+const legendItems = [
+  ...tiers.filter(t => panels.some(p => p.tier === t.id)).map(t => ({
+    color: TIER_COLORS[(t.id-1) % TIER_COLORS.length] + 'bb',
+    stroke: TIER_COLORS[(t.id-1) % TIER_COLORS.length],
+    label: `${t.label} — ${t.finishedHeight}mm`,
+    dot: false
+  })),
+  { color: '#ef4444', label: 'Corner (no splitter)',      dot: true },
+  { color: '#f59e0b', label: 'Edge (2-way splitter)',     dot: true },
+  { color: '#3b82f6', label: 'Internal (4-way splitter)', dot: true },
+];
+pc.font = '12px Arial';
+pc.textBaseline = 'middle';
+let lx = 8;
+for (const item of legendItems) {
+  const textW = pc.measureText(item.label).width;
+  const itemW = (item.dot ? 18 : 28) + textW + 16; // marker + gap + text + padding
+  if (lx > 8 && lx + itemW > planW - 8) { lx = 8; ly += 22; }
+  if (item.dot) {
+    pc.beginPath();
+    pc.arc(lx + 6, ly + 7, 5, 0, Math.PI * 2);
+    pc.fillStyle = item.color;
+    pc.fill();
+  } else {
+    pc.fillStyle   = item.color;
+    pc.strokeStyle = item.stroke;
+    pc.lineWidth   = 1;
+    pc.fillRect(lx, ly, 20, 14);
+    pc.strokeRect(lx, ly, 20, 14);
   }
+  pc.fillStyle = '#333333';
+  pc.fillText(item.label, lx + (item.dot ? 16 : 26), ly + 7);
+  lx += itemW;
+}
 
   const planDataUrl = planC.toDataURL('image/png');
 
-  // ── Left elevation — render at larger size for print legibility ──
-  // Temporarily resize sideCanvas, draw, capture, restore
-  const savedDir = sideDir;
-  const savedW   = sideCanvas.width;
-  const savedH   = sideCanvas.height;
-
-  sideDir = 'left';
-
-  // Override canvas size for high-res render
-  const printSideW = 1200;
-  const printSideH = 500;
-  sideCanvas.width  = printSideW;
-  sideCanvas.height = printSideH;
-
-  // Temporarily patch drawSideView to use larger font — we just call it directly
-  // The function reads sideCanvas dimensions internally so larger canvas = larger render
-  drawSideView();
-  const leftDataUrl = sideCanvas.toDataURL('image/png');
-
-  // Restore
-  sideCanvas.width  = savedW;
-  sideCanvas.height = savedH;
-  sideDir = savedDir;
-  drawSideView();
+ // ── Left elevation ──
+const savedDir = sideDir;
+sideDir = 'left';
+drawSideView();
+const leftDataUrl = sideCanvas.toDataURL('image/png');
+sideDir = savedDir;
+drawSideView();
 
   return `<div class="elevation-section">
     <h2>Layout &amp; Elevation</h2>

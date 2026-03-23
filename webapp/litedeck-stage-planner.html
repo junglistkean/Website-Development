@@ -469,12 +469,13 @@
       </div>
       <div class="config-grid">
         <div class="config-row">
-          <label id="lbl-height">Finished height</label>
-          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="recalcSchedule()">
+          <label id="lbl-height">T1 finished height (mm)</label>
+          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="updateActiveTierHeight()">
         </div>
+        <div id="tier-height-summary" style="margin-top:6px;"></div>
         <div class="config-row">
           <label id="lbl-socket">Leg socket</label>
-          <input type="number" id="cfg-socket" value="18" min="0" step="1" oninput="recalcSchedule()">
+          <input type="number" id="cfg-socket" value="24" min="0" step="1" oninput="recalcSchedule()">
         </div>
         <div class="config-row">
           <label id="lbl-splitter">Splitter deduction</label>
@@ -536,6 +537,12 @@
   <div class="canvas-area">
     <div class="canvas-toolbar">
       <span>Grid: 2ft units</span>
+      <span style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted)">
+        Tier:
+        <span id="tier-buttons" style="display:flex; gap:4px;"></span>
+        <button class="unit-toggle" id="btn-add-tier" onclick="addTier()" title="Add tier">+</button>
+        <button class="unit-toggle" id="btn-remove-tier" onclick="removeTier()" title="Remove active tier">−</button>
+      </span>
       <span id="cursor-pos">—</span>
       <span id="pending-info" style="color:var(--accent)"></span>
       <span class="canvas-hint" id="canvas-hint">Place mode: click grid to place panel</span>
@@ -631,6 +638,83 @@ let pendingType = '8x4';
 let pendingRotated = false;
 let activeTool = 'place';   // 'place' | 'select'
 let nextId = 1;
+
+// ── Tier state ────────────────────────────────────────────────────────────────
+let tiers = [{ id: 1, label: 'T1', finishedHeight: 600 }];
+let activeTierId = 1;
+let nextTierId = 2;
+
+function getActiveTier() { return tiers.find(t => t.id === activeTierId); }
+
+function addTier() {
+  const tier = { id: nextTierId++, label: `T${tiers.length + 1}` };
+  tiers.push(tier);
+  activeTierId = tier.id;
+  renderTierControls();
+  redraw();
+}
+
+function removeTier() {
+  if (tiers.length <= 1) return;
+  panels = panels.filter(p => p.tier !== activeTierId);
+  tiers = tiers.filter(t => t.id !== activeTierId);
+  activeTierId = tiers[tiers.length - 1].id;
+  renderTierControls();
+  recalcSchedule();
+  redraw();
+}
+
+function setActiveTier(id) {
+  activeTierId = id;
+  selectedId = null;
+  renderTierControls();
+  redraw();
+}
+
+function renderTierControls() {
+  const container = document.getElementById('tier-buttons');
+  container.innerHTML = '';
+  tiers.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'unit-toggle' + (t.id === activeTierId ? ' active' : '');
+    btn.textContent = t.label;
+    btn.onclick = () => setActiveTier(t.id);
+    container.appendChild(btn);
+  });
+  document.getElementById('btn-remove-tier').style.opacity = tiers.length > 1 ? '1' : '0.3';
+  document.getElementById('btn-remove-tier').style.pointerEvents = tiers.length > 1 ? '' : 'none';
+
+  // Update height input to active tier's value
+  const activeTier = getActiveTier();
+  document.getElementById('cfg-height').value = activeTier.finishedHeight;
+
+  // Update label
+  document.getElementById('lbl-height').textContent =
+    `${activeTier.label} finished height (${cfgUnit})`;
+
+  // Update tier summary
+  const summary = document.getElementById('tier-height-summary');
+  summary.innerHTML = tiers.map(t => {
+    const displayH = cfgUnit === 'ft'
+      ? (t.finishedHeight / 304.8).toFixed(3)
+      : t.finishedHeight;
+    const isActive = t.id === activeTierId;
+    return `<div style="display:flex; justify-content:space-between; padding:2px 0;
+      color:${isActive ? 'var(--accent)' : 'var(--muted)'};
+      font-family:'DM Mono',monospace; font-size:11px;">
+      <span>${t.label}</span>
+      <span>${displayH}${cfgUnit}${isActive ? ' ←' : ''}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateActiveTierHeight() {
+  const val = parseFloat(document.getElementById('cfg-height').value) || 0;
+  const activeTier = getActiveTier();
+  activeTier.finishedHeight = cfgUnit === 'ft' ? val * 304.8 : val;
+  renderTierControls();
+  recalcSchedule();
+}
 
 // ── Tool switching ────────────────────────────────────────────────────────────
 function setTool(tool) {
@@ -746,10 +830,17 @@ function clearStage() {
 // ── Collision detection ───────────────────────────────────────────────────────
 function canPlace(candidate, gx, gy, excludeId = -1) {
   if (gx < 0 || gy < 0 || gx + candidate.gw > GRID_W || gy + candidate.gh > GRID_H) return false;
+  const candidateTier = tiers.find(t => t.id === (candidate.tier || activeTierId));
+  const candidateHeight = candidateTier ? candidateTier.finishedHeight : 600;
   for (const p of panels) {
     if (p.id === excludeId) continue;
-    if (gx < p.gx + p.gw && gx + candidate.gw > p.gx &&
-        gy < p.gy + p.gh && gy + candidate.gh > p.gy) return false;
+    const overlaps = gx < p.gx + p.gw && gx + candidate.gw > p.gx &&
+                     gy < p.gy + p.gh && gy + candidate.gh > p.gy;
+    if (!overlaps) continue;
+    if (p.tier === (candidate.tier || activeTierId)) return false; // same tier, always block
+    const existingTier = tiers.find(t => t.id === p.tier);
+    const existingHeight = existingTier ? existingTier.finishedHeight : 600;
+    if (Math.abs(candidateHeight - existingHeight) < 175) return false;
   }
   return true;
 }
@@ -780,15 +871,15 @@ canvas.addEventListener('click', e => {
   }
 
   // Place tool
-  if (hit) {
-    // Clicking an existing panel in place mode selects it without placing
+  if (hit && hit.tier === activeTierId) {
+    // Clicking an existing panel on the active tier selects it without placing
     selectedId = (selectedId === hit.id) ? null : hit.id;
     redraw(); return;
   }
 
   // Place new panel
   const [gw, gh] = getPendingDims();
-  const candidate = { id: nextId++, type: pendingType, gx, gy, gw, gh, rotated: pendingRotated };
+  const candidate = { id: nextId++, type: pendingType, gx, gy, gw, gh, rotated: pendingRotated, tier: activeTierId };
   if (canPlace(candidate, gx, gy)) {
     panels.push(candidate);
     selectedId = null;
@@ -818,25 +909,37 @@ function redraw(hoverGx = -1, hoverGy = -1) {
     ctx.beginPath(); ctx.moveTo(0, y*CELL+0.5); ctx.lineTo(GRID_W*CELL, y*CELL+0.5); ctx.stroke();
   }
 
-  // Placed panels
-  for (const p of panels) {
+  // Placed panels — inactive tiers first (so active tier renders on top)
+  const sortedPanels = [...panels].sort((a, b) => {
+    const aActive = a.tier === activeTierId ? 1 : 0;
+    const bActive = b.tier === activeTierId ? 1 : 0;
+    return aActive - bActive;
+  });
+
+  for (const p of sortedPanels) {
+    const isActive = p.tier === activeTierId;
     const isSelected = p.id === selectedId;
     const col = PANEL_COLORS[p.type];
-    ctx.fillStyle = col + (isSelected ? 'ee' : '99');
-    ctx.fillRect(p.gx*CELL+1, p.gy*CELL+1, p.gw*CELL-2, p.gh*CELL-2);
-    ctx.strokeStyle = isSelected ? '#f5a623' : col;
+    if (isActive) {
+      ctx.fillStyle = col + (isSelected ? 'ee' : '99');
+      ctx.strokeStyle = isSelected ? '#f5a623' : col;
+    } else {
+      ctx.fillStyle = 'rgba(120,120,140,0.25)';
+      ctx.strokeStyle = 'rgba(120,120,140,0.4)';
+    }
     ctx.lineWidth = isSelected ? 2 : 1.5;
+    ctx.fillRect(p.gx*CELL+1, p.gy*CELL+1, p.gw*CELL-2, p.gh*CELL-2);
     ctx.strokeRect(p.gx*CELL+1, p.gy*CELL+1, p.gw*CELL-2, p.gh*CELL-2);
 
     // Label
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)';
     ctx.font = `bold ${Math.min(11, p.gw*CELL/5)}px "Barlow Condensed"`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(PANEL_LABELS[p.type], (p.gx+p.gw/2)*CELL, (p.gy+p.gh/2)*CELL);
   }
 
-  // Node markers
+  // Node markers — active tier only
   const nodes = computeNodes();
   for (const [key, node] of nodes) {
     const col = node.type === 'corner' ? '#ef4444' : node.type === 'edge' ? '#f59e0b' : '#3b82f6';
@@ -885,7 +988,7 @@ function redraw(hoverGx = -1, hoverGy = -1) {
 function computeNodes() {
   // Only the four corners of each panel are leg positions
   const nodeSet = new Set();
-  for (const p of panels) {
+  for (const p of panels.filter(p => p.tier === activeTierId)) {
     nodeSet.add(`${p.gx},${p.gy}`);
     nodeSet.add(`${p.gx + p.gw},${p.gy}`);
     nodeSet.add(`${p.gx},${p.gy + p.gh}`);
@@ -899,7 +1002,7 @@ function computeNodes() {
 
     // Count how many panels have this exact point as one of their 4 corners
     let cornerCount = 0;
-    for (const p of panels) {
+    for (const p of panels.filter(p => p.tier === activeTierId)) {
       if (
         (p.gx === gx || p.gx + p.gw === gx) &&
         (p.gy === gy || p.gy + p.gh === gy)
@@ -928,22 +1031,87 @@ function computeNodes() {
 }
 
 // ── Leg length calculation ────────────────────────────────────────────────────
-function calcLegLength(splitterCount) {
-  const h         = getCfgMm('height');
+const BASEPLATE_SIZES = [18, 12, 9, 6]; // mm, largest first
+const LEG_1FT = 304.8;
+const LEG_1PT6FT = 487.68;
+const DECK_HEIGHT = 175;
+const SOCKET_DEDUCTION = 24;
+
+function calcBaseplateStack(remainderMm) {
+  // Greedy fill from largest to smallest
+  let remaining = Math.round(remainderMm);
+  const stack = [];
+  for (const size of BASEPLATE_SIZES) {
+    while (remaining >= size) {
+      stack.push(size);
+      remaining -= size;
+    }
+  }
+  return stack; // array of plate sizes used
+}
+
+function baseplateStackLabel(stack) {
+  if (!stack.length) return 'none';
+  const counts = {};
+  stack.forEach(s => counts[s] = (counts[s] || 0) + 1);
+  return Object.entries(counts)
+    .map(([size, qty]) => `${qty}× ${size}mm`)
+    .join(' + ') + ` (${stack.reduce((a,b) => a+b, 0)}mm total)`;
+}
+
+function calcLegSpec(finishedHeight) {
+  // Returns an object describing the leg/baseplate combination
+  if (finishedHeight < DECK_HEIGHT) {
+    return { type: 'bespoke' };
+  }
+
+  if (finishedHeight < LEG_1FT) {
+    // Baseplate only — stack on top of inherent deck height
+    const stackMm = finishedHeight - DECK_HEIGHT;
+    const stack = calcBaseplateStack(stackMm);
+    return { type: 'baseplate-only', stack, stackMm };
+  }
+
+  if (finishedHeight < 609.6) {
+    // Leg + baseplates — use 1.6ft leg if it fits, else 1ft leg
+    const required = finishedHeight - SOCKET_DEDUCTION;
+    let legLength, legLabel;
+    if (required >= LEG_1PT6FT) {
+      legLength = LEG_1PT6FT;
+      legLabel = "1.6ft";
+    } else {
+      legLength = LEG_1FT;
+      legLabel = "1ft";
+    }
+    const remainderMm = required - legLength;
+    const stack = calcBaseplateStack(Math.max(0, remainderMm));
+    return { type: 'leg-baseplate', legLength, legLabel, stack, remainderMm };
+  }
+
+  // Standard leg + screw jack
   const socket    = getCfgMm('socket');
   const splitter  = getCfgMm('splitter');
   const baseplate = getCfgMm('baseplate');
   const jack      = getCfgMm('jack');
   const threshold = getCfgMm('threshold');
+  const jackDeduct = finishedHeight > threshold ? jack : 0;
+  const useJack = finishedHeight > threshold;
+  const mm = finishedHeight - socket - baseplate - jackDeduct;
+  return { type: 'standard', mm, useJack };
+}
 
-  const jackDeduct = h > threshold ? jack : 0;
-  const mm = h - socket - baseplate - (splitter * splitterCount) - jackDeduct;
-  return mm;
+function calcLegLength(splitterCount) {
+  const h = getCfgMm('height');
+  const spec = calcLegSpec(h);
+  if (spec.type === 'standard') {
+    const splitter = getCfgMm('splitter');
+    return spec.mm - (splitter * splitterCount);
+  }
+  return 0;
 }
 
 function mmToLabel(mm) {
   if (mm < 304.8) return `${Math.round(mm)} mm`;
-  // Integer-safe floor to nearest half-foot
   const halfFeet = Math.floor(mm * 10 / 1524);
   const wholeFt  = Math.floor(halfFeet / 2);
   const hasHalf  = halfFeet % 2 === 1;
@@ -977,9 +1145,8 @@ function recalcSchedule() {
     return;
   }
 
-  // Group nodes by type and leg length
-  const cornerMm   = calcLegLength(0);
-  const splitterMm = calcLegLength(1);
+  const activeTier = getActiveTier();
+  const legSpec = calcLegSpec(activeTier.finishedHeight);
 
   let cornerCount = 0, splitterCount = 0;
 
@@ -998,37 +1165,82 @@ function recalcSchedule() {
   const ne = groups.edge.length;
   const ni = groups.internal.length;
 
-  if (nc > 0) {
-    html += `<tr>
-      <td><span class="type-badge badge-corner">Corner</span></td>
-      <td>${mmToLabel(cornerMm)}</td>
-      <td>${nc}</td>
-    </tr>`;
-    cornerCount += nc;
-  }
-  if (ne > 0) {
-    html += `<tr>
-      <td><span class="type-badge badge-edge">2-way</span></td>
-      <td>${mmToLabel(splitterMm)}</td>
-      <td>${ne}</td>
-    </tr>`;
-    splitterCount += ne;
-  }
-  if (ni > 0) {
-    html += `<tr>
-      <td><span class="type-badge badge-internal">4-way</span></td>
-      <td>${mmToLabel(splitterMm)}</td>
-      <td>${ni}</td>
-    </tr>`;
-    splitterCount += ni;
+  if (legSpec.type === 'bespoke') {
+    html += `<tr><td colspan="3" style="color:var(--danger); font-family:'Barlow Condensed',sans-serif; font-weight:700;">
+      ⚠ Bespoke — height below 175mm. Contact Raven Staging.
+    </td></tr>`;
+  } else if (legSpec.type === 'baseplate-only') {
+    html += `<tr><td colspan="3" style="color:var(--accent); font-family:'Barlow Condensed',sans-serif; font-size:11px; line-height:1.6;">
+      No legs — baseplate stack only<br>
+      ${baseplateStackLabel(legSpec.stack)} per position<br>
+      <span style="color:var(--muted)">${nc + ne + ni} positions total</span>
+    </td></tr>`;
+    cornerCount = nc; splitterCount = ne + ni;
+  } else if (legSpec.type === 'leg-baseplate') {
+    const bpNote = legSpec.stack.length
+      ? ` + ${baseplateStackLabel(legSpec.stack)}`
+      : '';
+    if (nc > 0) {
+      html += `<tr>
+        <td><span class="type-badge badge-corner">Corner</span></td>
+        <td>${legSpec.legLabel}${bpNote}</td>
+        <td>${nc}</td>
+      </tr>`;
+      cornerCount += nc;
+    }
+    if (ne > 0) {
+      html += `<tr>
+        <td><span class="type-badge badge-edge">2-way</span></td>
+        <td>${legSpec.legLabel}${bpNote}</td>
+        <td>${ne}</td>
+      </tr>`;
+      splitterCount += ne;
+    }
+    if (ni > 0) {
+      html += `<tr>
+        <td><span class="type-badge badge-internal">4-way</span></td>
+        <td>${legSpec.legLabel}${bpNote}</td>
+        <td>${ni}</td>
+      </tr>`;
+      splitterCount += ni;
+    }
+  } else {
+    // Standard — leg + screw jack
+    const splitterDeduct = getCfgMm('splitter');
+    const cornerMm = legSpec.mm - (splitterDeduct * 0);
+    const splitterMm = legSpec.mm - (splitterDeduct * 1);
+    if (nc > 0) {
+      html += `<tr>
+        <td><span class="type-badge badge-corner">Corner</span></td>
+        <td>${mmToLabel(cornerMm)}</td>
+        <td>${nc}</td>
+      </tr>`;
+      cornerCount += nc;
+    }
+    if (ne > 0) {
+      html += `<tr>
+        <td><span class="type-badge badge-edge">2-way</span></td>
+        <td>${mmToLabel(splitterMm)}</td>
+        <td>${ne}</td>
+      </tr>`;
+      splitterCount += ne;
+    }
+    if (ni > 0) {
+      html += `<tr>
+        <td><span class="type-badge badge-internal">4-way</span></td>
+        <td>${mmToLabel(splitterMm)}</td>
+        <td>${ni}</td>
+      </tr>`;
+      splitterCount += ni;
+    }
   }
 
   html += `</tbody></table>`;
   document.getElementById('schedule-body').innerHTML = html;
 
   document.getElementById('schedule-totals').style.display = 'block';
-  document.getElementById('tot-corner').textContent   = `${cornerCount} × ${mmToLabel(cornerMm)}`;
-  document.getElementById('tot-splitter').textContent = `${splitterCount} × ${mmToLabel(splitterMm)}`;
+  document.getElementById('tot-corner').textContent   = cornerCount;
+  document.getElementById('tot-splitter').textContent = splitterCount;
   document.getElementById('tot-all').textContent      = cornerCount + splitterCount;
   document.getElementById('tot-panels').textContent   = totalPanels;
 
@@ -1124,7 +1336,7 @@ const CFG_LABELS = {
   threshold: 'Jack threshold',
 };
 const CFG_DEFAULTS_MM = {
-  height: 600, socket: 18, splitter: 155, baseplate: 18, jack: 50, threshold: 609.6
+  height: 600, socket: 24, splitter: 155, baseplate: 18, jack: 50, threshold: 609.6
 };
 
 function cfgMmToFt(mm) { return Math.round(mm / 304.8 * 1000) / 1000; }
@@ -1149,6 +1361,10 @@ function setCfgUnit(unit) {
     document.getElementById(`lbl-${id}`).textContent =
       `${CFG_LABELS[id]} (${unit})`;
   });
+  tiers.forEach(t => {
+    // Convert stored finishedHeight for display only — storage always in mm
+  });
+  renderTierControls();
   recalcSchedule();
 }
 
@@ -1302,7 +1518,7 @@ function autoFill() {
         if      (cw === 2) { type = '8x4'; finalGw = 2; finalGh = 4; } // 8'×4' rotated
         else if (cw === 1) { type = '8x2'; finalGw = 1; finalGh = 4; } // 8'×2' rotated
         if (type) {
-          panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: true });
+          panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: true, tier: activeTierId });
         }
         gx += cw;
       }
@@ -1318,7 +1534,7 @@ function autoFill() {
         else if (gw === 1 && gh === 2) { type = '4x2'; finalGw = 1; finalGh = 2; }
         else if (gw === 1 && gh === 1) { type = null; }
         if (type) {
-          panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: false });
+          panels.push({ id: nextId++, type, gx, gy, gw: finalGw, gh: finalGh, rotated: false, tier: activeTierId });
         }
         gx += gw;
       }
@@ -1361,6 +1577,7 @@ recalcSchedule();
 redraw();
 updateAutofillPreview();
 setWatermark('bird');
+renderTierControls();
 </script>
 </body>
 </html>

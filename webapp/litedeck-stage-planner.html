@@ -1916,7 +1916,7 @@ function generateElevationImages() {
   }
 
   // Legend
-  const ly = gH * PCELL + 12;
+  let ly = gH * PCELL + 12;
   const legendItems = [
     ...tiers.filter(t => panels.some(p => p.tier === t.id)).map(t => ({
       color: TIER_COLORS[(t.id-1) % TIER_COLORS.length] + 'bb',

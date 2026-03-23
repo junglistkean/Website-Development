@@ -1284,7 +1284,7 @@ const sctx       = sideCanvas.getContext('2d');
 // Colour per tier (accent variations)
 const TIER_COLORS = ['#3b82f6','#f5a623','#22c55e','#e879f9','#f87171','#34d399'];
 
-function drawSideView() {
+function drawSideView(forPrint = false) {
   if (!panels.length) {
     const W = sideCanvas.width, H = sideCanvas.height;
     sideCanvas.width  = W;
@@ -1380,8 +1380,10 @@ function drawSideView() {
   const maxHeightMm = Math.max(...tiers.map(t => t.finishedHeight)) + PANEL_BODY_MM + 100;
 
   // Canvas sizing
-  const availW   = Math.min(1200, Math.max(600, sliceMm * 0.3 + MARGIN_LEFT + MARGIN_RIGHT));
-  const availH   = Math.min(500, Math.max(250, maxHeightMm * 0.3 + MARGIN_BOTTOM + MARGIN_TOP));
+  const maxW     = forPrint ? 2400 : 1200;
+  const maxH     = forPrint ? 1200 : 500;
+  const availW   = Math.min(maxW, Math.max(600, sliceMm * 0.3 + MARGIN_LEFT + MARGIN_RIGHT));
+  const availH   = Math.min(maxH, Math.max(250, maxHeightMm * (forPrint ? 1.2 : 0.3) + MARGIN_BOTTOM + MARGIN_TOP));
   const scaleX   = (availW - MARGIN_LEFT - MARGIN_RIGHT) / sliceMm;
   const scaleY   = (availH - MARGIN_BOTTOM - MARGIN_TOP) / maxHeightMm;
 
@@ -1855,7 +1857,31 @@ function generateElevationImages() {
   // Render at 2x CELL size for clarity, white background, tier colours, nodes, legend
   const PCELL   = CELL * 2;
   const planW   = (maxGx - minGx + pad * 2) * PCELL;
-  const LEGEND_H = 120;
+
+  // Pre-calculate legend height based on actual wrap
+  const legendItemsDef = [
+    ...tiers.filter(t => panels.some(p => p.tier === t.id)).map(t => ({
+      label: `${t.label} — ${t.finishedHeight}mm`, dot: false
+    })),
+    { label: 'Corner (no splitter)',      dot: true },
+    { label: 'Edge (2-way splitter)',     dot: true },
+    { label: 'Internal (4-way splitter)', dot: true },
+  ];
+  const measureC = document.createElement('canvas');
+  const mctx = measureC.getContext('2d');
+  mctx.font = '12px Arial';
+  let lxM = 8;
+  let legendRows = 1;
+  for (const item of legendItemsDef) {
+    const textW = mctx.measureText(item.label).width;
+    const MARKER_W = item.dot ? 16 : 22;
+    const GAP = 6;
+    const itemW = MARKER_W + GAP + textW + 14;
+    if (lxM > 8 && lxM + itemW > planW - 8) { lxM = 8; legendRows++; }
+    lxM += itemW;
+  }
+  const LEGEND_H = legendRows * 22 + 20;
+
   const planH   = (maxGy - minGy + pad * 2) * PCELL + LEGEND_H;
   const planC   = document.createElement('canvas');
   planC.width   = planW;
@@ -1931,13 +1957,16 @@ const legendItems = [
 pc.font = '12px Arial';
 pc.textBaseline = 'middle';
 let lx = 8;
+pc.textAlign = 'left';
 for (const item of legendItems) {
   const textW = pc.measureText(item.label).width;
-  const itemW = (item.dot ? 18 : 28) + textW + 16; // marker + gap + text + padding
+  const MARKER_W = item.dot ? 16 : 22;
+  const GAP = 6;
+  const itemW = MARKER_W + GAP + textW + 14;
   if (lx > 8 && lx + itemW > planW - 8) { lx = 8; ly += 22; }
   if (item.dot) {
     pc.beginPath();
-    pc.arc(lx + 6, ly + 7, 5, 0, Math.PI * 2);
+    pc.arc(lx + 10, ly + 7, 5, 0, Math.PI * 2);
     pc.fillStyle = item.color;
     pc.fill();
   } else {
@@ -1948,7 +1977,7 @@ for (const item of legendItems) {
     pc.strokeRect(lx, ly, 20, 14);
   }
   pc.fillStyle = '#333333';
-  pc.fillText(item.label, lx + (item.dot ? 16 : 26), ly + 7);
+  pc.fillText(item.label, lx + MARKER_W + GAP + 2, ly + 7);
   lx += itemW;
 }
 
@@ -1957,7 +1986,7 @@ for (const item of legendItems) {
  // ── Left elevation ──
 const savedDir = sideDir;
 sideDir = 'left';
-drawSideView();
+drawSideView(true);
 const leftDataUrl = sideCanvas.toDataURL('image/png');
 sideDir = savedDir;
 drawSideView();

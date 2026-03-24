@@ -601,14 +601,28 @@
     margin-top: 10px;
   }
   .hr-info-box b { color: var(--handrail); }
+  .sidebar-subheading {
+    font-size: 12px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  /* Simple mode */
+  body.simple-mode #tier-toolbar-row,
+  body.simple-mode #config-advanced,
+  body.simple-mode .schedule-panel { display: none !important; }
+  #btn-simple-mode.active { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.08); }
 </style>
-</head>
 <body>
 
 <header>
   <div class="logo">Raven <span>Staging</span> — Litedeck Planner</div>
   <div class="header-actions">
     <a href="https://ravenstaging.co.uk" class="btn btn-ghost btn-home" style="text-decoration:none;">← Homepage</a>
+    <button class="btn btn-ghost" id="btn-simple-mode" onclick="toggleSimpleMode()">Simple View</button>
     <button class="btn btn-ghost" id="btn-view-plan" onclick="setView('plan')">Plan View</button>
     <button class="btn btn-ghost" id="btn-view-side" onclick="trySetSideView()">Side View</button>
     <button class="btn btn-ghost" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
@@ -622,9 +636,9 @@
   <!-- ── Sidebar ── -->
   <div class="sidebar">
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" id="section-components">
       <div class="sidebar-label">Component Type</div>
-      <div style="font-size:10px; font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); opacity:0.6; margin-bottom:6px;">Panels</div>
+      <div class="sidebar-subheading">Panels</div>
       <div class="panel-types">
         <button class="panel-btn active" onclick="selectPanel('8x4')" id="btn-8x4">
           <div class="panel-swatch" style="background:var(--panel-8x4)"></div>
@@ -647,8 +661,11 @@
           <span class="panel-key">4</span>
         </button>
       </div>
-      <div style="font-size:10px; font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); opacity:0.6; margin-top:12px; margin-bottom:6px;">Steps / Treads</div>
-      <div id="steps-type-list">
+      <div id="steps-dropdown-header" onclick="toggleStepsDropdown()" class="sidebar-subheading" style="margin-top:12px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; user-select:none;">
+        <span>Steps / Treads</span>
+        <span id="steps-dropdown-arrow" style="font-size:9px;">▶</span>
+      </div>
+      <div id="steps-type-list" style="display:none">
         <button class="component-btn" onclick="selectSteps('1ft')" id="btn-steps-1ft">
           <div class="component-swatch" style="background:var(--steps)"></div>
           <span>1ft (305mm) — 2 treads</span>
@@ -678,7 +695,7 @@
           <span>1200mm — 8 treads</span>
         </button>
       </div>
-      <div style="font-size:10px; font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); opacity:0.6; margin-top:12px; margin-bottom:6px;">Handrails</div>
+      <div class="sidebar-subheading" style="margin-top:12px;">Handrails</div>
       <button class="component-btn" onclick="selectHandrail('4ft')" id="btn-hr-4ft">
         <div class="component-swatch" style="background:var(--handrail)"></div>
         <span>4ft handrail (1219mm)</span>
@@ -690,7 +707,7 @@
       <button class="btn btn-ghost" style="width:100%; margin-top:4px; font-size:11px; padding:6px" onclick="openHrModal()">⊞ Auto-populate sides</button>
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" id="section-tools">
       <div class="sidebar-label">Tool</div>
       <div class="tools">
         <button class="tool-btn active" id="btn-tool-place" onclick="setTool('place')">✦ Place</button>
@@ -698,7 +715,7 @@
       </div>
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" id="section-actions">
       <div class="sidebar-label">Actions</div>
       <div class="tools">
         <button class="tool-btn" id="btn-rotate" onclick="rotatePending()">↻ Rotate</button>
@@ -709,7 +726,7 @@
       </div>
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" id="section-config">
       <div class="sidebar-label">
         Stage Config
         <span style="margin-left:6px">
@@ -724,22 +741,24 @@
         </div>
       </div>
       <div class="tier-summary" id="tier-summary"></div>
-      <div class="config-grid" style="margin-top:10px">
-        <div class="config-row">
-          <label id="lbl-socket">Leg socket (mm)</label>
-          <input type="number" id="cfg-socket" value="24" min="0" step="1" oninput="recalcSchedule()">
-        </div>
-        <div class="config-row">
-          <label id="lbl-splitter">Splitter deduction (mm)</label>
-          <input type="number" id="cfg-splitter" value="155" min="0" step="1" oninput="recalcSchedule()">
-        </div>
-        <div class="config-row">
-          <label id="lbl-baseplate">Base plate (mm)</label>
-          <input type="number" id="cfg-baseplate" value="18" min="0" step="1" oninput="recalcSchedule()">
-        </div>
-        <div class="config-row">
-          <label id="lbl-jack">Screw jack min (mm)</label>
-          <input type="number" id="cfg-jack" value="50" min="0" step="1" oninput="recalcSchedule()">
+      <div id="config-advanced">
+        <div class="config-grid" style="margin-top:10px">
+          <div class="config-row">
+            <label id="lbl-socket">Leg socket (mm)</label>
+            <input type="number" id="cfg-socket" value="24" min="0" step="1" oninput="recalcSchedule()">
+          </div>
+          <div class="config-row">
+            <label id="lbl-splitter">Splitter deduction (mm)</label>
+            <input type="number" id="cfg-splitter" value="155" min="0" step="1" oninput="recalcSchedule()">
+          </div>
+          <div class="config-row">
+            <label id="lbl-baseplate">Base plate (mm)</label>
+            <input type="number" id="cfg-baseplate" value="18" min="0" step="1" oninput="recalcSchedule()">
+          </div>
+          <div class="config-row">
+            <label id="lbl-jack">Screw jack min (mm)</label>
+            <input type="number" id="cfg-jack" value="50" min="0" step="1" oninput="recalcSchedule()">
+          </div>
         </div>
       </div>
     </div>
@@ -912,6 +931,14 @@ let nextId      = 1;
 let activeView  = 'plan';
 let sideDir     = 'front';
 let history     = [];  // undo stack — snapshots of panels array
+let simpleMode  = false;
+
+function toggleSimpleMode() {
+  simpleMode = !simpleMode;
+  document.body.classList.toggle('simple-mode', simpleMode);
+  document.getElementById('btn-simple-mode').classList.toggle('active', simpleMode);
+  document.getElementById('btn-simple-mode').textContent = simpleMode ? 'Advanced View' : 'Simple View';
+}
 
 // Tiers
 let tiers       = [{ id:1, label:'T1', finishedHeight:600 }];
@@ -1087,6 +1114,14 @@ function onHeightInput() {
 }
 
 // ── Steps tool ────────────────────────────────────────────────────────────────
+function toggleStepsDropdown() {
+  const list  = document.getElementById('steps-type-list');
+  const arrow = document.getElementById('steps-dropdown-arrow');
+  const open  = list.style.display !== 'none';
+  list.style.display  = open ? 'none' : 'block';
+  arrow.textContent   = open ? '▶' : '▼';
+}
+
 function selectSteps(heightKey) {
   pendingCategory = 'steps';
   pendingType     = heightKey;
@@ -3247,6 +3282,7 @@ renderTierSummary();
 updatePendingInfo();
 redraw();
 setView('plan');
+toggleSimpleMode(); // start in simple view
 
 // Wire up modal checkboxes for live preview
 ['hr-side-front','hr-side-back','hr-side-left','hr-side-right'].forEach(id => {

@@ -3277,12 +3277,14 @@ drawSideView();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-renderTierControls();
-renderTierSummary();
-updatePendingInfo();
-redraw();
-setView('plan');
-toggleSimpleMode(); // start in simple view
+document.addEventListener('DOMContentLoaded', () => {
+  renderTierControls();
+  renderTierSummary();
+  updatePendingInfo();
+  redraw();
+  setView('plan');
+  toggleSimpleMode(); // start in simple view
+});
 
 // Wire up modal checkboxes for live preview
 ['hr-side-front','hr-side-back','hr-side-left','hr-side-right'].forEach(id => {

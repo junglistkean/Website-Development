@@ -610,7 +610,7 @@
   <div class="header-actions">
     <a href="https://ravenstaging.co.uk" class="btn btn-ghost btn-home" style="text-decoration:none;">← Homepage</a>
     <button class="btn btn-ghost" id="btn-view-plan" onclick="setView('plan')">Plan View</button>
-    <button class="btn btn-ghost" id="btn-view-side" onclick="setView('side')">Side View</button>
+    <button class="btn btn-ghost" id="btn-view-side" onclick="trySetSideView()">Side View</button>
     <button class="btn btn-ghost" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
     <button class="btn btn-ghost" onclick="clearStage()">Clear</button>
     <button class="btn btn-primary" onclick="printSchedule()">Print Schedule</button>
@@ -957,6 +957,48 @@ function setView(v) {
   document.getElementById('btn-view-plan').classList.toggle('active', v === 'plan');
   document.getElementById('btn-view-side').classList.toggle('active', v === 'side');
   if (v === 'side') drawSideView();
+}
+
+// Returns true if any tier has more than one disconnected panel island
+function hasDisconnectedIslands() {
+  for (const tier of tiers) {
+    const tp = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
+    if (tp.length < 2) continue;
+    // Union-find: panels sharing any edge belong to the same island
+    const id = tp.map((_, i) => i);
+    function find(i) { return id[i] === i ? i : (id[i] = find(id[i])); }
+    function union(a, b) { id[find(a)] = find(b); }
+    for (let i = 0; i < tp.length; i++) {
+      for (let j = i + 1; j < tp.length; j++) {
+        const a = tp[i], b = tp[j];
+        // Adjacent if their bounding boxes share an edge (touching, not overlapping)
+        const touchH = a.gx < b.gx + b.gw && a.gx + a.gw > b.gx &&
+                       (a.gy + a.gh === b.gy || b.gy + b.gh === a.gy);
+        const touchV = a.gy < b.gy + b.gh && a.gy + a.gh > b.gy &&
+                       (a.gx + a.gw === b.gx || b.gx + b.gw === a.gx);
+        if (touchH || touchV) union(i, j);
+      }
+    }
+    const roots = new Set(tp.map((_, i) => find(i)));
+    if (roots.size > 1) return true;
+  }
+  return false;
+}
+
+function updateSideViewButton() {
+  const btn = document.getElementById('btn-view-side');
+  const disabled = hasDisconnectedIslands();
+  btn.disabled = disabled;
+  btn.title = disabled ? 'Side view unavailable: multiple disconnected layouts on one tier' : '';
+  btn.style.opacity = disabled ? '0.4' : '';
+  btn.style.cursor  = disabled ? 'not-allowed' : '';
+  // If currently in side view and now disabled, switch back to plan
+  if (disabled && activeView === 'side') setView('plan');
+}
+
+function trySetSideView() {
+  if (hasDisconnectedIslands()) return;
+  setView('side');
 }
 
 function setSideDir(dir) {
@@ -1967,6 +2009,8 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       ctx.fillRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
     }
   }
+
+  updateSideViewButton();
 }
 
 function drawEdgeHighlight(edge, col) {
@@ -2152,17 +2196,19 @@ function computeNodes(tierId = activeTierId) {
 }
 
 // ── Leg calculation ───────────────────────────────────────────────────────────
-// Returns { range, legMm, baseplates, jackNeeded, label, warn }
-function calcLeg(finishedHeight, splitterCount) {
-  const socket    = getCfgMm('socket');    // 24
-  const splitter  = getCfgMm('splitter');  // 155
+// Returns { range, legMm, baseplates, jackNeeded, smallJackNeeded, label, warn }
+// nodeType: 'corner' | 'edge' | 'internal'
+function calcLeg(finishedHeight, splitterCount, nodeType) {
+  const socket       = getCfgMm('socket');    // 24
+  const splitter     = getCfgMm('splitter');  // 155
   const baseplateStd = getCfgMm('baseplate'); // 18
-  const jackMin   = getCfgMm('jack');      // 50
+  const jackMin      = getCfgMm('jack');      // 50
+  const isCorner     = nodeType === 'corner';
 
   const h = finishedHeight;
 
   if (h < 175) {
-    return { range: 'bespoke', legMm: 0, baseplates: [], jackNeeded: false,
+    return { range: 'bespoke', legMm: 0, baseplates: [], jackNeeded: false, smallJackNeeded: false,
       label: `BESPOKE (${h}mm)`, warn: true };
   }
 
@@ -2170,31 +2216,48 @@ function calcLeg(finishedHeight, splitterCount) {
     // Baseplate-only: stack covers h - PANEL_BODY_MM
     const stackNeeded = h - PANEL_BODY_MM;
     const plates = greedyStack(stackNeeded);
-    return { range: 'bp-only', legMm: 0, baseplates: plates, jackNeeded: false,
+    return { range: 'bp-only', legMm: 0, baseplates: plates, jackNeeded: false, smallJackNeeded: false,
       label: `Baseplates: ${plates.join('+')}mm`, warn: false };
   }
 
   if (h < 609.6) {
-    // Leg + baseplates
+    // Leg + baseplates range
     const required = h - socket;
-    let legMm = 0;
-    if (LEG_1_6FT_MM <= required) {
-      legMm = LEG_1_6FT_MM;
-    } else {
-      legMm = LEG_1FT_MM;
-    }
+    const legMm = LEG_1_6FT_MM <= required ? LEG_1_6FT_MM : LEG_1FT_MM;
     const remainder = required - legMm - (splitter * splitterCount);
-    const plates = remainder > 0 ? greedyStack(remainder) : [];
-    const label = `${legMm}mm leg${plates.length ? ' + ' + plates.join('+') + 'mm' : ''}`;
-    return { range: 'leg+bp', legMm, baseplates: plates, jackNeeded: false, label, warn: false };
+
+    // Rule: splitter nodes always need at least one baseplate (floor protection for tube)
+    // Rule: corner nodes with 1.6ft or 2ft leg use small screwjack instead of plate stack
+    //       (but still keep one 18mm baseplate for floor protection)
+    const useSmallJack = isCorner && (legMm === LEG_1_6FT_MM || legMm === LEG_1FT_MM * 2);
+
+    let plates, smallJackNeeded;
+    if (useSmallJack) {
+      // One baseplate for floor protection, small jack covers the remainder
+      plates = [baseplateStd];
+      smallJackNeeded = true;
+    } else {
+      // Splitter node (or 1ft corner): stack plates; enforce minimum one plate
+      const plateTarget = Math.max(remainder, 0);
+      plates = plateTarget > 0 ? greedyStack(plateTarget) : [Math.min(...BP_SIZES.filter(s => s <= baseplateStd)) || baseplateStd];
+      // If remainder was exactly 0 (leg+splitter hits height exactly), force minimum plate
+      if (plates.length === 0) plates = [baseplateStd];
+      smallJackNeeded = false;
+    }
+
+    const legLabel  = legMm === LEG_1_6FT_MM ? "1'6\" leg" : "1ft leg";
+    const plateStr  = plates.join('+') + 'mm';
+    const jackStr   = smallJackNeeded ? ' + small screwjack' : '';
+    const label     = `${legLabel} + ${plateStr} baseplate${jackStr}`;
+    return { range: 'leg+bp', legMm, baseplates: plates, jackNeeded: false, smallJackNeeded, label, warn: false };
   }
 
   // Standard (≥ 609.6mm)
-  const jackNeeded = h > 609.6;
-  const jackDeduct = jackNeeded ? jackMin : 0;
-  const mm = h - socket - baseplateStd - (splitter * splitterCount) - jackDeduct;
-  const label = mmToLabel(mm) + (jackNeeded ? ' + jack' : '');
-  return { range: 'standard', legMm: mm, baseplates: [baseplateStd], jackNeeded, label, warn: mm <= 0 };
+  const jackNeeded  = h > 609.6;
+  const jackDeduct  = jackNeeded ? jackMin : 0;
+  const mm          = h - socket - baseplateStd - (splitter * splitterCount) - jackDeduct;
+  const label       = mmToLabel(mm) + (jackNeeded ? ' + jack' : '');
+  return { range: 'standard', legMm: mm, baseplates: [baseplateStd], jackNeeded, smallJackNeeded: false, label, warn: mm <= 0 };
 }
 
 function greedyStack(target) {
@@ -2264,7 +2327,7 @@ function recalcSchedule() {
     const badgeLabel = { corner: 'Corner', edge: '2-way', internal: '4-way' };
 
     for (const [, g] of legGroups) {
-      const leg = calcLeg(g.effectiveH, g.splitters);
+      const leg = calcLeg(g.effectiveH, g.splitters, g.nodeType);
       const floorNote = (tier.finishedHeight - g.effectiveH) > 0
         ? ` <span style="color:var(--muted);font-size:10px">(on T${tiers.find(t=>t.finishedHeight===tier.finishedHeight - g.effectiveH + tier.finishedHeight - (tier.finishedHeight - g.effectiveH))?.label ?? '?'} +${tier.finishedHeight - g.effectiveH}mm floor)</span>` : '';
       const floorHeight = tier.finishedHeight - g.effectiveH;
@@ -2762,7 +2825,18 @@ function printSchedule() {
   try {
   const now = new Date().toLocaleDateString('en-GB');
 
-  // ── Stage dimensions (bounding box of stage panels only) ──
+  // ── Format leg label: ft first, mm in brackets ──
+  function legMmToFtLabel(mm) {
+    if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
+    if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
+    const halfFeet = Math.round(mm / 152.4) / 2;
+    const wholeFt  = Math.floor(halfFeet);
+    const hasHalf  = (halfFeet % 1) !== 0;
+    const ftLabel  = hasHalf ? `${wholeFt}'6"` : `${wholeFt}ft`;
+    return `${ftLabel} leg (${Math.round(mm)}mm)`;
+  }
+
+  // ── Stage dimensions (bounding box of all stage panels) ──
   let minGx = Infinity, maxGx = -Infinity, minGy = Infinity, maxGy = -Infinity;
   for (const p of panels) {
     if (p.category !== 'panel') continue;
@@ -2771,12 +2845,10 @@ function printSchedule() {
     if (p.gy        < minGy) minGy = p.gy;
     if (p.gy + p.gh > maxGy) maxGy = p.gy + p.gh;
   }
-  const widthGu  = maxGx - minGx;  // grid units (each = 2ft)
-  const depthGu  = maxGy - minGy;
-  const widthFt  = widthGu * 2;
-  const depthFt  = depthGu * 2;
-  const widthMm  = Math.round(widthGu * FT2);
-  const depthMm  = Math.round(depthGu * FT2);
+  const widthFt = (maxGx - minGx) * 2;
+  const depthFt = (maxGy - minGy) * 2;
+  const widthMm = Math.round((maxGx - minGx) * FT2);
+  const depthMm = Math.round((maxGy - minGy) * FT2);
 
   // ── Tier summary string ──
   const tierSummary = tiers
@@ -2784,125 +2856,124 @@ function printSchedule() {
     .map(t => `${t.label} @ ${t.finishedHeight}mm`)
     .join(', ');
 
-  // ── Aggregate equipment across all tiers ──
-  const panelCounts   = { '8x4':0, '8x2':0, '4x4':0, '4x2':0 };
-  let   splitter2way  = 0;
-  let   splitter4way  = 0;
-  let   screwjacks    = 0;
-  const legCounts     = {};   // key: label string → qty
-  const plateCounts   = {};   // key: thickness mm  → qty
+  // ── Aggregate totals and build reference across all tiers ──
+  const panelCounts  = { '8x4':0, '8x2':0, '4x4':0, '4x2':0 };
+  let splitter2way   = 0, splitter4way = 0, screwjacks = 0, smallScrewjacks = 0;
+  const legCounts    = {};  // label → qty  (for totals)
+  const plateCounts  = {};  // mm → qty     (for totals)
 
-  function addLeg(label, qty) {
-    legCounts[label] = (legCounts[label] || 0) + qty;
-  }
-  function addPlates(arr, qty) {
-    for (const mm of arr) {
-      plateCounts[mm] = (plateCounts[mm] || 0) + qty;
-    }
-  }
+  // Build reference: per tier, per unique combination key → row data
+  const buildRows = [];  // { tier, nodeGroup, legLabel, splitter, plates, jack, smallJack, qty }
 
   for (const tier of tiers) {
     const tierPanels = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
     if (!tierPanels.length) continue;
-
     for (const p of tierPanels) panelCounts[p.type]++;
 
     const nodes = computeNodes(tier.id);
+    const buildMap = new Map();
+
     for (const [, node] of nodes) {
-      const effectiveH = tier.finishedHeight - node.floorHeight;
-      const isSplitter = node.type !== 'corner';
-      const splitters  = isSplitter ? 1 : 0;
+      const effectiveH  = tier.finishedHeight - node.floorHeight;
+      const isEdgeOrInt = node.type !== 'corner';
+      const splitters   = isEdgeOrInt ? 1 : 0;
 
       if (node.type === 'edge')     splitter2way++;
       if (node.type === 'internal') splitter4way++;
 
-      const leg = calcLeg(effectiveH, splitters);
+      const leg = calcLeg(effectiveH, splitters, node.type);
+      if (leg.jackNeeded)      screwjacks++;
+      if (leg.smallJackNeeded) smallScrewjacks++;
 
-      if (leg.jackNeeded) screwjacks++;
-
-      // Leg tube label (feet first, mm in brackets)
+      // Totals
       if (leg.range === 'standard' || leg.range === 'leg+bp') {
-        const mm  = leg.legMm;
-        const lbl = legMmToFtLabel(mm);
-        addLeg(lbl, 1);
+        const lbl = legMmToFtLabel(leg.legMm);
+        legCounts[lbl] = (legCounts[lbl] || 0) + 1;
       }
+      for (const mm of leg.baseplates) plateCounts[mm] = (plateCounts[mm] || 0) + 1;
 
-      // Base plates
-      addPlates(leg.baseplates, 1);
+      // Build reference row
+      const nodeGroup    = node.type === 'corner' ? 'Corner' : 'Edge / Internal';
+      const splitterDesc = node.type === 'corner' ? '—'
+                         : node.type === 'edge'   ? '2-way' : '4-way';
+
+      let legLabel;
+      if      (leg.range === 'bespoke') legLabel = `BESPOKE (${effectiveH}mm)`;
+      else if (leg.range === 'bp-only') legLabel = '— (baseplate only)';
+      else                              legLabel = legMmToFtLabel(leg.legMm);
+
+      const platesDesc   = leg.baseplates.length ? leg.baseplates.join(' + ') + 'mm' : '—';
+      const jackDesc     = leg.jackNeeded      ? 'Yes' : '—';
+      const smallJackDesc = leg.smallJackNeeded ? 'Yes' : '—';
+      const floorNote    = node.floorHeight > 0 ? ` (on ${node.floorHeight}mm deck)` : '';
+
+      const bKey = `${tier.label}|${nodeGroup}|${effectiveH}`;
+      if (!buildMap.has(bKey)) {
+        buildMap.set(bKey, { tier: tier.label, nodeGroup, legLabel, splitterDesc,
+          platesDesc, jackDesc, smallJackDesc, floorNote, qty: 0 });
+      }
+      buildMap.get(bKey).qty++;
     }
+
+    for (const row of buildMap.values()) buildRows.push(row);
   }
 
-  // ── Format leg label: ft first, mm in brackets ──
-  function legMmToFtLabel(mm) {
-    if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
-    if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
-    // Standard legs: round to nearest half-foot
-    const halfFeet = Math.round(mm / 152.4) / 2;  // nearest 0.5ft
-    const wholeFt  = Math.floor(halfFeet);
-    const hasHalf  = (halfFeet % 1) !== 0;
-    const ftLabel  = hasHalf ? `${wholeFt}'6"` : `${wholeFt}ft`;
-    return `${ftLabel} leg (${Math.round(mm)}mm)`;
-  }
-
-  // ── Build equipment list HTML ──
+  // ── HTML helpers ──
   const PANEL_NAMES = {
-    '8x4': "8' × 4' Litedeck panel",
-    '8x2': "8' × 2' Litedeck panel",
-    '4x4': "4' × 4' Litedeck panel",
-    '4x2': "4' × 2' Litedeck panel",
+    '8x4': "8' × 4' Litedeck panel", '8x2': "8' × 2' Litedeck panel",
+    '4x4': "4' × 4' Litedeck panel", '4x2': "4' × 2' Litedeck panel",
   };
 
-  let items = '';
-  function row(qty, desc) {
-    items += `<tr><td class="qty">${qty} no.</td><td>${desc}</td></tr>`;
+  function section(title) {
+    return `<tr><td colspan="2" style="background:#f0f0f0;font-weight:700;font-size:10pt;
+      letter-spacing:0.06em;text-transform:uppercase;padding:8px 10px;
+      border-bottom:2px solid #000;">${title}</td></tr>`;
   }
+  function row(qty, desc) { return `<tr><td class="qty">${qty} no.</td><td>${desc}</td></tr>`; }
 
-  // Panels
+  // ── Equipment totals table ──
+  let totalsRows = '';
+  totalsRows += section('Panels');
   for (const [type, qty] of Object.entries(panelCounts)) {
-    if (qty) row(qty, PANEL_NAMES[type]);
+    if (qty) totalsRows += row(qty, PANEL_NAMES[type]);
   }
 
-  // Splitters
-  if (splitter2way) row(splitter2way, '2-way leg splitter');
-  if (splitter4way) row(splitter4way, '4-way leg splitter');
+  totalsRows += section('Structure');
+  if (splitter2way) totalsRows += row(splitter2way, '2-way leg splitter');
+  if (splitter4way) totalsRows += row(splitter4way, '4-way leg splitter');
 
-  // Legs (sorted by length descending)
   const sortedLegs = Object.entries(legCounts).sort((a, b) => {
     const mmA = parseFloat(a[0].match(/\((\d+)mm\)/)?.[1] || 0);
     const mmB = parseFloat(b[0].match(/\((\d+)mm\)/)?.[1] || 0);
     return mmB - mmA;
   });
   for (const [label, qty] of sortedLegs) {
-    if (qty) row(qty, label);
+    if (qty) totalsRows += row(qty, label);
   }
-
-  // Screw jacks
-  if (screwjacks) row(screwjacks, 'Screw jack');
-
-  // Base plates (sorted by thickness descending)
+  if (screwjacks)      totalsRows += row(screwjacks,      'Screw jack');
+  if (smallScrewjacks) totalsRows += row(smallScrewjacks, 'Small screwjack (1.6ft / 2ft legs)');
   for (const mm of [18, 12, 9, 6]) {
     const qty = plateCounts[mm] || 0;
-    if (qty) row(qty, `${mm}mm base plate`);
+    if (qty) totalsRows += row(qty, `${mm}mm base plate`);
   }
-  // Any non-standard plate thicknesses
   for (const [mm, qty] of Object.entries(plateCounts)) {
-    if (![18,12,9,6].includes(Number(mm)) && qty) row(qty, `${mm}mm base plate`);
+    if (![18,12,9,6].includes(Number(mm)) && qty) totalsRows += row(qty, `${mm}mm base plate`);
   }
 
-  // ── Steps ──
   const stepsItemsPrint    = panels.filter(p => p.category === 'steps');
   const handrailItemsPrint = panels.filter(p => p.category === 'handrail');
 
   if (stepsItemsPrint.length) {
+    totalsRows += section('Steps');
     const stepCounts = {};
     for (const s of stepsItemsPrint) stepCounts[s.heightKey] = (stepCounts[s.heightKey] || 0) + 1;
     for (const [key, qty] of Object.entries(stepCounts)) {
-      row(qty, STEPS_DATA[key].label);
+      totalsRows += row(qty, STEPS_DATA[key].label);
     }
   }
 
-  // ── Handrails ──
   if (handrailItemsPrint.length) {
+    totalsRows += section('Handrails');
     let qty4ft = 0, qty8ft = 0;
     const infillGroups = {};
     for (const h of handrailItemsPrint) {
@@ -2915,11 +2986,33 @@ function printSchedule() {
         infillGroups[cutMm].clamps += 4;
       }
     }
-    if (qty8ft) row(qty8ft, "8ft handrail");
-    if (qty4ft) row(qty4ft, "4ft handrail");
+    if (qty8ft) totalsRows += row(qty8ft, '8ft handrail');
+    if (qty4ft) totalsRows += row(qty4ft, '4ft handrail');
     for (const [cutMm, g] of Object.entries(infillGroups)) {
-      row(g.tubes,  `Scaffold infill tube — cut to ${cutMm}mm`);
-      row(g.clamps, `Scaffold clamps (for ${cutMm}mm infills)`);
+      totalsRows += row(g.tubes,  `Scaffold infill tube — cut to ${cutMm}mm`);
+      totalsRows += row(g.clamps, `Scaffold clamps (for ${cutMm}mm infills)`);
+    }
+  }
+
+  // ── Build reference table ──
+  // Group by tier label for display
+  const buildTiers = [...new Set(buildRows.map(r => r.tier))];
+  let buildHtml = '';
+  for (const tierLabel of buildTiers) {
+    const rows = buildRows.filter(r => r.tier === tierLabel);
+    buildHtml += `<tr><td colspan="7" style="background:#f0f0f0;font-weight:700;font-size:10pt;
+      letter-spacing:0.06em;text-transform:uppercase;padding:8px 10px;
+      border-bottom:2px solid #000;">${tierLabel}</td></tr>`;
+    for (const r of rows) {
+      buildHtml += `<tr>
+        <td class="qty">${r.qty} no.</td>
+        <td>${r.nodeGroup}</td>
+        <td>${r.legLabel}${r.floorNote ? `<br><span style="color:#888;font-size:9pt">${r.floorNote}</span>` : ''}</td>
+        <td>${r.splitterDesc}</td>
+        <td>${r.platesDesc}</td>
+        <td>${r.jackDesc}</td>
+        <td>${r.smallJackDesc}</td>
+      </tr>`;
     }
   }
 
@@ -2938,16 +3031,19 @@ function printSchedule() {
       .dims { font-size: 12pt; font-weight: bold; margin-bottom: 4px; }
       .tiers { font-size: 10pt; color: #333; margin-bottom: 20px; }
       h2 { font-size: 13pt; margin: 24px 0 8px; border-bottom: 2px solid #000; padding-bottom: 4px; }
-      table { width: 100%; border-collapse: collapse; }
-      td { padding: 7px 10px; border-bottom: 1px solid #ddd; font-size: 11pt; }
-      td.qty { width: 80px; font-weight: bold; white-space: nowrap; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+      td { padding: 7px 10px; border-bottom: 1px solid #ddd; font-size: 11pt; vertical-align: top; }
+      td.qty { width: 70px; font-weight: bold; white-space: nowrap; }
       tr:last-child td { border-bottom: 2px solid #000; }
+      th { padding: 6px 10px; border-bottom: 2px solid #000; font-size: 9pt;
+           text-transform: uppercase; letter-spacing: 0.06em; text-align: left;
+           background: #fafafa; }
       .elevation-section { margin-top: 32px; page-break-before: always; }
-      .elevation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
       .drawings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 12px; }
       .elevation-item p { font-size: 9pt; color: #666; text-transform: uppercase;
                           letter-spacing: 0.05em; margin-bottom: 4px; }
       .elevation-item img { width: 100%; border: 1px solid #ccc; }
+      .build-section { margin-top: 32px; page-break-before: always; }
       @media print { body { padding: 10mm 15mm; } }
     </style>
   </head><body>
@@ -2955,11 +3051,22 @@ function printSchedule() {
     <div class="meta">Raven Staging &middot; Generated ${now}</div>
     <div class="dims">${widthFt}ft &times; ${depthFt}ft &nbsp;(${widthMm}mm &times; ${depthMm}mm)</div>
     <div class="tiers">${tierSummary}</div>
-    <h2>Equipment List</h2>
-    <table><tbody>${items}</tbody></table>
+
+    <h2>Equipment Totals</h2>
+    <table><tbody>${totalsRows}</tbody></table>
+
+    <div class="build-section">
+      <h2>Build Reference — Leg Combinations</h2>
+      <table>
+        <thead><tr>
+          <th>Qty</th><th>Node</th><th>Leg</th><th>Splitter</th><th>Baseplate(s)</th><th>Screw jack</th><th>Small screwjack</th>
+        </tr></thead>
+        <tbody>${buildHtml}</tbody>
+      </table>
+    </div>
+
     ${elevationImgs}
   </body></html>`);
-  // Set onload before close() so it fires when document finishes loading
   printWin.onload = () => printWin.print();
   printWin.document.close();
   } catch(e) { alert('Print error: ' + e.message); console.error(e); }

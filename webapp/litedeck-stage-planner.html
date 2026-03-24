@@ -1092,26 +1092,41 @@ function syncAllPendingButtons() {
 
 // ── Stage edge detection ──────────────────────────────────────────────────────
 function detectEdge(gx, gy) {
-  // Only consider actual stage panels (not steps/handrails) for bounding box
+  // Use actual exposed panel faces (handles L/T/U shapes correctly)
   const tp = panels.filter(p => p.category === 'panel' && p.tier === activeTierId);
   if (!tp.length) return null;
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const p of tp) {
-    if (p.gx < minX) minX = p.gx;
-    if (p.gx + p.gw > maxX) maxX = p.gx + p.gw;
-    if (p.gy < minY) minY = p.gy;
-    if (p.gy + p.gh > maxY) maxY = p.gy + p.gh;
+
+  const THRESH = 3; // grid units — snap distance
+  let bestDist = Infinity, bestResult = null;
+
+  for (const side of ['front','back','left','right']) {
+    const spans = getOuterEdgeSpans(side, tp);
+    const isHoriz = side === 'front' || side === 'back';
+    for (const span of spans) {
+      // Distance from cursor to this edge line
+      const dEdge = isHoriz
+        ? Math.abs(gy - span.edgeGu)
+        : Math.abs(gx - span.edgeGu);
+      if (dEdge > THRESH) continue;
+      // Check cursor is within the span's along-axis range (with small tolerance)
+      const along = isHoriz ? gx : gy;
+      if (along < span.start - THRESH || along > span.end + THRESH) continue;
+      // Total distance (edge distance dominates, along-axis only breaks ties)
+      const dist = dEdge * 10 + Math.max(0, Math.max(span.start - along, along - span.end));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestResult = {
+          side,
+          edgeGu:   span.edgeGu,
+          alongGu:  Math.min(Math.max(along, span.start), span.end),
+          edgeStart: span.start,
+          edgeLen:   span.end - span.start,
+        };
+      }
+    }
   }
-  const dFront = Math.abs(gy - minY);
-  const dBack  = Math.abs(gy - maxY);
-  const dLeft  = Math.abs(gx - minX);
-  const dRight = Math.abs(gx - maxX);
-  const minD   = Math.min(dFront, dBack, dLeft, dRight);
-  if (minD > 3) return null;
-  if (minD === dFront) return { side: 'front', edgeGu: minY, alongGu: gx, edgeLen: maxX - minX, edgeStart: minX };
-  if (minD === dBack)  return { side: 'back',  edgeGu: maxY, alongGu: gx, edgeLen: maxX - minX, edgeStart: minX };
-  if (minD === dLeft)  return { side: 'left',  edgeGu: minX, alongGu: gy, edgeLen: maxY - minY, edgeStart: minY };
-  return                      { side: 'right', edgeGu: maxX, alongGu: gy, edgeLen: maxY - minY, edgeStart: minY };
+
+  return bestResult;
 }
 
 // Snap handrail start to the nearest panel-boundary-aligned integer GU,
@@ -1155,6 +1170,16 @@ function placeSteps(edge, heightKey) {
     );
     if (!ok) return;
   }
+  const sSpan = [Math.round(edge.alongGu) - STEPS_WIDTH_GU / 2, Math.round(edge.alongGu) + STEPS_WIDTH_GU / 2];
+  const conflict = panels.find(p =>
+    p.category === 'handrail' && p.tier === activeTierId &&
+    p.side === edge.side && p.edgeGu === edge.edgeGu &&
+    spansOverlap(sSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
+  );
+  if (conflict) {
+    alert('Steps cannot overlap a handrail on the same edge.');
+    return;
+  }
   saveHistory();
   panels.push({
     id: nextId++, category: 'steps',
@@ -1174,9 +1199,11 @@ function stepsSpan(s) {
   return [s.alongGu - halfW, s.alongGu + halfW];
 }
 
-// Returns the [start, end] span of a handrail along its edge
-function handrailSpan(alongGu, size) {
-  const widthGu = HR_WIDTHS[size] / FT2;
+// Returns the [start, end] span of a handrail along its edge.
+// Pass the full item as the third arg to support infill items.
+function handrailSpan(alongGu, size, item) {
+  const widthMm = (item && item.hrType === 'infill') ? item.infillMm : HR_WIDTHS[size];
+  const widthGu = widthMm / FT2;
   return [alongGu, alongGu + widthGu];
 }
 
@@ -1189,7 +1216,8 @@ function spansOverlap(a, b) {
 function placeHandrail(edge, size) {
   const hrSpan = handrailSpan(edge.alongGu, size);
   const conflict = panels.find(p =>
-    p.category === 'steps' && p.tier === activeTierId && p.side === edge.side &&
+    p.category === 'steps' && p.tier === activeTierId &&
+    p.side === edge.side && p.edgeGu === edge.edgeGu &&
     spansOverlap(stepsSpan(p), hrSpan)
   );
   if (conflict) {
@@ -1346,72 +1374,107 @@ function bestFill(spanGu) {
   return best;
 }
 
-// Fill span forcing infill at a constrained end, even if span divides exactly.
-// forceStart/forceEnd: this end MUST have infill (lost the corner decision).
+// Fill a span with handrail standards + infill.
+// forceStart / forceEnd: that end lost the corner decision and MUST have infill,
+// even when the span divides exactly into standards.
 function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, forceStart, forceEnd) {
-  const stepsBlocked=stepItems
-    .map(s=>stepsSpan(s))
-    .map(([a,b])=>[Math.max(a,spanStart),Math.min(b,spanEnd)])
-    .filter(([a,b])=>a<b).sort((a,b)=>a[0]-b[0]);
-  const freeSegs=[]; let cur=spanStart;
-  for(const [bs,be] of stepsBlocked){if(cur<bs)freeSegs.push([cur,bs]);cur=Math.max(cur,be);}
-  if(cur<spanEnd) freeSegs.push([cur,spanEnd]);
+  const stepsBlocked = stepItems
+    .map(s => stepsSpan(s))
+    .map(([a,b]) => [Math.max(a, spanStart), Math.min(b, spanEnd)])
+    .filter(([a,b]) => a < b)
+    .sort((a,b) => a[0] - b[0]);
 
-  for(const [segStart,segEnd] of freeSegs){
-    const spanGu=segEnd-segStart; if(spanGu<0.01) continue;
-    const s8=HR_WIDTHS['8ft']/FT2, s4=HR_WIDTHS['4ft']/FT2;
-    let infillStart=0, infillEnd=0, n8=0, n4=0;
+  const freeSegs = []; let cur = spanStart;
+  for (const [bs,be] of stepsBlocked) { if (cur < bs) freeSegs.push([cur, bs]); cur = Math.max(cur, be); }
+  if (cur < spanEnd) freeSegs.push([cur, spanEnd]);
 
-    if(forceStart||forceEnd){
-      // Fill the "free" portion with standards, forced infill takes the rest
-      // If forceStart: standards fill from right edge, infill takes left remainder
-      // If forceEnd: standards fill from left edge, infill takes right remainder
-      // If both: standards in middle, infill on both ends (split equally? use start)
-      const f=bestFill(spanGu);
-      n8=f.n8; n4=f.n4;
-      const stdGu=n8*s8+n4*s4;
-      const infGu=Math.max(0,spanGu-stdGu);
-      if(forceStart && !forceEnd){ infillStart=infGu; }
-      else if(forceEnd && !forceStart){ infillEnd=infGu; }
-      else{ infillStart=infGu; } // both: infill at start
+  for (const [segStart, segEnd] of freeSegs) {
+    const segGu = segEnd - segStart;
+    if (segGu < 0.01) continue;
 
-      // If inf==0 (span divides exactly) but we must force infill:
-      // remove one standard (prefer 4ft) to create infill
-      if(infGu<0.01 && (forceStart||forceEnd)){
-        for(const removeSz of ['4ft','8ft']){
-          const rGu=HR_WIDTHS[removeSz]/FT2;
-          if(rGu>spanGu+0.01) continue;
-          const f2=bestFill(spanGu-rGu);
-          const newInfGu=spanGu-f2.n8*s8-f2.n4*s4;
-          if(newInfGu>0.01){
-            n8=f2.n8; n4=f2.n4;
-            if(forceStart||(!forceEnd)) infillStart=newInfGu; else infillEnd=newInfGu;
-            break;
+    const s8 = HR_WIDTHS['8ft'] / FT2;
+    const s4 = HR_WIDTHS['4ft'] / FT2;
+    let infillStartGu = 0, infillEndGu = 0, n8 = 0, n4 = 0;
+
+    if (forceStart || forceEnd) {
+      // Strategy: pack as many standards as possible into the segment,
+      // then the leftover becomes infill at the forced end(s).
+      // If span divides exactly, strip one standard (prefer 4ft) to create infill.
+      const tryPack = (available) => {
+        const f = bestFill(available);
+        const used = f.n8 * s8 + f.n4 * s4;
+        const inf = Math.max(0, available - used);
+        return { n8: f.n8, n4: f.n4, infGu: inf };
+      };
+
+      if (forceStart && forceEnd) {
+        // Both ends need infill — pack standards in the middle.
+        // Try stripping one unit from each end.
+        let packed = tryPack(segGu);
+        if (packed.infGu < 0.01) {
+          // Exact fit — strip one standard to create infill, split between both ends
+          for (const removeSz of ['4ft', '8ft']) {
+            const rGu = HR_WIDTHS[removeSz] / FT2;
+            if (rGu > segGu - 0.01) continue;
+            const p2 = tryPack(segGu - rGu);
+            const newInf = segGu - p2.n8 * s8 - p2.n4 * s4;
+            if (newInf > 0.01) { packed = { n8: p2.n8, n4: p2.n4, infGu: newInf }; break; }
           }
+          if (packed.infGu < 0.01) packed = { n8: 0, n4: 0, infGu: segGu };
         }
+        n8 = packed.n8; n4 = packed.n4;
+        // Split infill evenly between start and end
+        infillStartGu = packed.infGu / 2;
+        infillEndGu   = packed.infGu - infillStartGu;
+
+      } else {
+        let packed = tryPack(segGu);
+        if (packed.infGu < 0.01) {
+          let stripped = false;
+          for (const removeSz of ['4ft', '8ft']) {
+            const rGu = HR_WIDTHS[removeSz] / FT2;
+            if (rGu > segGu - 0.01) continue;
+            const p2 = tryPack(segGu - rGu);
+            const newInf = segGu - p2.n8 * s8 - p2.n4 * s4;
+            if (newInf > 0.01) { packed = { n8: p2.n8, n4: p2.n4, infGu: newInf }; stripped = true; break; }
+          }
+          if (!stripped && packed.infGu < 0.01) packed = { n8: 0, n4: 0, infGu: segGu };
+        }
+        n8 = packed.n8; n4 = packed.n4;
+        if (forceStart) infillStartGu = packed.infGu;
+        else            infillEndGu   = packed.infGu;
       }
+
     } else {
-      const f=bestFill(spanGu);
-      n8=f.n8; n4=f.n4; infillEnd=Math.max(0,spanGu-n8*s8-n4*s4);
+      // No forced end — natural fill, remainder at end
+      const f = bestFill(segGu);
+      n8 = f.n8; n4 = f.n4;
+      infillEndGu = Math.max(0, segGu - n8 * s8 - n4 * s4);
     }
 
-    let pos=segStart;
-    const pushHr=(size)=>{
-      panels.push({id:nextId++,category:'handrail',tier:activeTierId,side,
-        edgeGu,edgeStart:spanStart,edgeLen:spanEnd-spanStart,alongGu:pos,size,hrType:'handrail'});
-      pos+=HR_WIDTHS[size]/FT2;
+    // Sanity: total placed must not exceed segment length
+    const totalGu = infillStartGu + n8 * s8 + n4 * s4 + infillEndGu;
+    if (totalGu > segGu + 0.01) continue; // skip malformed result
+
+    let pos = segStart;
+    const pushHr = (size) => {
+      panels.push({ id: nextId++, category: 'handrail', tier: activeTierId, side,
+        edgeGu, edgeStart: spanStart, edgeLen: spanEnd - spanStart,
+        alongGu: pos, size, hrType: 'handrail' });
+      pos += HR_WIDTHS[size] / FT2;
     };
-    const pushInfill=(mm)=>{
-      if(mm>1) panels.push({id:nextId++,category:'handrail',tier:activeTierId,side,
-        edgeGu,edgeStart:spanStart,edgeLen:spanEnd-spanStart,alongGu:pos,
-        infillMm:mm,tubeCutMm:Math.max(0,mm-CLAMP_DEDUCT),hrType:'infill'});
-      pos+=mm/FT2;
+    const pushInfill = (gu) => {
+      const mm = gu * FT2;
+      if (mm > 1) panels.push({ id: nextId++, category: 'handrail', tier: activeTierId, side,
+        edgeGu, edgeStart: spanStart, edgeLen: spanEnd - spanStart,
+        alongGu: pos, infillMm: mm, tubeCutMm: Math.max(0, mm - CLAMP_DEDUCT), hrType: 'infill' });
+      pos += gu;
     };
 
-    if(infillStart>0.01) pushInfill(infillStart*FT2);
-    for(let i=0;i<n8;i++) pushHr('8ft');
-    for(let i=0;i<n4;i++) pushHr('4ft');
-    if(infillEnd>0.01) pushInfill(infillEnd*FT2);
+    if (infillStartGu > 0.01) pushInfill(infillStartGu);
+    for (let i = 0; i < n8; i++) pushHr('8ft');
+    for (let i = 0; i < n4; i++) pushHr('4ft');
+    if (infillEndGu  > 0.01) pushInfill(infillEndGu);
   }
 }
 

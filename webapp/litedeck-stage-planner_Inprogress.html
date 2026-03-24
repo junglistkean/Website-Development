@@ -1231,187 +1231,211 @@ function closeHrModal() {
   document.getElementById('hr-modal').classList.remove('active');
 }
 
-// Returns ALL exposed panel faces as spans, grouped by (side, edgeGu).
+// Returns exposed spans on a given side — contiguous runs where panel faces
+// are present and exterior.
 function getOuterEdgeSpans(side, tp) {
   if (!tp.length) return [];
   const isHoriz = side === 'front' || side === 'back';
-  const facePosns = [];
+  const allAlong = new Set();
   for (const p of tp) {
-    if (isHoriz) {
-      const edgeY = side === 'front' ? p.gy : p.gy + p.gh;
-      const blockedX = new Set();
-      for (const o of tp) {
-        if (o === p) continue;
-        const adj = side === 'front' ? (o.gy + o.gh === edgeY) : (o.gy === edgeY);
-        if (adj) for (let x=Math.max(p.gx,o.gx);x<Math.min(p.gx+p.gw,o.gx+o.gw);x++) blockedX.add(x);
-      }
-      for (let x=p.gx;x<p.gx+p.gw;x++) if(!blockedX.has(x)) facePosns.push([edgeY,x]);
-    } else {
-      const edgeX = side === 'left' ? p.gx : p.gx + p.gw;
-      const blockedY = new Set();
-      for (const o of tp) {
-        if (o === p) continue;
-        const adj = side === 'left' ? (o.gx + o.gw === edgeX) : (o.gx === edgeX);
-        if (adj) for (let y=Math.max(p.gy,o.gy);y<Math.min(p.gy+p.gh,o.gy+o.gh);y++) blockedY.add(y);
-      }
-      for (let y=p.gy;y<p.gy+p.gh;y++) if(!blockedY.has(y)) facePosns.push([edgeX,y]);
-    }
+    const s = isHoriz ? p.gx : p.gy, e = isHoriz ? p.gx + p.gw : p.gy + p.gh;
+    for (let a = s; a < e; a++) allAlong.add(a);
   }
-  const byEdge = new Map();
-  for (const [eg,a] of facePosns) { if(!byEdge.has(eg)) byEdge.set(eg,[]); byEdge.get(eg).push(a); }
-  const spans = [];
-  for (const [eg,positions] of byEdge) {
-    const sorted=[...new Set(positions)].sort((a,b)=>a-b); let i=0;
-    while (i<sorted.length) {
-      const ss=sorted[i]; let j=i;
-      while(j+1<sorted.length&&sorted[j+1]===sorted[j]+1) j++;
-      spans.push({edgeGu:eg,start:ss,end:sorted[j]+1}); i=j+1;
-    }
+  const exposedAt = new Map();
+  for (const a of allAlong) {
+    const covering = tp.filter(p => { const s=isHoriz?p.gx:p.gy,e=isHoriz?p.gx+p.gw:p.gy+p.gh; return a>=s&&a<e; });
+    if (!covering.length) continue;
+    let outer;
+    if (side==='front')      outer = Math.min(...covering.map(p=>p.gy));
+    else if (side==='back')  outer = Math.max(...covering.map(p=>p.gy+p.gh));
+    else if (side==='left')  outer = Math.min(...covering.map(p=>p.gx));
+    else                     outer = Math.max(...covering.map(p=>p.gx+p.gw));
+    const blocked = tp.some(p => {
+      const s=isHoriz?p.gx:p.gy,e=isHoriz?p.gx+p.gw:p.gy+p.gh; if(a<s||a>=e) return false;
+      if(side==='front') return p.gy+p.gh===outer; if(side==='back') return p.gy===outer;
+      if(side==='left')  return p.gx+p.gw===outer; return p.gx===outer;
+    });
+    if (!blocked) exposedAt.set(a, outer);
+  }
+  const sorted = [...exposedAt.keys()].sort((a,b)=>a-b);
+  const spans = []; let i = 0;
+  while (i < sorted.length) {
+    const ss=sorted[i], eg=exposedAt.get(ss); let j=i;
+    while (j+1<sorted.length && sorted[j+1]===sorted[j]+1 && exposedAt.get(sorted[j+1])===eg) j++;
+    spans.push({ edgeGu:eg, start:ss, end:sorted[j]+1 }); i=j+1;
   }
   return spans;
 }
 
-// For each span endpoint that meets a perpendicular span, decide whether that
-// endpoint "wins" (standard touches corner) or "loses" (forced infill at that end).
-// The longer span wins. Equal length → horizontal (front/back) wins.
-// Returns Map of spanKey → { startForceInfill, endForceInfill }
-function computeSpanConstraints(allSpans, tp) {
+// True if grid point (x,y) is an inner (concave) corner —
+// exactly 3 of the 4 surrounding cells are filled by panels.
+function isCellFilled(x, y, tp) {
+  return tp.some(p => p.gx<=x && x<p.gx+p.gw && p.gy<=y && y<p.gy+p.gh);
+}
+function isInnerCorner(x, y, tp) {
+  return [isCellFilled(x-1,y-1,tp), isCellFilled(x,y-1,tp),
+          isCellFilled(x-1,y,tp),   isCellFilled(x,y,tp)
+         ].filter(Boolean).length === 3;
+}
+
+// Get all panel boundary snap positions within a span
+function getSnaps(side, tp, spanStart, spanEnd) {
+  const isHoriz = side === 'front' || side === 'back';
+  const b = new Set([spanStart, spanEnd]);
+  for (const p of tp) {
+    const ps=isHoriz?p.gx:p.gy, pe=isHoriz?p.gx+p.gw:p.gy+p.gh;
+    if (ps>=spanStart&&ps<=spanEnd) b.add(ps);
+    if (pe>=spanStart&&pe<=spanEnd) b.add(pe);
+  }
+  return [...b].sort((a,b)=>a-b);
+}
+
+// For each inner corner shared between a horizontal and vertical span,
+// decide which side gets infill (the smaller gap side).
+// Returns { front:[], back:[], left:[], right:[] } of [start,end] infill zones.
+function computeInfillZones(tp, allSpans) {
+  const zones = { front:[], back:[], left:[], right:[] };
+
+  // Build span endpoint map: grid point → list of {side, span, atStart}
   const ptMap = new Map();
-  for (const [side,spans] of Object.entries(allSpans)) {
-    const isHoriz = side==='front'||side==='back';
+  const addPt = (pt, side, span, atStart) => {
+    const key = pt[0]+','+pt[1];
+    if (!ptMap.has(key)) ptMap.set(key, []);
+    ptMap.get(key).push({ pt, side, span, atStart });
+  };
+  for (const [side, spans] of Object.entries(allSpans)) {
+    const isHoriz = side === 'front' || side === 'back';
     for (const span of spans) {
-      const {start:s,end:e,edgeGu:eg}=span;
-      const pts=isHoriz?[[s,eg,true],[e,eg,false]]:[[eg,s,true],[eg,e,false]];
-      for (const [x,y,atStart] of pts) {
-        const k=x+','+y;
-        if(!ptMap.has(k)) ptMap.set(k,[]);
-        ptMap.get(k).push({side,span,atStart});
-      }
+      const {start:s, end:e, edgeGu:eg} = span;
+      if (isHoriz) { addPt([s,eg],side,span,true); addPt([e,eg],side,span,false); }
+      else         { addPt([eg,s],side,span,true); addPt([eg,e],side,span,false); }
     }
   }
-  const constraints=new Map();
-  const spanKey=sp=>sp.side+','+sp.span.start+','+sp.span.end+','+sp.span.edgeGu;
-  const ensureKey=k=>{ if(!constraints.has(k)) constraints.set(k,{sfi:false,efi:false}); };
 
-  for (const [,eps] of ptMap) {
-    const horiz=eps.filter(e=>e.side==='front'||e.side==='back');
-    const vert =eps.filter(e=>e.side==='left' ||e.side==='right');
-    if(!horiz.length||!vert.length) continue;
+  for (const [, eps] of ptMap) {
+    const [x,y] = eps[0].pt;
+    if (!isInnerCorner(x, y, tp)) continue;
+    const horiz = eps.filter(ep => ep.side==='front'||ep.side==='back');
+    const vert  = eps.filter(ep => ep.side==='left' ||ep.side==='right');
+    if (!horiz.length || !vert.length) continue;
+
     for (const hep of horiz) {
       for (const vep of vert) {
-        // Internal corner test: the two spans must be on different depth levels.
-        // At an outer corner, the horiz span's edgeGu and vert span's edgeGu
-        // together form the actual outer boundary — they're at the extreme in both axes.
-        // At an inner corner, at least one span is recessed inward.
-        // Check: is the horiz span's edgeGu the global extreme for its side?
-        // We detect this by checking if any other span on the same side shares this edgeGu
-        // AND whether the vert span's edgeGu is also at the global extreme for its side.
-        // Outer corner = both spans are at the global extreme for their respective sides.
-        // Internal corner test: exactly 3 of 4 surrounding cells are filled (concave)
-        const [cx,cy] = [hep.atStart ? hep.span.start : hep.span.end,
-                         hep.side==='front' ? hep.span.edgeGu : hep.span.edgeGu];
-        // cx,cy is the grid point — reconstruct from endpoint
-        // For horiz span: point = (along, edgeGu); for vert: (edgeGu, along)
-        const isHorizH = hep.side==='front'||hep.side==='back';
-        const px = isHorizH ? (hep.atStart?hep.span.start:hep.span.end) : hep.span.edgeGu;
-        const py = isHorizH ? hep.span.edgeGu : (hep.atStart?hep.span.start:hep.span.end);
-        const cellFilled=(x,y)=>tp.some(p=>p.gx<=x&&x<p.gx+p.gw&&p.gy<=y&&y<p.gy+p.gh);
-        const filledCount=[cellFilled(px-1,py-1),cellFilled(px,py-1),
-                           cellFilled(px-1,py),  cellFilled(px,py)].filter(Boolean).length;
-        if (filledCount !== 3) continue; // not a concave internal corner
-        // Internal corner — longer span wins, shorter gets forced infill
-        const hLen=hep.span.end-hep.span.start;
-        const vLen=vep.span.end-vep.span.start;
-        const loser = hLen >= vLen ? vep : hep;
-        const k=spanKey(loser);
-        ensureKey(k);
-        if(loser.atStart) constraints.get(k).sfi=true;
-        else constraints.get(k).efi=true;
-      }
-    }
-  }
-  return constraints;
-}
-
-// Best fill: maximise 8ft, then 4ft, remainder is infill
-function bestFill(spanGu) {
-  const s8=HR_WIDTHS['8ft']/FT2,s4=HR_WIDTHS['4ft']/FT2;
-  let best={n8:0,n4:0,inf:spanGu},bs=-Infinity;
-  for(let n8=Math.floor(spanGu/s8+0.001);n8>=0;n8--){
-    const rem=spanGu-n8*s8;if(rem<-0.01)continue;
-    const n4=Math.floor(rem/s4+0.001),inf=Math.max(0,rem-n4*s4);
-    const sc=n8*10000+n4*100-inf;
-    if(sc>bs){bs=sc;best={n8,n4,inf};}
-  }
-  return best;
-}
-
-// Fill span forcing infill at a constrained end, even if span divides exactly.
-// forceStart/forceEnd: this end MUST have infill (lost the corner decision).
-function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, forceStart, forceEnd) {
-  const stepsBlocked=stepItems
-    .map(s=>stepsSpan(s))
-    .map(([a,b])=>[Math.max(a,spanStart),Math.min(b,spanEnd)])
-    .filter(([a,b])=>a<b).sort((a,b)=>a[0]-b[0]);
-  const freeSegs=[]; let cur=spanStart;
-  for(const [bs,be] of stepsBlocked){if(cur<bs)freeSegs.push([cur,bs]);cur=Math.max(cur,be);}
-  if(cur<spanEnd) freeSegs.push([cur,spanEnd]);
-
-  for(const [segStart,segEnd] of freeSegs){
-    const spanGu=segEnd-segStart; if(spanGu<0.01) continue;
-    const s8=HR_WIDTHS['8ft']/FT2, s4=HR_WIDTHS['4ft']/FT2;
-    let infillStart=0, infillEnd=0, n8=0, n4=0;
-
-    if(forceStart||forceEnd){
-      // Fill the "free" portion with standards, forced infill takes the rest
-      // If forceStart: standards fill from right edge, infill takes left remainder
-      // If forceEnd: standards fill from left edge, infill takes right remainder
-      // If both: standards in middle, infill on both ends (split equally? use start)
-      const f=bestFill(spanGu);
-      n8=f.n8; n4=f.n4;
-      const stdGu=n8*s8+n4*s4;
-      const infGu=Math.max(0,spanGu-stdGu);
-      if(forceStart && !forceEnd){ infillStart=infGu; }
-      else if(forceEnd && !forceStart){ infillEnd=infGu; }
-      else{ infillStart=infGu; } // both: infill at start
-
-      // If inf==0 (span divides exactly) but we must force infill:
-      // remove one standard (prefer 4ft) to create infill
-      if(infGu<0.01 && (forceStart||forceEnd)){
-        for(const removeSz of ['4ft','8ft']){
-          const rGu=HR_WIDTHS[removeSz]/FT2;
-          if(rGu>spanGu+0.01) continue;
-          const f2=bestFill(spanGu-rGu);
-          const newInfGu=spanGu-f2.n8*s8-f2.n4*s4;
-          if(newInfGu>0.01){
-            n8=f2.n8; n4=f2.n4;
-            if(forceStart||(!forceEnd)) infillStart=newInfGu; else infillEnd=newInfGu;
-            break;
+        const hSnaps = getSnaps(hep.side, tp, hep.span.start, hep.span.end);
+        const vSnaps = getSnaps(vep.side, tp, vep.span.start, vep.span.end);
+        const hAfter  = hSnaps.filter(b=>b>x); const hBefore = hSnaps.filter(b=>b<x);
+        const vAfter  = vSnaps.filter(b=>b>y); const vBefore = vSnaps.filter(b=>b<y);
+        const hGap = hep.atStart
+          ? (hAfter.length  ? Math.min(...hAfter)  : x) - x
+          : x - (hBefore.length ? Math.max(...hBefore) : x);
+        const vGap = vep.atStart
+          ? (vAfter.length  ? Math.min(...vAfter)  : y) - y
+          : y - (vBefore.length ? Math.max(...vBefore) : y);
+        // Tiebreaker: when gaps are equal, calculate how much standard handrail
+        // length is preserved on the OTHER side for each assignment option.
+        // Assign infill to the side that preserves more standard coverage overall.
+        // If still equal, prefer assigning infill to vertical (left/right) sides
+        // to preserve horizontal (front/back) faces for standard handrails.
+        function standardFits(spanLen, gapLen) {
+          // How much standard handrail fits if infill takes gapLen from this span
+          const remaining = spanLen - gapLen;
+          let r = remaining * FT2;
+          let count = 0;
+          for (const sz of ['8ft', '4ft']) {
+            while (r >= HR_WIDTHS[sz] - 0.1) { count += HR_WIDTHS[sz]; r -= HR_WIDTHS[sz]; }
           }
+          return count;
+        }
+        const hSpanLen = hep.span.end - hep.span.start;
+        const vSpanLen = vep.span.end - vep.span.start;
+        // If h gets infill: h loses hGap, v gains full span as standard
+        const standardIfHInfill = standardFits(hSpanLen, hGap) + standardFits(vSpanLen, 0);
+        // If v gets infill: v loses vGap, h gains full span as standard
+        const standardIfVInfill = standardFits(hSpanLen, 0) + standardFits(vSpanLen, vGap);
+        const giveHInfill = (hGap < vGap) ||
+          (hGap === vGap && standardIfHInfill >= standardIfVInfill) ||
+          (hGap === vGap && standardIfHInfill === standardIfVInfill && (hep.side==='left'||hep.side==='right'));
+        if (giveHInfill) {
+          zones[hep.side].push(hep.atStart ? [x, x+hGap] : [x-hGap, x]);
+        } else {
+          zones[vep.side].push(vep.atStart ? [y, y+vGap] : [y-vGap, y]);
         }
       }
-    } else {
-      const f=bestFill(spanGu);
-      n8=f.n8; n4=f.n4; infillEnd=Math.max(0,spanGu-n8*s8-n4*s4);
     }
+  }
+  return zones;
+}
 
-    let pos=segStart;
-    const pushHr=(size)=>{
-      panels.push({id:nextId++,category:'handrail',tier:activeTierId,side,
-        edgeGu,edgeStart:spanStart,edgeLen:spanEnd-spanStart,alongGu:pos,size,hrType:'handrail'});
-      pos+=HR_WIDTHS[size]/FT2;
-    };
-    const pushInfill=(mm)=>{
-      if(mm>1) panels.push({id:nextId++,category:'handrail',tier:activeTierId,side,
-        edgeGu,edgeStart:spanStart,edgeLen:spanEnd-spanStart,alongGu:pos,
-        infillMm:mm,tubeCutMm:Math.max(0,mm-CLAMP_DEDUCT),hrType:'infill'});
-      pos+=mm/FT2;
-    };
+// Fill a span with handrails, respecting forced infill zones from inner corners.
+function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, infillZones, tp) {
+  const isHoriz = side === 'front' || side === 'back';
+  const snaps = getSnaps(side, tp, spanStart, spanEnd);
 
-    if(infillStart>0.01) pushInfill(infillStart*FT2);
-    for(let i=0;i<n8;i++) pushHr('8ft');
-    for(let i=0;i<n4;i++) pushHr('4ft');
-    if(infillEnd>0.01) pushInfill(infillEnd*FT2);
+  // Steps blocks
+  const stepsBlocked = stepItems
+    .map(s => stepsSpan(s))
+    .map(([a,b]) => [Math.max(a,spanStart), Math.min(b,spanEnd)])
+    .filter(([a,b]) => a<b).sort((a,b)=>a[0]-b[0]);
+  const freeSegs = []; let cur = spanStart;
+  for (const [bs,be] of stepsBlocked) {
+    if (cur<bs) freeSegs.push([cur,bs]); cur=Math.max(cur,be);
+  }
+  if (cur<spanEnd) freeSegs.push([cur,spanEnd]);
+
+  for (const [segStart, segEnd] of freeSegs) {
+    let pos = Math.round(segStart);
+    const sE = Math.round(segEnd);
+    while (pos < sE) {
+      // Forced infill zone — place standards where they fit strictly before the
+      // internal corner (hrEnd < izEnd), then infill the remainder up to the corner.
+      const iz = infillZones.find(([a,b]) => a<=pos && pos<b);
+      if (iz) {
+        const izEnd = iz[1];
+        let zonePos = pos;
+        let standardPlaced = true;
+        while (standardPlaced && zonePos < izEnd) {
+          standardPlaced = false;
+          for (const sz of ['8ft','4ft']) {
+            const hrEnd = zonePos + HR_WIDTHS[sz] / FT2;
+            if (hrEnd >= izEnd - 0.01) continue; // must not reach the corner
+            // No snap requirement inside infill zone
+            panels.push({ id:nextId++, category:'handrail', tier:activeTierId, side,
+              edgeGu, edgeStart:spanStart, edgeLen:spanEnd-spanStart,
+              alongGu:zonePos, size:sz, hrType:'handrail' });
+            zonePos = Math.round(zonePos + HR_WIDTHS[sz]/FT2);
+            standardPlaced = true; break;
+          }
+        }
+        // Infill the remainder up to the internal corner
+        if (zonePos < izEnd) {
+          const mm = (izEnd - zonePos) * FT2;
+          if (mm > 1) panels.push({ id:nextId++, category:'handrail', tier:activeTierId, side,
+            edgeGu, edgeStart:spanStart, edgeLen:spanEnd-spanStart, alongGu:zonePos,
+            infillMm:mm, tubeCutMm:Math.max(0,mm-CLAMP_DEDUCT), hrType:'infill' });
+        }
+        pos = izEnd; continue;
+      }
+      // Greedy: largest standard size whose end lands on a snap
+      let placed = false;
+      for (const sz of ['8ft','4ft']) {
+        const hrEnd = pos + HR_WIDTHS[sz] / FT2;
+        if (hrEnd > sE + 0.01) continue;
+        if (!snaps.some(b => Math.abs(b-hrEnd)<0.01)) continue;
+        panels.push({ id:nextId++, category:'handrail', tier:activeTierId, side,
+          edgeGu, edgeStart:spanStart, edgeLen:spanEnd-spanStart,
+          alongGu:pos, size:sz, hrType:'handrail' });
+        pos = Math.round(pos + HR_WIDTHS[sz]/FT2); placed=true; break;
+      }
+      if (!placed) {
+        const nxt = snaps.find(b=>b>pos);
+        if (nxt==null) break;
+        const mm = (nxt-pos)*FT2;
+        if (mm>1) panels.push({ id:nextId++, category:'handrail', tier:activeTierId, side,
+          edgeGu, edgeStart:spanStart, edgeLen:spanEnd-spanStart, alongGu:pos,
+          infillMm:mm, tubeCutMm:Math.max(0,mm-CLAMP_DEDUCT), hrType:'infill' });
+        pos = nxt;
+      }
+    }
   }
 }
 
@@ -1435,15 +1459,14 @@ function autoPopulateHandrails() {
   }
 
   const allSpans = {};
-  for (const s of ['front','back','left','right']) allSpans[s] = getOuterEdgeSpans(s, tp);
-  const constraints = computeSpanConstraints(allSpans, tp);
+  for (const side of Object.keys(sideChecks)) allSpans[side] = getOuterEdgeSpans(side, tp);
+  const infillZones = computeInfillZones(tp, allSpans);
+
   for (const [side, checked] of Object.entries(sideChecks)) {
     if (!checked) continue;
     const stepItems = panels.filter(p => p.category === 'steps' && p.tier === activeTierId && p.side === side);
-    for (const span of allSpans[side]) {
-      const k = side+','+span.start+','+span.end+','+span.edgeGu;
-      const c = constraints.get(k) || {sfi:false,efi:false};
-      placeHandrailsOnSpan(side, span.edgeGu, span.start, span.end, stepItems, c.sfi, c.efi);
+    for (const { edgeGu, start, end } of allSpans[side]) {
+      placeHandrailsOnSpan(side, edgeGu, start, end, stepItems, infillZones[side] || [], tp);
     }
   }
 
@@ -1475,11 +1498,9 @@ function updateHrModalPreview() {
     panels = [...panels];
     const previewAllSpans = {};
     for (const s of ['front','back','left','right']) previewAllSpans[s] = getOuterEdgeSpans(s, tp);
-    const previewConstraints = computeSpanConstraints(previewAllSpans, tp);
-    for (const span of outerSpans) {
-      const k = side+','+span.start+','+span.end+','+span.edgeGu;
-      const c = previewConstraints.get(k) || {sfi:false,efi:false};
-      placeHandrailsOnSpan(side, span.edgeGu, span.start, span.end, stepItems, c.sfi, c.efi);
+    const previewZones = computeInfillZones(tp, previewAllSpans);
+    for (const { edgeGu, start, end } of outerSpans) {
+      placeHandrailsOnSpan(side, edgeGu, start, end, stepItems, previewZones[side] || [], tp);
     }
     const newHr = panels.filter(p => p.category === 'handrail' && p.tier === activeTierId && p.side === side && !savedPanels.includes(p));
     let u8 = 0, u4 = 0, infillMm = 0;

@@ -829,6 +829,7 @@
         <span style="font-size:11px;">Grid: 2ft</span>
         <span id="cursor-pos">—</span>
         <span id="pending-info" style="color:var(--accent); font-size:11px;"></span>
+        <span id="footprint-info" style="margin-left:auto; font-size:12px; color:#ffffff; font-family:'Barlow Condensed',sans-serif; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;"></span>
       </div>
 
       <!-- Side view controls -->
@@ -2393,9 +2394,37 @@ function recalcSchedule() {
 
   // ── Steps & Handrail schedule ──
   appendStepsHrSchedule();
+  updateFootprint();
 
   redraw();
   if (activeView === 'side') drawSideView();
+}
+
+function updateFootprint() {
+  const el = document.getElementById('footprint-info');
+  if (!el) return;
+  const panelItems = panels.filter(p => p.category === 'panel');
+  if (!panelItems.length) { el.textContent = ''; return; }
+
+  // Find the tier with the largest area
+  let bestTier = null, bestArea = 0;
+  for (const t of tiers) {
+    const tp = panelItems.filter(p => p.tier === t.id);
+    if (!tp.length) continue;
+    const minX = Math.min(...tp.map(p => p.gx));
+    const maxX = Math.max(...tp.map(p => p.gx + p.gw));
+    const minY = Math.min(...tp.map(p => p.gy));
+    const maxY = Math.max(...tp.map(p => p.gy + p.gh));
+    const area = (maxX - minX) * (maxY - minY);
+    if (area > bestArea) { bestArea = area; bestTier = { tp, minX, maxX, minY, maxY }; }
+  }
+  if (!bestTier) { el.textContent = ''; return; }
+
+  const wFt = (bestTier.maxX - bestTier.minX) * 2;
+  const dFt = (bestTier.maxY - bestTier.minY) * 2;
+  const wM  = (wFt * 0.3048).toFixed(2);
+  const dM  = (dFt * 0.3048).toFixed(2);
+  el.textContent = `Litedeck platform — ${wFt}' × ${dFt}' (${wM}m × ${dM}m)`;
 }
 
 // ── Steps & Handrail schedule append ─────────────────────────────────────────
@@ -2888,7 +2917,22 @@ function printSchedule() {
   const widthMm = Math.round((maxGx - minGx) * FT2);
   const depthMm = Math.round((maxGy - minGy) * FT2);
 
-  // ── Tier summary string ──
+  // ── Largest tier footprint (matches toolbar display) ──
+  let bestTierPrint = null, bestAreaPrint = 0;
+  for (const t of tiers) {
+    const tp = panels.filter(p => p.category === 'panel' && p.tier === t.id);
+    if (!tp.length) continue;
+    const mnX = Math.min(...tp.map(p => p.gx));
+    const mxX = Math.max(...tp.map(p => p.gx + p.gw));
+    const mnY = Math.min(...tp.map(p => p.gy));
+    const mxY = Math.max(...tp.map(p => p.gy + p.gh));
+    const area = (mxX - mnX) * (mxY - mnY);
+    if (area > bestAreaPrint) bestAreaPrint = area, bestTierPrint = { mnX, mxX, mnY, mxY };
+  }
+  const ftpW  = bestTierPrint ? (bestTierPrint.mxX - bestTierPrint.mnX) * 2 : widthFt;
+  const ftpD  = bestTierPrint ? (bestTierPrint.mxY - bestTierPrint.mnY) * 2 : depthFt;
+  const ftpWm = (ftpW * 0.3048).toFixed(2);
+  const ftpDm = (ftpD * 0.3048).toFixed(2);
   const tierSummary = tiers
     .filter(t => panels.some(p => p.category === 'panel' && p.tier === t.id))
     .map(t => `${t.label} @ ${t.finishedHeight}mm`)
@@ -3087,7 +3131,7 @@ function printSchedule() {
   </head><body>
     <h1>Litedeck Equipment Schedule</h1>
     <div class="meta">Raven Staging &middot; Generated ${now}</div>
-    <div class="dims">${widthFt}ft &times; ${depthFt}ft &nbsp;(${widthMm}mm &times; ${depthMm}mm)</div>
+    <div class="dims">Litedeck platform &mdash; ${ftpW}' &times; ${ftpD}' (${ftpWm}m &times; ${ftpDm}m)</div>
     <div class="tiers">${tierSummary}</div>
 
     <h2>Equipment Totals</h2>

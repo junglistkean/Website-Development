@@ -202,9 +202,9 @@ async function pushTasks() {
   document.getElementById('pushBtn').disabled = true;
 
   try {
-    const r = await fetch(WORKER + '/api/tasks', {
+    const r = await fetch('https://task-receiver.e-kean.workers.dev/push', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-push-token': 'raven-push-2026' },
       body: JSON.stringify(data)
     });
     const json = await r.json();

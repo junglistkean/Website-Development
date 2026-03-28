@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raven — Task Push</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold: #c9a84c;
+    --gold-dim: #a07830;
+    --gold-bg: #1a1408;
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --surface2: #1c1c1c;
+    --border: rgba(201,168,76,0.18);
+    --text: #e8e0cc;
+    --muted: #7a7060;
+    --success: #2e6b3e;
+    --danger: #c0392b;
+  }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+    width: 100%;
+    max-width: 680px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    width: 32px;
+    height: 32px;
+    background: var(--gold-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  h1 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    height: 240px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 12px;
+    border-radius: 6px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { border-color: var(--gold-dim); }
+  textarea::placeholder { color: var(--muted); }
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid var(--border);
+  }
+  .btn-push {
+    background: var(--gold-bg);
+    color: var(--gold);
+  }
+  .btn-push:hover { background: rgba(201,168,76,0.12); border-color: var(--gold-dim); }
+  .btn-push:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-current {
+    background: none;
+    color: var(--muted);
+  }
+  .btn-current:hover { color: var(--text); border-color: rgba(201,168,76,0.3); }
+  .status {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    display: none;
+  }
+  .status.success { background: rgba(46,107,62,0.2); border: 1px solid rgba(46,107,62,0.4); color: #5cb87a; display: block; }
+  .status.error { background: rgba(192,57,43,0.2); border: 1px solid rgba(192,57,43,0.4); color: #e74c3c; display: block; }
+  .status.loading { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); display: block; }
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  .current-display {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+  .current-display.visible { display: block; }
+  .lane-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(201,168,76,0.08);
+    font-size: 12px;
+  }
+  .lane-name { color: var(--gold); font-weight: 600; letter-spacing: 0.05em; font-size: 11px; text-transform: uppercase; }
+  .lane-count { color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="logo">R</div>
+    <div>
+      <h1>Task Board Push</h1>
+      <div class="subtitle">tasks-worker.e-kean.workers.dev</div>
+    </div>
+  </div>
+
+  <label>Paste JSON payload from Claude</label>
+  <textarea id="payload" placeholder='{"lanes": [...]}' spellcheck="false"></textarea>
+  <p class="hint">Paste the JSON payload provided by Claude, then click Push to update the live task board.</p>
+
+  <div class="actions">
+    <button class="btn-current" onclick="loadCurrent()">Load Current</button>
+    <button class="btn-push" id="pushBtn" onclick="pushTasks()">Push to Board</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="current-display" id="currentDisplay">
+    <label style="margin-bottom:12px;">Current board state</label>
+    <div id="laneList"></div>
+  </div>
+</div>
+
+<script>
+const WORKER = 'https://tasks-worker.e-kean.workers.dev';
+
+async function pushTasks() {
+  const raw = document.getElementById('payload').value.trim();
+  if (!raw) { showStatus('Paste a JSON payload first.', 'error'); return; }
+
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { showStatus('Invalid JSON: ' + e.message, 'error'); return; }
+  if (!data.lanes) { showStatus('JSON must have a "lanes" key.', 'error'); return; }
+
+  showStatus('Pushing to board...', 'loading');
+  document.getElementById('pushBtn').disabled = true;
+
+  try {
+    const r = await fetch(WORKER + '/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await r.json();
+    if (json.ok) {
+      const total = data.lanes.reduce((s, l) => s + l.tasks.length, 0);
+      showStatus(`Done. ${data.lanes.length} lanes, ${total} tasks pushed successfully.`, 'success');
+      document.getElementById('payload').value = '';
+      showSummary(data.lanes);
+    } else {
+      showStatus('Worker returned an error. Check the console.', 'error');
+    }
+  } catch(e) {
+    showStatus('Push failed: ' + e.message, 'error');
+  }
+  document.getElementById('pushBtn').disabled = false;
+}
+
+async function loadCurrent() {
+  showStatus('Loading current board...', 'loading');
+  try {
+    const r = await fetch(WORKER + '/api/tasks');
+    const json = await r.json();
+    const lanes = json.lanes || [];
+    showSummary(lanes);
+    showStatus(`Loaded. ${lanes.length} lanes found.`, 'success');
+  } catch(e) {
+    showStatus('Could not load current board: ' + e.message, 'error');
+  }
+}
+
+function showSummary(lanes) {
+  const container = document.getElementById('laneList');
+  container.innerHTML = lanes.map(l => {
+    const done = l.tasks.filter(t => t.done).length;
+    return `<div class="lane-summary">
+      <span class="lane-name">${esc(l.name)}</span>
+      <span class="lane-count">${done}/${l.tasks.length} done</span>
+    </div>`;
+  }).join('');
+  document.getElementById('currentDisplay').classList.add('visible');
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  el.textContent = msg;
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.getElementById('payload').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) pushTasks();
+});
+</script>
+</body>
+</html>

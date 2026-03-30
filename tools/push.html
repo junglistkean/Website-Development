@@ -238,10 +238,11 @@ async function loadCurrent() {
 function showSummary(lanes) {
   const container = document.getElementById('laneList');
   container.innerHTML = lanes.map(l => {
-    const done = l.tasks.filter(t => t.done).length;
+    const tasks = l.tasks || [];
+    const done = tasks.filter(t => t.done).length;
     return `<div class="lane-summary">
       <span class="lane-name">${esc(l.name)}</span>
-      <span class="lane-count">${done}/${l.tasks.length} done</span>
+      <span class="lane-count">${done}/${tasks.length} done</span>
     </div>`;
   }).join('');
   document.getElementById('currentDisplay').classList.add('visible');

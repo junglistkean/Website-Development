@@ -625,6 +625,7 @@
     <button class="btn btn-ghost" id="btn-simple-mode" onclick="toggleSimpleMode()">Simple View</button>
     <button class="btn btn-ghost" id="btn-view-plan" onclick="setView('plan')">Plan View</button>
     <button class="btn btn-ghost" id="btn-view-side" onclick="trySetSideView()">Side View</button>
+    <button class="btn btn-ghost" id="btn-view-bracing" onclick="setView('bracing')">⬡ Bracing</button>
     <button class="btn btn-ghost" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
     <button class="btn btn-ghost" onclick="clearStage()">Clear</button>
     <button class="btn btn-primary" onclick="printSchedule()">Print Schedule</button>
@@ -865,6 +866,33 @@
     <div id="sideViewContainer">
       <canvas id="sideCanvas"></canvas>
     </div>
+
+    <!-- Bracing view -->
+    <div id="bracingViewContainer" style="display:none; flex:1; overflow:auto; padding:24px; flex-direction:column; gap:16px;">
+      <!-- Toolbar row -->
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex-shrink:0;">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:12px;
+          letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Tier:</span>
+        <div id="bracing-tier-btns" style="display:flex;gap:6px;"></div>
+        <div style="margin-left:12px; display:flex; gap:4px;">
+          <button class="tier-btn active-tier" id="bv-btn-plan"   onclick="setBracingSubView('plan')">Plan view</button>
+          <button class="tier-btn"             id="bv-btn-elevX"  onclick="setBracingSubView('elevX')">Elevation — width (X)</button>
+          <button class="tier-btn"             id="bv-btn-elevY"  onclick="setBracingSubView('elevY')">Elevation — depth (Y)</button>
+        </div>
+        <div id="bracing-legend" style="margin-left:auto; display:flex; gap:12px; align-items:center; font-size:11px; color:var(--muted);">
+          <span id="leg-plan"><span style="display:inline-block;width:16px;height:3px;background:#22c55e;vertical-align:middle;border-radius:2px;margin-right:4px;"></span>Horizontal tie (perimeter)</span>
+          <span id="leg-elev" style="display:none;"><span style="display:inline-block;width:16px;height:3px;background:#f5a623;vertical-align:middle;border-radius:2px;margin-right:4px;"></span>Diagonal brace</span>
+        </div>
+      </div>
+      <!-- Plan view canvas -->
+      <canvas id="bracingCanvasPlan" style="display:block; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <!-- Elevation X canvas (looking across stage width — shows X-axis diagonals) -->
+      <canvas id="bracingCanvasElev"  style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <!-- Elevation Y canvas (looking along stage depth — shows Y-axis diagonals) -->
+      <canvas id="bracingCanvasElevY" style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <!-- Schedule -->
+      <div id="bracing-content" style="max-width:900px;"></div>
+    </div>
   </div>
 
   <!-- ── Schedule panel ── -->
@@ -980,14 +1008,20 @@ function getTierHeight(tierId) {
 // ── View switching ────────────────────────────────────────────────────────────
 function setView(v) {
   activeView = v;
-  document.getElementById('canvas-scroll').style.display    = v === 'plan' ? 'block' : 'none';
-  document.getElementById('sideViewContainer').style.display = v === 'side' ? 'flex' : 'none';
+  document.getElementById('canvas-scroll').style.display       = v === 'plan' ? 'block' : 'none';
+  document.getElementById('sideViewContainer').style.display    = v === 'side' ? 'flex' : 'none';
+  document.getElementById('bracingViewContainer').style.display = v === 'bracing' ? 'flex' : 'none';
   document.getElementById('plan-toolbar-content').style.display = v === 'plan' ? 'flex' : 'none';
   document.getElementById('side-toolbar-content').style.display = v === 'side' ? 'flex' : 'none';
-  document.getElementById('tier-toolbar-row').style.display  = v === 'plan' ? 'flex' : 'none';
+  document.getElementById('tier-toolbar-row').style.display     = v === 'plan' ? 'flex' : 'none';
   document.getElementById('btn-view-plan').classList.toggle('active', v === 'plan');
   document.getElementById('btn-view-side').classList.toggle('active', v === 'side');
+  document.getElementById('btn-view-bracing').classList.toggle('active', v === 'bracing');
   if (v === 'side') drawSideView();
+  if (v === 'bracing') renderBracingView();
+  // Hide watermark overlay when in bracing view (it's position:absolute and bleeds through)
+  const wm = document.getElementById('wm-img');
+  if (wm) wm.style.display = (v === 'bracing') ? 'none' : (wmMode !== 'none' ? 'block' : 'none');
 }
 
 // Returns true if any tier has more than one disconnected panel island
@@ -2392,8 +2426,8 @@ function recalcSchedule() {
   document.getElementById('tot-all').textContent    = totalLegs;
   document.getElementById('tot-panels').textContent = totalPanels;
 
-  // ── Steps & Handrail schedule ──
-  appendStepsHrSchedule();
+  // ── Bracing schedule ──
+  appendBracingSchedule();
   updateFootprint();
 
   redraw();
@@ -2495,6 +2529,94 @@ function appendStepsHrSchedule() {
 
   const body = document.getElementById('schedule-body');
   body.innerHTML += html;
+}
+
+function appendBracingSchedule() {
+  const results = calcBracing();
+  if (!results || !results.length) return;
+  const calcResults = results.filter(r => r.status === 'calc');
+  if (!calcResults.length) return;
+
+  let html = `<div class="tier-schedule-block">
+    <div class="tier-schedule-label" style="color:var(--accent)">⬡ Bracing — Scaffold Tube</div>`;
+
+  for (const r of calcResults) {
+    html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;
+      letter-spacing:0.08em;font-family:'Barlow Condensed',sans-serif;font-weight:700;
+      margin:8px 0 4px;">${r.tier.label} — ${r.finH}mm</div>`;
+
+    // Diagonal tubes
+    if (Object.keys(r.diagByStd).length) {
+      html += `<table class="schedule-table"><tbody>`;
+      for (const [, g] of Object.entries(r.diagByStd)) {
+        const tubeDesc = g.tubeBreakdown.map(t => t.label).join(' + ');
+        html += `<tr>
+          <td>Diagonal brace${g.angle ? ` (${g.angle}°)` : ''}</td>
+          <td>${tubeDesc}</td>
+          <td>${g.tubes}</td></tr>
+        <tr><td colspan="2" style="color:var(--muted);font-size:10px;">Swivel clamps</td>
+          <td>${g.swivelClamps}</td></tr>`;
+        if (g.sleeveClamps) html += `<tr><td colspan="2" style="color:var(--muted);font-size:10px;">Sleeve clamps</td>
+          <td>${g.sleeveClamps}</td></tr>`;
+      }
+      html += `</tbody></table>`;
+    }
+
+    // Plan bracing tubes
+    if (r.totalPlanTubes > 0) {
+      const planGroups = {};
+      for (const b of r.planBraces) {
+        if (b.level !== 'Base level') continue;
+        const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0 };
+        const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+        if (!planGroups[k]) planGroups[k] = { tubeKey: k, tubeBreakdown: sol.tubes.map(t => ({ mm: t, label: tubeLengthLabel(t) })), tubes: 0, raClamps: 0, sleeveClamps: 0, extraRAClamps: 0 };
+        planGroups[k].tubes += sol.tubes.length;
+        planGroups[k].raClamps += b.rightAngleClamps;
+        planGroups[k].sleeveClamps += sol.sleeveClamps;
+        planGroups[k].extraRAClamps += sol.extraRAClamps;
+      }
+      html += `<table class="schedule-table"><tbody>`;
+      for (const [, g] of Object.entries(planGroups)) {
+        const tubeDesc = g.tubeBreakdown.map(t => t.label).join(' + ');
+        html += `<tr>
+          <td>Horizontal tie</td>
+          <td>${tubeDesc}</td>
+          <td>${g.tubes}</td></tr>
+        <tr><td colspan="2" style="color:var(--muted);font-size:10px;">Right-angle clamps</td>
+          <td>${g.raClamps}</td></tr>`;
+        if (g.sleeveClamps) html += `<tr><td colspan="2" style="color:var(--muted);font-size:10px;">Sleeve clamps</td>
+          <td>${g.sleeveClamps}</td></tr>`;
+        if (g.extraRAClamps) html += `<tr><td colspan="2" style="color:var(--muted);font-size:10px;">Extra RA clamps (tube join)</td>
+          <td>${g.extraRAClamps}</td></tr>`;
+      }
+      html += `</tbody></table>`;
+    }
+  }
+
+  // Grand totals across all tiers
+  const allDiagTubes    = calcResults.reduce((a,r) => a + r.totalDiagTubes, 0);
+  const allSwivelClamps = calcResults.reduce((a,r) => a + r.totalSwivelClamps, 0);
+  const allSleeveClamps = calcResults.reduce((a,r) => a + (r.totalSleeveClamps||0) + (r.totalPlanSleeveClamps||0), 0);
+  const allPlanTubes    = calcResults.reduce((a,r) => a + r.totalPlanTubes, 0);
+  const allRAClamps     = calcResults.reduce((a,r) => a + r.totalRAClamps, 0);
+  const allExtraRA      = calcResults.reduce((a,r) => a + (r.totalExtraRAClamps||0), 0);
+
+  html += `<table class="schedule-table" style="margin-top:6px;border-top:1px solid var(--border)">
+    <tbody>
+      <tr><td colspan="2" style="font-weight:700">All scaffold tube (bracing)</td>
+          <td style="font-weight:700">${allDiagTubes + allPlanTubes}</td></tr>
+      <tr><td colspan="2" style="color:var(--muted);font-size:10px;">Swivel clamps</td>
+          <td>${allSwivelClamps}</td></tr>
+      ${allSleeveClamps ? `<tr><td colspan="2" style="color:var(--muted);font-size:10px;">Sleeve clamps</td>
+          <td>${allSleeveClamps}</td></tr>` : ''}
+      <tr><td colspan="2" style="color:var(--muted);font-size:10px;">Right-angle clamps</td>
+          <td>${allRAClamps}</td></tr>
+      ${allExtraRA ? `<tr><td colspan="2" style="color:var(--muted);font-size:10px;">Extra RA clamps (joins)</td>
+          <td>${allExtraRA}</td></tr>` : ''}
+    </tbody></table>
+  </div>`;
+
+  document.getElementById('schedule-body').innerHTML += html;
 }
 
 
@@ -3076,6 +3198,95 @@ function printSchedule() {
     }
   }
 
+  // ── Bracing totals for Equipment Totals section ──
+  const bracingResults = calcBracing() || [];
+  const bracingCalc = bracingResults.filter(r => r.status === 'calc');
+  const bTotalDiagTubes    = bracingCalc.reduce((a,r) => a + r.totalDiagTubes, 0);
+  const bTotalSwivelClamps = bracingCalc.reduce((a,r) => a + r.totalSwivelClamps, 0);
+  const bTotalSleeveClamps = bracingCalc.reduce((a,r) => a + (r.totalSleeveClamps||0) + (r.totalPlanSleeveClamps||0), 0);
+  const bTotalPlanTubes    = bracingCalc.reduce((a,r) => a + r.totalPlanTubes, 0);
+  const bTotalRAClamps     = bracingCalc.reduce((a,r) => a + r.totalRAClamps, 0);
+  const bTotalExtraRA      = bracingCalc.reduce((a,r) => a + (r.totalExtraRAClamps||0), 0);
+
+  if (bracingCalc.length) {
+    totalsRows += section('Bracing — Scaffold Tube');
+    totalsRows += row(bTotalDiagTubes,    'Diagonal brace tubes (48.3mm OD)');
+    totalsRows += row(bTotalSwivelClamps, 'Swivel clamps (diagonal braces)');
+    if (bTotalSleeveClamps) totalsRows += row(bTotalSleeveClamps, 'Sleeve clamps (tube joins)');
+    totalsRows += row(bTotalPlanTubes,    'Horizontal tie tubes (48.3mm OD)');
+    totalsRows += row(bTotalRAClamps,     'Right-angle clamps (horizontal ties)');
+    if (bTotalExtraRA) totalsRows += row(bTotalExtraRA, 'Extra right-angle clamps (tube joins)');
+  }
+
+  // ── Bracing detail table for print ──
+  let bracingHtml = '';
+  for (const r of bracingCalc) {
+    bracingHtml += `<tr><td colspan="5" style="background:#f0f0f0;font-weight:700;font-size:10pt;
+      letter-spacing:0.06em;text-transform:uppercase;padding:8px 10px;
+      border-bottom:2px solid #000;">${r.tier.label} — ${r.finH}mm finished height</td></tr>`;
+
+    bracingHtml += `<tr><td colspan="5" style="font-size:9pt;color:#555;padding:4px 10px 8px;">
+      Leg ${r.legMm > 0 ? Math.round(r.legMm)+'mm' : 'bespoke'} &bull;
+      Exposed tube ${r.exposedTube > 0 ? Math.round(r.exposedTube)+'mm' : '—'} &bull;
+      Horiz tie at ${r.horizBraceH}mm AGL &bull;
+      Vert span ${r.vertSpan > 0 ? Math.round(r.vertSpan)+'mm' : '—'}
+    </td></tr>`;
+
+    // Diagonal braces — show tube combination
+    for (const [, g] of Object.entries(r.diagByStd)) {
+      const angleNote = g.angleOk ? `${g.angle}°` : `${g.angle}° ⚠`;
+      const tubeDesc = g.tubeBreakdown ? g.tubeBreakdown.map(t => t.label).join(' + ') : (g.stdMm/1000).toFixed(1)+'m';
+      const joinDesc = g.solution && g.solution.joinType === 'sleeve'
+        ? ` (sleeve join, ${g.solution.overMm}mm overshoot)` : '';
+      bracingHtml += `<tr>
+        <td class="qty">${g.tubes} no.</td>
+        <td>Diagonal brace tube${joinDesc}</td>
+        <td><strong>${tubeDesc}</strong> (calc ${g.calcMm}mm)</td>
+        <td>${angleNote}</td>
+        <td>${g.swivelClamps} swivel clamps${g.sleeveClamps ? `, ${g.sleeveClamps} sleeve clamps` : ''}</td></tr>`;
+    }
+
+    // Plan bracing — show tube combination
+    const planPrint = {};
+    for (const b of r.planBraces) {
+      if (b.level !== 'Base level') continue;
+      const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
+      const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+      if (!planPrint[k]) planPrint[k] = {
+        tubeDesc: sol.tubes.map(t => tubeLengthLabel(t)).join(' + '),
+        calcMm: b.calcLengthMm, joinType: sol.joinType,
+        overMm: sol.overMm, tubes: 0, raClamps: 0,
+        sleeveClamps: 0, extraRAClamps: 0
+      };
+      planPrint[k].tubes += sol.tubes.length;
+      planPrint[k].raClamps += b.rightAngleClamps;
+      planPrint[k].sleeveClamps += sol.sleeveClamps;
+      planPrint[k].extraRAClamps += sol.extraRAClamps;
+    }
+    for (const [, g] of Object.entries(planPrint)) {
+      const joinDesc = g.joinType === 'sleeve' ? ` (sleeve join, ${g.overMm}mm overshoot)`
+        : g.joinType === 'rightAngle' ? ' (RA-clamped join)' : '';
+      const fittings = [
+        `${g.raClamps} right-angle clamps`,
+        g.sleeveClamps ? `${g.sleeveClamps} sleeve clamps` : '',
+        g.extraRAClamps ? `${g.extraRAClamps} extra RA clamps at join` : ''
+      ].filter(Boolean).join(', ');
+      bracingHtml += `<tr>
+        <td class="qty">${g.tubes} no.</td>
+        <td>Horizontal tie${joinDesc}</td>
+        <td><strong>${g.tubeDesc}</strong> (calc ${g.calcMm}mm)</td>
+        <td>At ${r.horizBraceH}mm AGL</td>
+        <td>${fittings}</td></tr>`;
+    }
+
+    if (r.angleWarnings.length) {
+      bracingHtml += `<tr><td colspan="5" style="font-size:9pt;color:#c00;padding:4px 10px 8px;">
+        ⚠ ${r.angleWarnings.length} brace(s) have angles outside 35°–55°.
+        Review with a competent person before installation.
+      </td></tr>`;
+    }
+  }
+
   // ── Build reference table ──
   // Group by tier label for display
   const buildTiers = [...new Set(buildRows.map(r => r.tier))];
@@ -3148,6 +3359,21 @@ function printSchedule() {
     </div>
 
     ${elevationImgs}
+
+    ${bracingHtml ? `
+    <div class="build-section">
+      <h2>Bracing Schedule</h2>
+      <p style="font-size:9pt;color:#555;margin-bottom:12px;">
+        All tube: 48.3mm OD scaffold. Diagonal braces: one per position, leaning inward from corners.
+        Structural design to be verified by a competent person per IStructE TDS 4th Ed. 2017.
+      </p>
+      <table>
+        <thead><tr>
+          <th>Qty</th><th>Item</th><th>Length</th><th>Angle / Height</th><th>Fittings</th>
+        </tr></thead>
+        <tbody>${bracingHtml}</tbody>
+      </table>
+    </div>` : ''}
   </body></html>`);
   printWin.onload = () => printWin.print();
   printWin.document.close();
@@ -3322,6 +3548,1039 @@ drawSideView();
     </div>
   </div>`;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BRACING ENGINE — IStructE TDS 4th Ed. 2017 + Raven Staging practice
+// Thresholds: < 900mm no bracing; 900–1600mm every 3rd bay; > 1600mm every other.
+// Diagonal bracing: both X and Y axes, corners-inward, no more than 2 consecutive
+//   unbraced bays. Runs leg-to-leg within each row/column.
+// Plan (horizontal) ties: perimeter only at screwjack height.
+// Two views: Plan view shows horizontal ties; Elevation view shows diagonal geometry.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// All stock tube lengths available for bracing (mm), sorted ascending.
+// Includes all leg lengths + bracing-specific lengths. Max 6000mm.
+const BRACE_STOCK_MM = [
+  304.8, 457.2, 609.6, 762, 914.4, 1066.8, 1219.2,
+  1371.6, 1524, 1676.4, 1828.8, 1981.2, 2133.6,
+  2438.4,  // 8ft
+  3000,    // 3m
+  3048,    // 10ft
+  4000,    // 4m
+  5000,    // 5m
+  6000     // 6m (max)
+];
+
+// Legacy list used by nextStdTube (kept for non-bracing uses)
+const STD_TUBE_LENGTHS = [1000,1500,2000,2500,3000,3900,4800,6000];
+
+function nextStdTube(mm) {
+  for (const s of STD_TUBE_LENGTHS) if (s >= mm) return s;
+  return Math.ceil(mm / 100) * 100;
+}
+
+// Find the nearest single stock length to a required mm (for diagonal/short braces)
+function nearestStockTube(mm) {
+  for (const s of BRACE_STOCK_MM) if (s >= mm) return s;
+  return 6000; // cap at max
+}
+
+// ── Tube combination solver ──────────────────────────────────────────────────
+// Given a required span (calcLengthMm), find the most efficient combination of
+// stock lengths (each ≤ 6000mm) and determine the join method.
+//
+// Returns: {
+//   tubes: [{ mm, label }],   — stock lengths to order
+//   totalMm: number,          — sum of all tubes
+//   overMm: number,           — overshoot beyond required span (may be 0 or negative)
+//   joinType: 'none'|'sleeve'|'rightAngle',
+//   joints: number,           — number of joins needed (tubes.length - 1)
+//   sleeveClamps: number,     — sleeve clamps required
+//   extraRAClamps: number,    — extra right-angle clamps at joints
+//   feasible: boolean         — can this be achieved within constraints?
+// }
+//
+// Rules:
+// 1. Single tube: if any stock length ≥ calcLengthMm and ≤ calcLengthMm + 50mm → use it, no join
+//    (allow up to 50mm overshoot for single tube — it can overhang slightly)
+// 2. Multi-tube sleeve join: find combination of stock lengths whose sum is within
+//    calcLengthMm to calcLengthMm + 50mm. Use sleeve clamps (1 per joint).
+//    Joint must land at a leg position — but for simplicity we flag sleeve as viable
+//    when the cumulative sum of any prefix hits within ±50mm of an intermediate leg position.
+//    If not, use right-angle clamps at the joint leg instead.
+// 3. Multi-tube RA join: when sleeve isn't viable (sum overshoots by > 50mm or
+//    no stock combination lands cleanly) — use right-angle clamps at each joint leg.
+//
+// Simplified practical version:
+// - Find fewest tubes whose sum is ≥ calcLengthMm
+// - Check if sum ≤ calcLengthMm + 50 → sleeve viable
+// - Otherwise → RA clamps at joint
+
+function solveTubeCombination(calcLengthMm) {
+  const MAX = 6000;
+  const OVERSHOOT = 50; // mm tolerance
+
+  // Case 1: single tube fits
+  for (const s of BRACE_STOCK_MM) {
+    if (s >= calcLengthMm && s <= calcLengthMm + OVERSHOOT) {
+      return { tubes: [s], totalMm: s, overMm: s - calcLengthMm,
+               joinType: 'none', joints: 0, sleeveClamps: 0, extraRAClamps: 0, feasible: true };
+    }
+  }
+  // Single tube that's longer (but still just one tube, overshoot > 50mm)
+  for (const s of BRACE_STOCK_MM) {
+    if (s >= calcLengthMm) {
+      return { tubes: [s], totalMm: s, overMm: s - calcLengthMm,
+               joinType: 'none', joints: 0, sleeveClamps: 0, extraRAClamps: 0, feasible: true };
+    }
+  }
+
+  // Case 2: need multiple tubes — find best 2-tube combination first, then 3-tube
+  for (let numTubes = 2; numTubes <= 4; numTubes++) {
+    const result = findCombination(calcLengthMm, numTubes, OVERSHOOT);
+    if (result) return result;
+  }
+
+  // Fallback: use as many 6m tubes as needed
+  const n = Math.ceil(calcLengthMm / MAX);
+  const totalMm = n * MAX;
+  const overMm = totalMm - calcLengthMm;
+  const joinType = overMm <= OVERSHOOT ? 'sleeve' : 'rightAngle';
+  return {
+    tubes: Array(n).fill(MAX),
+    totalMm, overMm,
+    joinType, joints: n - 1,
+    sleeveClamps: joinType === 'sleeve' ? n - 1 : 0,
+    extraRAClamps: joinType === 'rightAngle' ? (n - 1) * 2 : 0,
+    feasible: true
+  };
+}
+
+function findCombination(targetMm, numTubes, overshootMm) {
+  // Greedy: use largest tubes first, find combination summing to target ± overshoot
+  // For 2 tubes: iterate all pairs of stock lengths
+  if (numTubes === 2) {
+    // Try all pairs, prefer those closest to target from above
+    let best = null;
+    for (let i = BRACE_STOCK_MM.length - 1; i >= 0; i--) {
+      const a = BRACE_STOCK_MM[i];
+      if (a >= targetMm) continue; // single tube covered above
+      for (let j = i; j >= 0; j--) {
+        const b = BRACE_STOCK_MM[j];
+        const total = a + b;
+        if (total >= targetMm) {
+          const over = total - targetMm;
+          if (!best || over < best.over) {
+            best = { tubes: [Math.max(a,b), Math.min(a,b)], total, over };
+          }
+        }
+      }
+    }
+    if (best) {
+      const joinType = best.over <= overshootMm ? 'sleeve' : 'rightAngle';
+      return {
+        tubes: best.tubes, totalMm: best.total, overMm: best.over,
+        joinType, joints: 1,
+        sleeveClamps: joinType === 'sleeve' ? 1 : 0,
+        extraRAClamps: joinType === 'rightAngle' ? 2 : 0,
+        feasible: true
+      };
+    }
+  }
+  if (numTubes === 3) {
+    // Use greedy: pick the largest tube < target, recurse for remainder
+    for (let i = BRACE_STOCK_MM.length - 1; i >= 0; i--) {
+      const a = BRACE_STOCK_MM[i];
+      if (a >= targetMm) continue;
+      const rem = targetMm - a;
+      const pair = findCombination(rem, 2, overshootMm + a - rem); // allow slight flex
+      if (pair) {
+        const tubes = [a, ...pair.tubes].sort((x,y) => y - x);
+        const totalMm = tubes.reduce((s,t) => s+t, 0);
+        const overMm = totalMm - targetMm;
+        const joinType = overMm <= overshootMm ? 'sleeve' : 'rightAngle';
+        return {
+          tubes, totalMm, overMm,
+          joinType, joints: 2,
+          sleeveClamps: joinType === 'sleeve' ? 2 : 0,
+          extraRAClamps: joinType === 'rightAngle' ? 4 : 0,
+          feasible: true
+        };
+      }
+    }
+  }
+  return null;
+}
+
+// Format a stock tube length as a human-readable label
+function tubeLengthLabel(mm) {
+  if (mm === 304.8)  return "1ft";
+  if (mm === 457.2)  return "1'6\"";
+  if (mm === 609.6)  return "2ft";
+  if (mm === 762)    return "2'6\"";
+  if (mm === 914.4)  return "3ft";
+  if (mm === 1066.8) return "3'6\"";
+  if (mm === 1219.2) return "4ft";
+  if (mm === 1371.6) return "4'6\"";
+  if (mm === 1524)   return "5ft";
+  if (mm === 1676.4) return "5'6\"";
+  if (mm === 1828.8) return "6ft";
+  if (mm === 1981.2) return "6'6\"";
+  if (mm === 2133.6) return "7ft";
+  if (mm === 2438.4) return "8ft";
+  if (mm === 3048)   return "10ft";
+  if (mm === 3000)   return "3m";
+  if (mm === 4000)   return "4m";
+  if (mm === 5000)   return "5m";
+  if (mm === 6000)   return "6m";
+  return Math.round(mm) + "mm";
+}
+
+let bracingSubView = 'plan'; // 'plan' | 'elev'
+
+function setBracingSubView(v) {
+  bracingSubView = v;
+  document.getElementById('bracingCanvasPlan').style.display  = v === 'plan'  ? 'block' : 'none';
+  document.getElementById('bracingCanvasElev').style.display  = v === 'elevX' ? 'block' : 'none';
+  document.getElementById('bracingCanvasElevY').style.display = v === 'elevY' ? 'block' : 'none';
+  document.getElementById('bv-btn-plan').classList.toggle('active-tier',  v === 'plan');
+  document.getElementById('bv-btn-elevX').classList.toggle('active-tier', v === 'elevX');
+  document.getElementById('bv-btn-elevY').classList.toggle('active-tier', v === 'elevY');
+  document.getElementById('leg-plan').style.display = v === 'plan' ? '' : 'none';
+  document.getElementById('leg-elev').style.display = (v === 'elevX' || v === 'elevY') ? '' : 'none';
+}
+
+function calcBracing() {
+  const tierPanels = panels.filter(p => p.category === 'panel');
+  if (!tierPanels.length) return null;
+  const jackMin = getCfgMm('jack');
+  const results = [];
+
+  for (const tier of tiers) {
+    const tp = tierPanels.filter(p => p.tier === tier.id);
+    if (!tp.length) continue;
+    const finH = tier.finishedHeight;
+    const repLeg = calcLeg(finH, 0, 'corner');
+    const legMm = repLeg.legMm > 0 ? repLeg.legMm : finH;
+    const exposedTube = legMm - PANEL_BODY_MM;
+    const horizBraceH = jackMin;
+
+    if (finH < 900) {
+      results.push({ tier, finH, status: 'none', reason: `Finished height ${finH}mm — below 900mm. No bracing required.` });
+      continue;
+    }
+    const highStage = finH > 1600;
+    const needsPlan = finH > 1600;
+
+    const nodes = computeNodes(tier.id);
+    if (!nodes.size) continue;
+    const xSet = new Set(), ySet = new Set();
+    for (const [, n] of nodes) { xSet.add(n.gx); ySet.add(n.gy); }
+    const xs = [...xSet].sort((a,b) => a-b);
+    const ys = [...ySet].sort((a,b) => a-b);
+    const minX = Math.min(...tp.map(p=>p.gx)), maxX = Math.max(...tp.map(p=>p.gx+p.gw));
+    const minY = Math.min(...tp.map(p=>p.gy)), maxY = Math.max(...tp.map(p=>p.gy+p.gh));
+    const nX = xs.length, nY = ys.length;
+    const totalBaysX = nX - 1, totalBaysY = nY - 1;
+    const vertSpan = exposedTube - horizBraceH;
+
+    // ── Diagonal brace selection — corners-inward, both axes ──
+    // ── Diagonal brace generation ──
+    // Minimum diagonal span is 8ft — never brace less than an 8ft width.
+    // For 4ft bays, always span 2 bays minimum (= 8ft) to match 8ft-bay diagonals.
+    // Only span more than 8ft if doing so would reach >= 35° angle.
+    // If 35° is unreachable at any span, stay at the 8ft minimum.
+    // This gives same tube lengths on both X and Y axes wherever bay sizes match.
+    //
+    // FT2 = 609.6mm per 2ft grid unit, so 8ft = 4 grid units = 4 * FT2 = 2438.4mm
+
+    const MIN_DIAG_SPAN_MM = 4 * FT2; // 8ft minimum diagonal span
+
+    function optimalBaySpan(bayMm, totalBays, vSpan) {
+      const minBays = Math.max(1, Math.ceil(MIN_DIAG_SPAN_MM / bayMm));
+      // Only span beyond minimum if it actually reaches >= 35°
+      for (let n = minBays + 1; n <= totalBays; n++) {
+        const angle = Math.atan2(vSpan, bayMm * n) * 180 / Math.PI;
+        if (angle >= 35) return n;
+      }
+      return minBays;
+    }
+
+    // Symmetric gap rule on groups
+    function bracedGroups(totalGroups, everyOther) {
+      if (totalGroups <= 0) return [];
+      if (totalGroups === 1) return [0];
+      const maxGap = everyOther ? 1 : 2;
+      const n = Math.max(1, Math.ceil((totalGroups - maxGap) / 2));
+      if (n * 2 >= totalGroups) return Array.from({length: totalGroups}, (_, i) => i);
+      const braced = new Set();
+      for (let i = 0; i < n; i++) braced.add(i);
+      for (let i = totalGroups - n; i < totalGroups; i++) braced.add(i);
+      return [...braced].sort((a,b) => a-b);
+    }
+
+    function bayDiag(bayWidthMm, vertSpanMm) {
+      if (vertSpanMm <= 0) return { length: bayWidthMm, angle: 90, std: nearestStockTube(bayWidthMm) };
+      const length = Math.round(Math.sqrt(bayWidthMm*bayWidthMm + vertSpanMm*vertSpanMm));
+      const angle  = Math.round(Math.atan2(vertSpanMm, bayWidthMm) * 180 / Math.PI);
+      return { length, angle, std: nearestStockTube(length) };
+    }
+
+    const diagBraces = [];
+
+    // Continuous-span threshold: ≤ 12ft → one diagonal across full edge.
+    // FT2 = 609.6mm = 2ft per grid unit, so 12ft = 6 * FT2 = 3657.6mm
+    const CONT_THRESHOLD_MM = 6 * FT2;
+    const stageXspanMm = (maxX - minX) * FT2;
+    const stageYspanMm = (maxY - minY) * FT2;
+    const useContX = stageXspanMm <= CONT_THRESHOLD_MM;
+    const useContY = stageYspanMm <= CONT_THRESHOLD_MM;
+
+    // ── X-axis diagonal braces (at front row ys[0] and back row ys[last]) ──
+    if (useContX) {
+      const diag = bayDiag(stageXspanMm, vertSpan);
+      // Intermediate legs crossed = nX - 2 (all internal X columns)
+      const swivelClamps = 2 + (nX - 2);
+      for (const yRow of [0, nY - 1]) {
+        diagBraces.push({
+          axis: 'X', continuous: true,
+          bayX: 0, spanBays: totalBaysX, yRow, lean: 'right',
+          x0: xs[0], x1: xs[nX-1], y: ys[yRow],
+          bayWidthMm: stageXspanMm, vertSpanMm: vertSpan,
+          calcLengthMm: diag.length, angleDeg: diag.angle,
+          solution: solveTubeCombination(diag.length),
+          stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+          tubeCount: 1, swivelClamps
+        });
+      }
+    } else {
+      const xBayW = (xs[1] - xs[0]) * FT2;
+      const xSpan = optimalBaySpan(xBayW, totalBaysX, vertSpan);
+      const xNumGroups = Math.ceil(totalBaysX / xSpan);
+      const xBracedGroups = bracedGroups(xNumGroups, highStage);
+      const midGroup = (xNumGroups - 1) / 2;
+
+      const bracedXBays = [];
+      for (const g of xBracedGroups) {
+        const startBay = g * xSpan;
+        const endBay = Math.min(startBay + xSpan - 1, totalBaysX - 1);
+        bracedXBays.push(startBay);
+        const spanW = (xs[endBay + 1] - xs[startBay]) * FT2;
+        const diag = bayDiag(spanW, vertSpan);
+        const lean = g <= midGroup ? 'right' : 'left';
+        // Intermediate legs = number of xs[] positions between start and end (exclusive)
+        const intermediateLegs = (endBay + 1) - startBay - 1; // = spanBays - 1
+        const swivelClamps = 2 + intermediateLegs;
+        for (const yRow of [0, nY - 1]) {
+          diagBraces.push({
+            axis: 'X', continuous: false,
+            bayX: startBay, spanBays: endBay - startBay + 1, yRow, lean,
+            x0: xs[startBay], x1: xs[endBay + 1], y: ys[yRow],
+            bayWidthMm: spanW, vertSpanMm: vertSpan,
+            calcLengthMm: diag.length, angleDeg: diag.angle,
+            solution: solveTubeCombination(diag.length),
+            stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+            tubeCount: 1, swivelClamps
+          });
+        }
+      }
+      results._bracedXBays = bracedXBays;
+    }
+
+    // ── Y-axis diagonal braces (at left col xs[0] and right col xs[last]) ──
+    if (useContY) {
+      const diag = bayDiag(stageYspanMm, vertSpan);
+      const swivelClamps = 2 + (nY - 2);
+      for (const xCol of [0, nX - 1]) {
+        diagBraces.push({
+          axis: 'Y', continuous: true,
+          bayY: 0, spanBays: totalBaysY, xCol, lean: 'down',
+          x: xs[xCol], y0: ys[0], y1: ys[nY-1],
+          bayWidthMm: stageYspanMm, vertSpanMm: vertSpan,
+          calcLengthMm: diag.length, angleDeg: diag.angle,
+          solution: solveTubeCombination(diag.length),
+          stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+          tubeCount: 1, swivelClamps
+        });
+      }
+    } else {
+      const yBayW = (ys[1] - ys[0]) * FT2;
+      const ySpan = optimalBaySpan(yBayW, totalBaysY, vertSpan);
+      const yNumGroups = Math.ceil(totalBaysY / ySpan);
+      const yBracedGroups = bracedGroups(yNumGroups, highStage);
+      const midGroup = (yNumGroups - 1) / 2;
+
+      const bracedYBays = [];
+      for (const g of yBracedGroups) {
+        const startBay = g * ySpan;
+        const endBay = Math.min(startBay + ySpan - 1, totalBaysY - 1);
+        bracedYBays.push(startBay);
+        const spanD = (ys[endBay + 1] - ys[startBay]) * FT2;
+        const diag = bayDiag(spanD, vertSpan);
+        const lean = g <= midGroup ? 'down' : 'up';
+        const intermediateLegs = (endBay + 1) - startBay - 1;
+        const swivelClamps = 2 + intermediateLegs;
+        for (const xCol of [0, nX - 1]) {
+          diagBraces.push({
+            axis: 'Y', continuous: false,
+            bayY: startBay, spanBays: endBay - startBay + 1, xCol, lean,
+            x: xs[xCol], y0: ys[startBay], y1: ys[endBay + 1],
+            bayWidthMm: spanD, vertSpanMm: vertSpan,
+            calcLengthMm: diag.length, angleDeg: diag.angle,
+            solution: solveTubeCombination(diag.length),
+            stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+            tubeCount: 1, swivelClamps
+          });
+        }
+      }
+      results._bracedYBays = bracedYBays;
+    }
+
+    // ── Plan (horizontal) bracing ──
+    // Each plan brace is one full-length tube. Clamps = number of leg positions it passes through.
+    // X-direction tubes run the full width at selected Y-row positions: nX clamps each.
+    // Y-direction tubes run the full depth at selected X-column positions: nY clamps each.
+    function planBracedPositions(total, everyOther) {
+      if (total <= 0) return [];
+      if (total === 1) return [0];
+      const maxGap = everyOther ? 1 : 3;
+      const braced = new Set([0, total - 1]);
+      let lastBraced = 0;
+      for (let i = 1; i < total; i++) {
+        if (braced.has(i)) { lastBraced = i; continue; }
+        if (i - lastBraced > maxGap) {
+          braced.add(i);
+          // Mirror symmetrically from the other end
+          const mirror = total - 1 - i;
+          if (mirror > 0 && mirror < total - 1) braced.add(mirror);
+          lastBraced = i;
+        }
+      }
+      return [...braced].sort((a,b) => a-b);
+    }
+
+    // Row indices (into ys[]) that get a full-width X-direction plan tube
+    const bracedYPositions = planBracedPositions(nY, highStage);
+    // Column indices (into xs[]) that get a full-depth Y-direction plan tube
+    const bracedXPositions = planBracedPositions(nX, highStage);
+
+    const planBraces = [];
+    const planLevels = needsPlan
+      ? [{ name: 'Base level', height: horizBraceH },
+         { name: 'Deck soffit', height: Math.max(horizBraceH, exposedTube - 50) }]
+      : [{ name: 'Base level', height: horizBraceH }];
+
+    for (const level of planLevels) {
+      // X-direction: one full-width tube at each braced Y-row position.
+      // Clamps = nX (one at every X leg column along the full width).
+      for (const yIdx of bracedYPositions) {
+        const fullWidthMm = (xs[xs.length-1] - xs[0]) * FT2;
+        const sol = solveTubeCombination(Math.round(fullWidthMm));
+        planBraces.push({ level: level.name, heightMm: level.height, axis: 'X',
+          edgeY: ys[yIdx],
+          calcLengthMm: Math.round(fullWidthMm),
+          solution: sol,
+          tubeCount: sol.tubes.length, rightAngleClamps: nX,
+          sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
+      }
+      // Y-direction: one full-depth tube at each braced X-column position.
+      // Clamps = nY (one at every Y leg row along the full depth).
+      for (const xIdx of bracedXPositions) {
+        const fullDepthMm = (ys[ys.length-1] - ys[0]) * FT2;
+        const sol = solveTubeCombination(Math.round(fullDepthMm));
+        planBraces.push({ level: level.name, heightMm: level.height, axis: 'Y',
+          edgeX: xs[xIdx],
+          calcLengthMm: Math.round(fullDepthMm),
+          solution: sol,
+          tubeCount: sol.tubes.length, rightAngleClamps: nY,
+          sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
+      }
+    }
+
+    // Totals
+    const totalDiagTubes    = diagBraces.reduce((a,b) => a + (b.solution ? b.solution.tubes.length : 1), 0);
+    const totalSwivelClamps = diagBraces.reduce((a,b) => a+b.swivelClamps, 0);
+    const totalSleeveClamps = diagBraces.reduce((a,b) => a + (b.solution ? b.solution.sleeveClamps : 0), 0);
+    const totalPlanTubes    = planBraces.reduce((a,b) => a + (b.solution ? b.solution.tubes.length : b.tubeCount), 0);
+    const totalRAClamps     = planBraces.reduce((a,b) => a+b.rightAngleClamps, 0);
+    const totalPlanSleeveClamps = planBraces.reduce((a,b) => a + (b.solution ? b.solution.sleeveClamps : 0), 0);
+    const totalExtraRAClamps    = planBraces.reduce((a,b) => a + (b.solution ? b.solution.extraRAClamps : 0), 0);
+
+    const diagByStd = {};
+    for (const b of diagBraces) {
+      const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
+      // Key by the tube combination description
+      const tubeKey = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+      const k = tubeKey;
+      if (!diagByStd[k]) diagByStd[k] = {
+        tubeKey, stdMm: sol.tubes[0], calcMm: b.calcLengthMm,
+        tubes: 0, swivelClamps: 0, sleeveClamps: 0, extraRAClamps: 0,
+        angleOk: true, angle: b.angleDeg, solution: sol,
+        tubeBreakdown: sol.tubes.map(t => ({ mm: t, label: tubeLengthLabel(t) }))
+      };
+      diagByStd[k].tubes += b.solution ? b.solution.tubes.length : 1;
+      diagByStd[k].swivelClamps += b.swivelClamps;
+      diagByStd[k].sleeveClamps += sol.sleeveClamps;
+      diagByStd[k].extraRAClamps += sol.extraRAClamps;
+      if (!b.angleOk) diagByStd[k].angleOk = false;
+    }
+    const planByGroup = {};
+    for (const b of planBraces) {
+      const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
+      const tubeKey = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+      const k = `${b.level}|${b.axis}|${tubeKey}`;
+      if (!planByGroup[k]) planByGroup[k] = {
+        level: b.level, heightMm: b.heightMm, axis: b.axis,
+        tubeKey, calcMm: b.calcLengthMm, solution: sol,
+        tubeBreakdown: sol.tubes.map(t => ({ mm: t, label: tubeLengthLabel(t) })),
+        tubes: 0, raClamps: 0, sleeveClamps: 0, extraRAClamps: 0
+      };
+      planByGroup[k].tubes += sol.tubes.length;
+      planByGroup[k].raClamps += b.rightAngleClamps;
+      planByGroup[k].sleeveClamps += sol.sleeveClamps;
+      planByGroup[k].extraRAClamps += sol.extraRAClamps;
+    }
+    const angleWarnings = diagBraces.filter(b => !b.angleOk);
+
+    results.push({
+      tier, finH, legMm, exposedTube, horizBraceH, vertSpan,
+      needsDiag: true, needsPlan, highStage, status: 'calc',
+      stageWmm: Math.round((maxX-minX)*FT2), stageDmm: Math.round((maxY-minY)*FT2),
+      nX, nY, totalBaysX, totalBaysY, xs, ys, minX, maxX, minY, maxY,
+      bracedXPositions, bracedYPositions,
+      diagBraces, planBraces, diagByStd, planByGroup,
+      totalDiagTubes, totalSwivelClamps, totalSleeveClamps,
+      totalPlanTubes, totalRAClamps, totalPlanSleeveClamps, totalExtraRAClamps,
+      angleWarnings,
+      totalClamps: totalSwivelClamps + totalRAClamps + totalSleeveClamps * 2 + totalExtraRAClamps + totalPlanSleeveClamps * 2,
+      totalTubes: totalDiagTubes + totalPlanTubes
+    });
+  }
+  return results;
+}
+
+let bracingViewTierId = null;
+
+function renderBracingView() {
+  const container = document.getElementById('bracing-content');
+  const results = calcBracing();
+
+  if (!results || !results.length) {
+    container.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:40px 0;text-align:center;">No panels placed. Build a stage layout first.</div>`;
+    document.getElementById('bracingCanvasPlan').style.display = 'none';
+    document.getElementById('bracingCanvasElev').style.display = 'none';
+    document.getElementById('bracingCanvasElevY').style.display = 'none';
+    document.getElementById('bracing-tier-btns').innerHTML = '';
+    return;
+  }
+
+  const tierBtns = document.getElementById('bracing-tier-btns');
+  tierBtns.innerHTML = '';
+  const calcResults = results.filter(r => r.status === 'calc');
+  if (!bracingViewTierId || !calcResults.find(r => r.tier.id === bracingViewTierId))
+    bracingViewTierId = calcResults.length ? calcResults[0].tier.id : null;
+  for (const r of results) {
+    const btn = document.createElement('button');
+    btn.className = 'tier-btn' + (r.tier.id === bracingViewTierId ? ' active-tier' : '');
+    btn.textContent = r.tier.label;
+    btn.title = r.finH + 'mm';
+    btn.onclick = () => { bracingViewTierId = r.tier.id; renderBracingView(); };
+    tierBtns.appendChild(btn);
+  }
+
+  const ar = results.find(r => r.tier.id === bracingViewTierId);
+  if (ar && ar.status === 'calc') {
+    drawBracingPlan(ar);
+    drawBracingElev(ar);
+    drawBracingElevY(ar);
+    setBracingSubView(bracingSubView);
+  } else {
+    document.getElementById('bracingCanvasPlan').style.display = 'none';
+    document.getElementById('bracingCanvasElev').style.display = 'none';
+    document.getElementById('bracingCanvasElevY').style.display = 'none';
+  }
+
+  let html = '';
+  for (const r of results) {
+    html += `<div style="margin-bottom:40px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;
+        letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">
+        ${r.tier.label} — ${r.finH}mm finished height</div>`;
+    if (r.status === 'none') {
+      html += `<div style="color:var(--success);font-size:13px;padding:12px 0;">✓ ${r.reason}</div></div>`;
+      continue;
+    }
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px;">
+      ${metric('Finished height', r.finH+'mm')}
+      ${metric('Leg length', r.legMm>0?r.legMm.toFixed(0)+'mm':'bespoke')}
+      ${metric('Exposed tube', r.exposedTube>0?r.exposedTube.toFixed(0)+'mm':'—')}
+      ${metric('Horiz brace height', r.horizBraceH+'mm AGL')}
+      ${metric('Diagonal vert span', r.vertSpan>0?r.vertSpan.toFixed(0)+'mm':'—')}
+      ${metric('Stage footprint', r.stageWmm+' × '+r.stageDmm+'mm')}
+      ${metric('Leg grid', r.nX+' cols × '+r.nY+' rows')}
+      ${metric('Bays', r.totalBaysX+' wide × '+r.totalBaysY+' deep')}
+    </div>`;
+    const reqColor = r.highStage ? 'var(--danger)' : 'var(--accent)';
+    const reqText  = r.highStage
+      ? 'Height > 1600mm — diagonal bracing every other bay, perimeter ties at base and deck soffit'
+      : 'Height 900–1600mm — diagonal bracing corners-inward every 3rd bay, perimeter ties at base level';
+    html += `<div style="border-left:3px solid ${reqColor};padding:8px 12px;background:rgba(255,255,255,0.03);
+      border-radius:0 4px 4px 0;margin-bottom:20px;font-size:13px;color:var(--text);">${reqText}</div>`;
+
+    if (Object.keys(r.diagByStd).length) {
+      html += sectionHead('Diagonal braces');
+      html += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+        <thead><tr>${th('Stock tube(s) to order')}${th('Calc length')}${th('Angle')}${th('No. tubes')}${th('Swivel clamps')}${th('Sleeve clamps')}</tr></thead><tbody>`;
+      for (const [,g] of Object.entries(r.diagByStd)) {
+        const af = g.angleOk ? '' : ` <span style="color:var(--danger);font-size:10px;">⚠ outside 35°–55°</span>`;
+        const tubeDesc = g.tubeBreakdown.map(t => `<strong>${t.label}</strong>`).join(' + ');
+        const joinNote = g.solution && g.solution.joinType === 'sleeve'
+          ? `<br><span style="color:var(--muted);font-size:10px;">Joined with sleeve clamp (${g.solution.overMm}mm overshoot)</span>` : '';
+        html += `<tr>${td(tubeDesc+joinNote)}${td(g.calcMm+'mm')}${td(g.angle+'°'+af)}${td(g.tubes)}${td(g.swivelClamps)}${td(g.sleeveClamps)}</tr>`;
+      }
+      html += `</tbody></table>`;
+      html += `<div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        Diagonal braces run from deck underside (${r.exposedTube.toFixed(0)}mm AGL) to horizontal tie height
+        (${r.horizBraceH}mm AGL). Single diagonal per braced position, leaning inward from each corner.
+        Fit to internal face of legs. All tube: 48.3mm OD scaffold.
+      </div>`;
+    }
+
+    if (r.totalPlanTubes > 0) {
+      html += sectionHead('Horizontal ties');
+      html += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+        <thead><tr>${th('Level')}${th('Height AGL')}${th('Axis')}${th('Stock tube(s)')}${th('Calc length')}${th('No. tubes')}${th('RA clamps')}${th('Sleeve clamps')}</tr></thead><tbody>`;
+      for (const [,g] of Object.entries(r.planByGroup)) {
+        const tubeDesc = g.tubeBreakdown.map(t => `<strong>${t.label}</strong>`).join(' + ');
+        const axisLabel = g.axis === 'X' ? 'Width (front/back)' : 'Depth (sides)';
+        html += `<tr>${td(g.level)}${td(g.heightMm+'mm')}${td(axisLabel)}${td(tubeDesc)}${td(g.calcMm+'mm')}${td(g.tubes)}${td(g.raClamps)}${td(g.sleeveClamps)}</tr>`;
+      }
+      html += `</tbody></table>`;
+    }
+
+    html += sectionHead('Equipment totals — ' + r.tier.label);
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;">
+      ${metric('Diagonal tubes', r.totalDiagTubes+' no.')}
+      ${metric('Swivel clamps', r.totalSwivelClamps+' no.')}
+      ${r.totalSleeveClamps ? metric('Sleeve clamps', r.totalSleeveClamps+' no.') : ''}
+      ${metric('Horizontal tubes', r.totalPlanTubes+' no.')}
+      ${metric('Right-angle clamps', r.totalRAClamps+' no.')}
+      ${r.totalPlanSleeveClamps ? metric('Sleeve clamps (ties)', r.totalPlanSleeveClamps+' no.') : ''}
+      ${r.totalExtraRAClamps ? metric('Extra RA clamps (joins)', r.totalExtraRAClamps+' no.') : ''}
+      ${metric('All tubes', r.totalTubes+' no.')}
+      ${metric('All clamps', r.totalClamps+' no.')}
+    </div>`;
+
+    if (r.angleWarnings.length) {
+      html += `<div style="border:1px solid var(--danger);border-radius:4px;padding:10px 14px;
+        font-size:12px;color:var(--danger);margin-bottom:16px;">
+        ⚠ ${r.angleWarnings.length} brace(s) have angles outside 35°–55°.
+        This typically occurs when bay width is large relative to exposed tube height.
+        A competent person should review before installation.
+      </div>`;
+    }
+
+    html += `<div style="font-size:11px;color:var(--muted);border-top:1px solid var(--border);
+      padding-top:12px;line-height:1.7;margin-bottom:8px;">
+      All tube: 48.3mm OD scaffold tube. Standard lengths shown are next available above calculated dimension.
+      Structural design must be verified by a competent person per IStructE TDS 4th Ed. 2017.
+    </div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+// ── Plan view — shows perimeter horizontal ties only ──────────────────────────
+function drawBracingPlan(r) {
+  const bc = document.getElementById('bracingCanvasPlan');
+  const bctx = bc.getContext('2d');
+  const PAD = 44;
+  const stageGW = r.maxX - r.minX, stageGH = r.maxY - r.minY;
+  const cW = Math.min(860, Math.max(400, document.getElementById('bracingViewContainer').clientWidth - 48));
+  const scale = Math.min((cW - PAD*2 - 24) / (stageGW * FT2), 2.2);
+  const drawW = stageGW * FT2 * scale, drawH = stageGH * FT2 * scale;
+  bc.width  = Math.round(drawW + PAD*2 + 40);
+  bc.height = Math.round(drawH + PAD*2 + 24);
+  const W = bc.width, H = bc.height;
+  function gxPx(gx) { return PAD + (gx - r.minX) * FT2 * scale; }
+  function gyPx(gy) { return PAD + (gy - r.minY) * FT2 * scale; }
+
+  bctx.fillStyle = '#0f1117'; bctx.fillRect(0, 0, W, H);
+
+  // Panel fills
+  const tp = panels.filter(p => p.category === 'panel' && p.tier === r.tier.id);
+  for (const p of tp) {
+    bctx.fillStyle   = PANEL_COLORS[p.type] + '18';
+    bctx.strokeStyle = PANEL_COLORS[p.type] + '40';
+    bctx.lineWidth   = 1;
+    bctx.fillRect(gxPx(p.gx),   gyPx(p.gy),   p.gw*FT2*scale, p.gh*FT2*scale);
+    bctx.strokeRect(gxPx(p.gx), gyPx(p.gy),   p.gw*FT2*scale, p.gh*FT2*scale);
+  }
+
+  // Dashed grid at leg positions
+  bctx.strokeStyle = '#2a2f3e'; bctx.lineWidth = 0.5; bctx.setLineDash([2,4]);
+  for (const gx of r.xs) { bctx.beginPath(); bctx.moveTo(gxPx(gx),PAD); bctx.lineTo(gxPx(gx),PAD+drawH); bctx.stroke(); }
+  for (const gy of r.ys) { bctx.beginPath(); bctx.moveTo(PAD,gyPx(gy)); bctx.lineTo(PAD+drawW,gyPx(gy)); bctx.stroke(); }
+  bctx.setLineDash([]);
+
+  // Horizontal ties (green) — each planBrace is now a full-span tube
+  bctx.strokeStyle = '#22c55ea0'; bctx.lineWidth = 3; bctx.lineCap = 'round';
+  const drawn = new Set();
+  for (const pb of r.planBraces) {
+    if (pb.level !== 'Base level') continue;
+    if (pb.axis === 'X') {
+      // Full-width tube at gy = pb.edgeY, spanning xs[0] to xs[last]
+      const gy = pb.edgeY;
+      const k = `X,${gy}`; if (drawn.has(k)) continue; drawn.add(k);
+      bctx.beginPath(); bctx.moveTo(gxPx(r.xs[0]), gyPx(gy)); bctx.lineTo(gxPx(r.xs[r.xs.length-1]), gyPx(gy)); bctx.stroke();
+    } else {
+      // Full-depth tube at gx = pb.edgeX, spanning ys[0] to ys[last]
+      const gx = pb.edgeX;
+      const k = `Y,${gx}`; if (drawn.has(k)) continue; drawn.add(k);
+      bctx.beginPath(); bctx.moveTo(gxPx(gx), gyPx(r.ys[0])); bctx.lineTo(gxPx(gx), gyPx(r.ys[r.ys.length-1])); bctx.stroke();
+    }
+  }
+
+  // Node dots
+  const nodeMap = computeNodes(r.tier.id);
+  for (const [,n] of nodeMap) {
+    const col = n.type==='corner'?'#ef4444':n.type==='edge'?'#f59e0b':'#3b82f6';
+    bctx.beginPath(); bctx.arc(gxPx(n.gx), gyPx(n.gy), 4, 0, Math.PI*2);
+    bctx.fillStyle = col; bctx.fill();
+    bctx.strokeStyle = '#0f1117'; bctx.lineWidth = 1.5; bctx.stroke();
+  }
+
+  // Labels
+  bctx.fillStyle = '#6b7280'; bctx.font = '10px Barlow Condensed,sans-serif';
+  bctx.textAlign = 'center'; bctx.textBaseline = 'bottom';
+  for (let xi = 0; xi < r.xs.length-1; xi++) bctx.fillText('X'+(xi+1), (gxPx(r.xs[xi])+gxPx(r.xs[xi+1]))/2, PAD-6);
+  bctx.textAlign = 'right'; bctx.textBaseline = 'middle';
+  for (let yi = 0; yi < r.ys.length-1; yi++) bctx.fillText('Y'+(yi+1), PAD-8, (gyPx(r.ys[yi])+gyPx(r.ys[yi+1]))/2);
+  bctx.fillStyle = '#6b7280'; bctx.font = '9px DM Mono,monospace';
+  bctx.textAlign = 'center'; bctx.textBaseline = 'top';
+  for (let xi = 0; xi < r.xs.length-1; xi++) bctx.fillText(Math.round((r.xs[xi+1]-r.xs[xi])*FT2)+'mm', (gxPx(r.xs[xi])+gxPx(r.xs[xi+1]))/2, PAD+drawH+6);
+  bctx.textAlign = 'left'; bctx.textBaseline = 'middle';
+  for (let yi = 0; yi < r.ys.length-1; yi++) bctx.fillText(Math.round((r.ys[yi+1]-r.ys[yi])*FT2)+'mm', PAD+drawW+8, (gyPx(r.ys[yi])+gyPx(r.ys[yi+1]))/2);
+  bctx.fillStyle='#f5a623'; bctx.font='bold 11px Barlow Condensed,sans-serif';
+  bctx.textAlign='left'; bctx.textBaseline='top';
+  bctx.fillText(r.tier.label+'  PLAN — HORIZONTAL TIES  —  '+r.finH+'mm', PAD, 6);
+}
+
+// ── Elevation view — shows diagonal brace geometry in true elevation ──────────
+function drawBracingElev(r) {
+  const bc = document.getElementById('bracingCanvasElev');
+  const bctx = bc.getContext('2d');
+  const cW = Math.min(900, Math.max(400, document.getElementById('bracingViewContainer').clientWidth - 48));
+
+  // We draw a schematic side elevation showing:
+  // - Ground line
+  // - Screwjack zone (0 → horizBraceH)
+  // - Horizontal tie tube at horizBraceH
+  // - Exposed scaffold tube (horizBraceH → exposedTube)
+  // - Deck underside / deck body at top
+  // - Diagonal braces as X-patterns between adjacent legs
+  // Show the X-axis view (stage width) with all leg columns
+
+  const nLegs = r.xs.length; // columns in X direction
+  const legSpacingsMm = []; // mm between each adjacent X-column pair
+  for (let i = 0; i < nLegs - 1; i++) legSpacingsMm.push((r.xs[i+1] - r.xs[i]) * FT2);
+  const totalWidthMm = legSpacingsMm.reduce((a,b) => a+b, 0);
+
+  const LPAD = 60, RPAD = 20, TPAD = 30, BPAD = 40;
+  const drawW = cW - LPAD - RPAD;
+  const maxHmm = r.exposedTube + 50; // a bit above deck underside
+  const scaleX = drawW / totalWidthMm;
+  const scaleY = Math.min(1.2, (cW * 0.45) / maxHmm); // elevation height ~45% of width
+  const drawH = Math.round(maxHmm * scaleY);
+
+  bc.width  = cW;
+  bc.height = drawH + TPAD + BPAD;
+  const W = bc.width, H = bc.height;
+
+  function xPx(mm) { return LPAD + mm * scaleX; }
+  function yPx(mm) { return TPAD + drawH - mm * scaleY; } // 0mm = ground = bottom
+
+  bctx.fillStyle = '#0f1117'; bctx.fillRect(0, 0, W, H);
+
+  // Ground line
+  bctx.strokeStyle = '#2a2f3e'; bctx.lineWidth = 1;
+  bctx.beginPath(); bctx.moveTo(LPAD, yPx(0)); bctx.lineTo(LPAD + drawW, yPx(0)); bctx.stroke();
+
+  // Y-axis labels
+  bctx.fillStyle = '#4b5563'; bctx.font = '9px DM Mono,monospace';
+  bctx.textAlign = 'right'; bctx.textBaseline = 'middle';
+  const tickHeights = [0, r.horizBraceH, r.exposedTube];
+  for (const hmm of tickHeights) {
+    const py = yPx(hmm);
+    bctx.strokeStyle = '#2a2f3e'; bctx.lineWidth = 0.5;
+    bctx.setLineDash([2,4]);
+    bctx.beginPath(); bctx.moveTo(LPAD, py); bctx.lineTo(LPAD+drawW, py); bctx.stroke();
+    bctx.setLineDash([]);
+    bctx.fillStyle = '#6b7280';
+    bctx.fillText(hmm+'mm', LPAD-4, py);
+  }
+
+  // Leg positions in px along X
+  let cumMm = 0;
+  const legXPx = [xPx(0)];
+  for (const sp of legSpacingsMm) { cumMm += sp; legXPx.push(xPx(cumMm)); }
+
+  // Draw each leg as a vertical line
+  for (let i = 0; i < nLegs; i++) {
+    const lx = legXPx[i];
+    // Screwjack zone (ground to horizBraceH) — muted
+    bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 6;
+    bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(r.horizBraceH)); bctx.stroke();
+    // Exposed scaffold tube (horizBraceH to exposedTube) — bright
+    bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
+    bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+  }
+
+  // Horizontal tie tube at horizBraceH — full width
+  bctx.strokeStyle = '#22c55e99'; bctx.lineWidth = 3; bctx.lineCap = 'round';
+  bctx.beginPath(); bctx.moveTo(legXPx[0], yPx(r.horizBraceH)); bctx.lineTo(legXPx[nLegs-1], yPx(r.horizBraceH)); bctx.stroke();
+
+  // Deck underside line
+  bctx.strokeStyle = '#3b82f655'; bctx.lineWidth = 2;
+  bctx.setLineDash([4,3]);
+  bctx.beginPath(); bctx.moveTo(legXPx[0], yPx(r.exposedTube)); bctx.lineTo(legXPx[nLegs-1], yPx(r.exposedTube)); bctx.stroke();
+  bctx.setLineDash([]);
+  // Deck body
+  bctx.fillStyle = '#3b82f622';
+  bctx.fillRect(legXPx[0], yPx(r.exposedTube + PANEL_BODY_MM), legXPx[nLegs-1]-legXPx[0], yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+
+  // Build xs→pixel lookup for multi-bay span support
+  const xsToLegIdx = {};
+  r.xs.forEach((gx, i) => { xsToLegIdx[gx] = i; });
+
+  // Diagonal braces — X-axis. Uses x0/x1 grid values → pixel positions.
+  const xBraceDrawn = new Set();
+  for (const b of r.diagBraces) {
+    if (b.axis !== 'X') continue;
+    const k = b.bayX + ',' + b.lean;
+    if (xBraceDrawn.has(k)) continue; xBraceDrawn.add(k);
+    // Map grid unit positions to canvas px via leg index
+    const i0 = xsToLegIdx[b.x0] ?? 0;
+    const i1 = xsToLegIdx[b.x1] ?? (nLegs - 1);
+    const lx0 = legXPx[i0], lx1 = legXPx[i1];
+    const yTop = yPx(r.exposedTube), yBot = yPx(r.horizBraceH);
+    bctx.strokeStyle = b.angleOk ? '#f5a623cc' : '#ef4444cc';
+    bctx.lineWidth = 2; bctx.lineCap = 'round';
+    if (b.lean === 'right') {
+      bctx.beginPath(); bctx.moveTo(lx0, yTop); bctx.lineTo(lx1, yBot); bctx.stroke();
+    } else {
+      bctx.beginPath(); bctx.moveTo(lx1, yTop); bctx.lineTo(lx0, yBot); bctx.stroke();
+    }
+    const cx = (lx0+lx1)/2, cy = (yTop+yBot)/2;
+    const col = b.angleOk ? '#f5a623' : '#ef4444';
+    const label = b.angleDeg + '°' + (b.angleOk ? '' : ' ⚠') + (b.continuous ? ' cont.' : b.spanBays > 1 ? ` (${b.spanBays} bays)` : '');
+    bctx.font = 'bold 9px DM Mono,monospace';
+    const tw = bctx.measureText(label).width;
+    bctx.fillStyle = 'rgba(15,17,23,0.82)'; bctx.fillRect(cx-tw/2-2, cy-6, tw+4, 12);
+    bctx.fillStyle = col; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+    bctx.fillText(label, cx, cy);
+  }
+
+  // Node dots at exposed tube top
+  for (let i = 0; i < nLegs; i++) {
+    bctx.beginPath(); bctx.arc(legXPx[i], yPx(r.exposedTube), 4, 0, Math.PI*2);
+    bctx.fillStyle = '#ef4444'; bctx.fill();
+    bctx.strokeStyle = '#0f1117'; bctx.lineWidth = 1.5; bctx.stroke();
+  }
+  // Node dots at horiz brace
+  for (let i = 0; i < nLegs; i++) {
+    bctx.beginPath(); bctx.arc(legXPx[i], yPx(r.horizBraceH), 3, 0, Math.PI*2);
+    bctx.fillStyle = '#22c55e'; bctx.fill();
+    bctx.strokeStyle = '#0f1117'; bctx.lineWidth = 1; bctx.stroke();
+  }
+
+  // Bay width labels
+  bctx.fillStyle = '#6b7280'; bctx.font = '9px DM Mono,monospace';
+  bctx.textAlign = 'center'; bctx.textBaseline = 'top';
+  for (let i = 0; i < nLegs-1; i++) {
+    bctx.fillText(Math.round(legSpacingsMm[i])+'mm', (legXPx[i]+legXPx[i+1])/2, yPx(0)+6);
+  }
+
+  // Angle label per braced bay
+  for (const b of r.diagBraces) {
+    if (b.axis !== 'X') continue;
+    const lx0 = legXPx[b.bayX], lx1 = legXPx[b.bayX+1];
+    const cx = (lx0+lx1)/2;
+    const cy = (yPx(r.exposedTube)+yPx(r.horizBraceH))/2;
+    const col = b.angleOk ? '#f5a623' : '#ef4444';
+    const label = b.angleDeg+'°'+(b.angleOk?'':' ⚠');
+    bctx.font = 'bold 9px DM Mono,monospace';
+    const tw = bctx.measureText(label).width;
+    bctx.fillStyle = 'rgba(15,17,23,0.82)';
+    bctx.fillRect(cx-tw/2-2, cy-6, tw+4, 12);
+    bctx.fillStyle = col;
+    bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+    bctx.fillText(label, cx, cy);
+  }
+
+  // Labels: height markers
+  bctx.fillStyle = '#6b7280'; bctx.font = '9px DM Mono,monospace';
+  bctx.textAlign = 'left'; bctx.textBaseline = 'middle';
+  bctx.fillStyle = '#22c55e88';
+  bctx.fillText('↔ horiz tie', LPAD+drawW+4, yPx(r.horizBraceH));
+  bctx.fillStyle = '#3b82f688';
+  bctx.fillText('↔ deck soffit', LPAD+drawW+4, yPx(r.exposedTube));
+
+  // Title
+  bctx.fillStyle = '#f5a623'; bctx.font = 'bold 11px Barlow Condensed,sans-serif';
+  bctx.textAlign = 'left'; bctx.textBaseline = 'top';
+  bctx.fillText(r.tier.label+'  ELEVATION X — WIDTH (diagonal bracing)  —  '+r.finH+'mm', LPAD, 6);
+}
+
+// ── Elevation Y view — depth axis (Y), shows Y-axis diagonal braces ──────────
+// Looking from the left/right side: legs run along Y depth, diagonals span Y-bays
+// at the left column (xs[0]) and right column (xs[last]).
+function drawBracingElevY(r) {
+  const bc = document.getElementById('bracingCanvasElevY');
+  const bctx = bc.getContext('2d');
+  const cW = Math.min(900, Math.max(400, document.getElementById('bracingViewContainer').clientWidth - 48));
+
+  // Leg positions along Y (depth)
+  const nLegs = r.ys.length;
+  const legSpacingsMm = [];
+  for (let i = 0; i < nLegs - 1; i++) legSpacingsMm.push((r.ys[i+1] - r.ys[i]) * FT2);
+  const totalDepthMm = legSpacingsMm.reduce((a,b) => a+b, 0);
+
+  const LPAD = 60, RPAD = 80, TPAD = 30, BPAD = 40;
+  const drawW = cW - LPAD - RPAD;
+  const maxHmm = r.exposedTube + 50;
+  const scaleX = drawW / totalDepthMm;
+  const scaleY = Math.min(1.2, (cW * 0.45) / maxHmm);
+  const drawH = Math.round(maxHmm * scaleY);
+
+  bc.width  = cW;
+  bc.height = drawH + TPAD + BPAD;
+
+  function xPx(mm) { return LPAD + mm * scaleX; }
+  function yPx(mm) { return TPAD + drawH - mm * scaleY; }
+
+  bctx.fillStyle = '#0f1117'; bctx.fillRect(0, 0, bc.width, bc.height);
+
+  // Ground line
+  bctx.strokeStyle = '#2a2f3e'; bctx.lineWidth = 1;
+  bctx.beginPath(); bctx.moveTo(LPAD, yPx(0)); bctx.lineTo(LPAD + drawW, yPx(0)); bctx.stroke();
+
+  // Height tick lines + labels
+  for (const hmm of [0, r.horizBraceH, r.exposedTube]) {
+    const py = yPx(hmm);
+    bctx.strokeStyle = '#2a2f3e'; bctx.lineWidth = 0.5; bctx.setLineDash([2,4]);
+    bctx.beginPath(); bctx.moveTo(LPAD, py); bctx.lineTo(LPAD+drawW, py); bctx.stroke();
+    bctx.setLineDash([]);
+    bctx.fillStyle = '#6b7280'; bctx.font = '9px DM Mono,monospace';
+    bctx.textAlign = 'right'; bctx.textBaseline = 'middle';
+    bctx.fillText(hmm + 'mm', LPAD - 4, py);
+  }
+
+  // Leg X positions along the canvas (each ys[] position mapped to px)
+  let cumMm = 0;
+  const legXPx = [xPx(0)];
+  for (const sp of legSpacingsMm) { cumMm += sp; legXPx.push(xPx(cumMm)); }
+
+  // Draw legs
+  for (let i = 0; i < nLegs; i++) {
+    const lx = legXPx[i];
+    bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 6;
+    bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(r.horizBraceH)); bctx.stroke();
+    bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
+    bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+  }
+
+  // Horizontal tie
+  bctx.strokeStyle = '#22c55e99'; bctx.lineWidth = 3; bctx.lineCap = 'round';
+  bctx.beginPath(); bctx.moveTo(legXPx[0], yPx(r.horizBraceH)); bctx.lineTo(legXPx[nLegs-1], yPx(r.horizBraceH)); bctx.stroke();
+
+  // Deck
+  bctx.strokeStyle = '#3b82f655'; bctx.lineWidth = 2; bctx.setLineDash([4,3]);
+  bctx.beginPath(); bctx.moveTo(legXPx[0], yPx(r.exposedTube)); bctx.lineTo(legXPx[nLegs-1], yPx(r.exposedTube)); bctx.stroke();
+  bctx.setLineDash([]);
+  bctx.fillStyle = '#3b82f622';
+  bctx.fillRect(legXPx[0], yPx(r.exposedTube + PANEL_BODY_MM), legXPx[nLegs-1]-legXPx[0], yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+
+  // Build ys→leg-index lookup for multi-bay span support
+  const ysToLegIdx = {};
+  r.ys.forEach((gy, i) => { ysToLegIdx[gy] = i; });
+
+  // Y-axis diagonal braces — uses y0/y1 grid values mapped to canvas px
+  const drawn = new Set();
+  for (const b of r.diagBraces) {
+    if (b.axis !== 'Y') continue;
+    const k = b.bayY + ',' + b.lean;
+    if (drawn.has(k)) continue; drawn.add(k);
+    const i0 = ysToLegIdx[b.y0] ?? 0;
+    const i1 = ysToLegIdx[b.y1] ?? (nLegs - 1);
+    const lx0 = legXPx[i0], lx1 = legXPx[i1];
+    const yTop = yPx(r.exposedTube), yBot = yPx(r.horizBraceH);
+    bctx.strokeStyle = b.angleOk ? '#f5a623cc' : '#ef4444cc';
+    bctx.lineWidth = 2; bctx.lineCap = 'round';
+    if (b.lean === 'down') {
+      bctx.beginPath(); bctx.moveTo(lx0, yTop); bctx.lineTo(lx1, yBot); bctx.stroke();
+    } else {
+      bctx.beginPath(); bctx.moveTo(lx1, yTop); bctx.lineTo(lx0, yBot); bctx.stroke();
+    }
+    const cx = (lx0+lx1)/2, cy = (yTop+yBot)/2;
+    const col = b.angleOk ? '#f5a623' : '#ef4444';
+    const label = b.angleDeg + '°' + (b.angleOk ? '' : ' ⚠') + (b.continuous ? ' cont.' : b.spanBays > 1 ? ` (${b.spanBays} bays)` : '');
+    bctx.font = 'bold 9px DM Mono,monospace';
+    const tw = bctx.measureText(label).width;
+    bctx.fillStyle = 'rgba(15,17,23,0.82)'; bctx.fillRect(cx-tw/2-2, cy-6, tw+4, 12);
+    bctx.fillStyle = col; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+    bctx.fillText(label, cx, cy);
+  }
+
+  // Node dots
+  for (let i = 0; i < nLegs; i++) {
+    bctx.beginPath(); bctx.arc(legXPx[i], yPx(r.exposedTube), 4, 0, Math.PI*2);
+    bctx.fillStyle = '#ef4444'; bctx.fill();
+    bctx.strokeStyle = '#0f1117'; bctx.lineWidth = 1.5; bctx.stroke();
+  }
+  for (let i = 0; i < nLegs; i++) {
+    bctx.beginPath(); bctx.arc(legXPx[i], yPx(r.horizBraceH), 3, 0, Math.PI*2);
+    bctx.fillStyle = '#22c55e'; bctx.fill();
+    bctx.strokeStyle = '#0f1117'; bctx.lineWidth = 1; bctx.stroke();
+  }
+
+  // Bay depth labels
+  bctx.fillStyle = '#6b7280'; bctx.font = '9px DM Mono,monospace';
+  bctx.textAlign = 'center'; bctx.textBaseline = 'top';
+  for (let i = 0; i < nLegs-1; i++)
+    bctx.fillText(Math.round(legSpacingsMm[i])+'mm', (legXPx[i]+legXPx[i+1])/2, yPx(0)+6);
+
+  // Right-side labels
+  bctx.textAlign = 'left'; bctx.textBaseline = 'middle';
+  bctx.fillStyle = '#22c55e88'; bctx.fillText('horiz tie',   LPAD+drawW+6, yPx(r.horizBraceH));
+  bctx.fillStyle = '#3b82f688'; bctx.fillText('deck soffit', LPAD+drawW+6, yPx(r.exposedTube));
+
+  // Title
+  bctx.fillStyle = '#f5a623'; bctx.font = 'bold 11px Barlow Condensed,sans-serif';
+  bctx.textAlign = 'left'; bctx.textBaseline = 'top';
+  bctx.fillText(r.tier.label+'  ELEVATION Y — DEPTH (diagonal bracing)  —  '+r.finH+'mm', LPAD, 6);
+}
+
+function metric(label, val) {
+  return `<div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:10px 12px;
+    border:1px solid var(--border);">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;
+      letter-spacing:0.08em;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:3px;">${label}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text);">${val}</div>
+  </div>`;
+}
+
+function sectionHead(label) {
+  return `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;
+    letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);
+    border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:10px;">${label}</div>`;
+}
+
+function th(t) { return `<th style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);
+  text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);">${t}</th>`; }
+
+function td(t) { return `<td style="padding:7px 8px;border-bottom:1px solid rgba(42,47,62,0.5);
+  font-family:'DM Mono',monospace;font-size:12px;color:var(--text);vertical-align:top;">${t}</td>`; }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderTierControls();

@@ -311,41 +311,7 @@
     cursor: crosshair;
   }
 
-  /* ── Side view ── */
-  #sideViewContainer {
-    flex: 1;
-    overflow: auto;
-    padding: 24px;
-    display: none;
-    flex-direction: column;
-    gap: 12px;
-  }
-  #sideViewContainer.active { display: flex; }
-
-  .side-view-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-  .side-view-toolbar span {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-right: 4px;
-  }
-
-  #sideCanvas {
-    display: block;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-  }
-
-  /* ── Schedule panel ── */
+    /* ── Schedule panel ── */
   .schedule-panel {
     width: 280px;
     background: var(--surface);
@@ -624,7 +590,6 @@
     <a href="https://ravenstaging.co.uk" class="btn btn-ghost btn-home" style="text-decoration:none;">← Homepage</a>
     <button class="btn btn-ghost" id="btn-simple-mode" onclick="toggleSimpleMode()">Simple View</button>
     <button class="btn btn-ghost" id="btn-view-plan" onclick="setView('plan')">Plan View</button>
-    <button class="btn btn-ghost" id="btn-view-side" onclick="trySetSideView()">Side View</button>
     <button class="btn btn-ghost" id="btn-view-bracing" onclick="setView('bracing')">⬡ Bracing</button>
     <button class="btn btn-ghost" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
     <button class="btn btn-ghost" onclick="clearStage()">Clear</button>
@@ -804,16 +769,7 @@
         <span id="footprint-info" style="margin-left:auto; font-size:12px; color:#ffffff; font-family:'Barlow Condensed',sans-serif; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;"></span>
       </div>
 
-      <!-- Side view controls -->
-      <div class="canvas-toolbar" id="side-toolbar-content" style="display:none; align-items:center; gap:8px;">
-        <span style="font-size:11px; color:var(--muted);">Direction:</span>
-        <button class="tier-btn active-tier" id="sv-btn-front" onclick="setSideDir('front')">Front</button>
-        <button class="tier-btn" id="sv-btn-right" onclick="setSideDir('right')">Right</button>
-        <button class="tier-btn" id="sv-btn-back" onclick="setSideDir('back')">Back</button>
-        <button class="tier-btn" id="sv-btn-left" onclick="setSideDir('left')">Left</button>
-        <span style="font-size:11px; color:var(--muted); margin-left:12px;">Read-only elevation view</span>
       </div>
-    </div>
 
     <!-- Plan canvas -->
     <div class="canvas-scroll" id="canvas-scroll" style="position:relative">
@@ -833,10 +789,6 @@
       display:none;
     ">
 
-    <!-- Side view canvas -->
-    <div id="sideViewContainer">
-      <canvas id="sideCanvas"></canvas>
-    </div>
 
     <!-- Bracing view -->
     <div id="bracingViewContainer" style="display:none; flex:1; overflow:auto; padding:24px; flex-direction:column; gap:16px;">
@@ -932,7 +884,6 @@ let pendingRotated = false;
 let activeTool  = 'place';
 let nextId      = 1;
 let activeView  = 'plan';
-let sideDir     = 'front';
 let history     = [];  // undo stack — snapshots of panels array
 let simpleMode  = false;
 
@@ -980,70 +931,16 @@ function getTierHeight(tierId) {
 function setView(v) {
   activeView = v;
   document.getElementById('canvas-scroll').style.display       = v === 'plan' ? 'block' : 'none';
-  document.getElementById('sideViewContainer').style.display    = v === 'side' ? 'flex' : 'none';
   document.getElementById('bracingViewContainer').style.display = v === 'bracing' ? 'flex' : 'none';
   document.getElementById('plan-toolbar-content').style.display = v === 'plan' ? 'flex' : 'none';
-  document.getElementById('side-toolbar-content').style.display = v === 'side' ? 'flex' : 'none';
   document.getElementById('tier-toolbar-row').style.display     = v === 'plan' ? 'flex' : 'none';
   document.getElementById('btn-view-plan').classList.toggle('active', v === 'plan');
-  document.getElementById('btn-view-side').classList.toggle('active', v === 'side');
   document.getElementById('btn-view-bracing').classList.toggle('active', v === 'bracing');
-  if (v === 'side') drawSideView();
   if (v === 'bracing') renderBracingView();
-  // Hide watermark overlay when in bracing view (it's position:absolute and bleeds through)
   const wm = document.getElementById('wm-img');
   if (wm) wm.style.display = (v === 'bracing') ? 'none' : (wmMode !== 'none' ? 'block' : 'none');
 }
 
-// Returns true if any tier has more than one disconnected panel island
-function hasDisconnectedIslands() {
-  for (const tier of tiers) {
-    const tp = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
-    if (tp.length < 2) continue;
-    // Union-find: panels sharing any edge belong to the same island
-    const id = tp.map((_, i) => i);
-    function find(i) { return id[i] === i ? i : (id[i] = find(id[i])); }
-    function union(a, b) { id[find(a)] = find(b); }
-    for (let i = 0; i < tp.length; i++) {
-      for (let j = i + 1; j < tp.length; j++) {
-        const a = tp[i], b = tp[j];
-        // Adjacent if their bounding boxes share an edge (touching, not overlapping)
-        const touchH = a.gx < b.gx + b.gw && a.gx + a.gw > b.gx &&
-                       (a.gy + a.gh === b.gy || b.gy + b.gh === a.gy);
-        const touchV = a.gy < b.gy + b.gh && a.gy + a.gh > b.gy &&
-                       (a.gx + a.gw === b.gx || b.gx + b.gw === a.gx);
-        if (touchH || touchV) union(i, j);
-      }
-    }
-    const roots = new Set(tp.map((_, i) => find(i)));
-    if (roots.size > 1) return true;
-  }
-  return false;
-}
-
-function updateSideViewButton() {
-  const btn = document.getElementById('btn-view-side');
-  const disabled = hasDisconnectedIslands();
-  btn.disabled = disabled;
-  btn.title = disabled ? 'Side view unavailable: multiple disconnected layouts on one tier' : '';
-  btn.style.opacity = disabled ? '0.4' : '';
-  btn.style.cursor  = disabled ? 'not-allowed' : '';
-  // If currently in side view and now disabled, switch back to plan
-  if (disabled && activeView === 'side') setView('plan');
-}
-
-function trySetSideView() {
-  if (hasDisconnectedIslands()) return;
-  setView('side');
-}
-
-function setSideDir(dir) {
-  sideDir = dir;
-  ['front','right','back','left'].forEach(d => {
-    document.getElementById('sv-btn-' + d).classList.toggle('active-tier', d === dir);
-  });
-  drawSideView();
-}
 
 // ── Tier management ───────────────────────────────────────────────────────────
 function renderTierControls() {
@@ -1119,8 +1016,7 @@ function onHeightInput() {
   if (t) t.finishedHeight = val;
   renderTierSummary();
   recalcSchedule();
-  if (activeView === 'side') drawSideView();
-}
+ }
 
 // ── Steps tool ────────────────────────────────────────────────────────────────
 // Returns the STEPS_DATA key whose heightMm best matches the active tier height.
@@ -1341,7 +1237,6 @@ function undo() {
   panels = history.pop();
   selectedId = null;
   recalcSchedule(); redraw();
-  if (activeView === 'side') drawSideView();
 }
 
 // ── Auto-populate handrails ───────────────────────────────────────────────────
@@ -1766,8 +1661,7 @@ function clearStage() {
   if (panels.length && !confirm('Clear all panels, steps and handrails?')) return;
   panels = []; selectedId = null;
   recalcSchedule(); redraw();
-  if (activeView === 'side') drawSideView();
-}
+ }
 
 // ── Collision detection ───────────────────────────────────────────────────────
 function canPlace(candidate, gx, gy, excludeId = -1) {
@@ -1858,7 +1752,6 @@ canvas.addEventListener('click', e => {
     panels.push(candidate);
     selectedId = null;
     recalcSchedule(); redraw();
-    if (activeView === 'side') drawSideView();
   }
 });
 
@@ -2062,7 +1955,6 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
     }
   }
 
-  updateSideViewButton();
 }
 
 function drawEdgeHighlight(edge, col) {
@@ -2410,8 +2302,7 @@ function recalcSchedule() {
   updateFootprint();
 
   redraw();
-  if (activeView === 'side') drawSideView();
-}
+ }
 
 function updateFootprint() {
   const el = document.getElementById('footprint-info');
@@ -2599,293 +2490,10 @@ function appendBracingSchedule() {
 }
 
 
-const sideCanvas = document.getElementById('sideCanvas');
-const sctx       = sideCanvas.getContext('2d');
 
 // Colour per tier (accent variations)
 const TIER_COLORS = ['#3b82f6','#f5a623','#22c55e','#e879f9','#f87171','#34d399'];
 
-function drawSideView(forPrint = false) {
-  if (!panels.some(p => p.category === 'panel')) {
-    const W = sideCanvas.width, H = sideCanvas.height;
-    sideCanvas.width  = W;
-    sideCanvas.height = H;
-    sctx.clearRect(0, 0, W, H);
-    sctx.fillStyle    = '#6b7280';
-    sctx.font         = `${Math.round(H * 0.055)}px Barlow, sans-serif`;
-    sctx.textAlign    = 'center';
-    sctx.textBaseline = 'middle';
-    sctx.fillText('No panels placed.', W/2, H/2);
-    return;
-  }
-
-  // Work out which grid axis we're projecting along
-  // front: look from -y → render x axis, show lowest gy panel per (gx, tier)
-  // back:  look from +y → render x axis, show highest gy panel
-  // left:  look from -x → render y axis, show lowest gx panel per (gy, tier)
-  // right: look from +x → render y axis, show highest gx panel
-
-  const SCALE_PX_PER_MM = 0.35;   // px per mm — will be recalculated
-  const MARGIN_LEFT = 60;
-  const MARGIN_BOTTOM = 40;
-  const MARGIN_TOP    = 20;
-  const MARGIN_RIGHT  = 20;
-
-  // Build silhouette: for each (slicePos, tierId) → front-face panel
-  // slicePos = x grid units for front/back, y grid units for left/right
-  const isXAxis = (sideDir === 'front' || sideDir === 'back');
-
-  // For each tier, for each slice position, find the visible panel
-  // Returns Map<sliceKey, { panel, tier }>
-  function buildSilhouette() {
-    // group panels by tier
-    const result = new Map(); // key = `${tierId}_${slicePos}_${sliceEnd}` — actually per cell
-
-    // We want: for each tier, for each x-cell (or y-cell), the extreme panel
-    // A panel spans multiple slice cells. We record it per cell.
-    const byCell = new Map(); // `${tierId}_${cell}` → panel
-
-    for (const p of panels) {
-      if (p.category !== 'panel') continue;
-      const tier = tiers.find(t => t.id === p.tier);
-      if (!tier) continue;
-
-      if (isXAxis) {
-        // iterate p.gx to p.gx+p.gw
-        for (let x = p.gx; x < p.gx + p.gw; x++) {
-          const key = `${p.tier}_${x}`;
-          const existing = byCell.get(key);
-          if (!existing) { byCell.set(key, p); continue; }
-          // front: keep lowest gy (smallest)
-          // back: keep highest gy (largest, meaning gy+gh)
-          if (sideDir === 'front') {
-            if (p.gy < existing.gy) byCell.set(key, p);
-          } else {
-            if (p.gy + p.gh > existing.gy + existing.gh) byCell.set(key, p);
-          }
-        }
-      } else {
-        for (let y = p.gy; y < p.gy + p.gh; y++) {
-          const key = `${p.tier}_${y}`;
-          const existing = byCell.get(key);
-          if (!existing) { byCell.set(key, p); continue; }
-          if (sideDir === 'left') {
-            if (p.gx < existing.gx) byCell.set(key, p);
-          } else {
-            if (p.gx + p.gw > existing.gx + existing.gw) byCell.set(key, p);
-          }
-        }
-      }
-    }
-    return byCell;
-  }
-
-  const byCell = buildSilhouette();
-
-  // Determine X range (slice positions covered)
-  let minSlice = Infinity, maxSlice = -Infinity;
-  for (const p of panels) {
-    if (p.category !== 'panel') continue;
-    if (isXAxis) {
-      if (p.gx          < minSlice) minSlice = p.gx;
-      if (p.gx + p.gw   > maxSlice) maxSlice = p.gx + p.gw;
-    } else {
-      if (p.gy          < minSlice) minSlice = p.gy;
-      if (p.gy + p.gh   > maxSlice) maxSlice = p.gy + p.gh;
-    }
-  }
-  if (minSlice === Infinity) { minSlice = 0; maxSlice = 1; }
-
-  const sliceCount = maxSlice - minSlice; // in grid units
-  const sliceMm    = sliceCount * FT2;    // width of the stage in mm
-
-  // Max height — top of highest tier + PANEL_BODY_MM
-  const maxHeightMm = Math.max(...tiers.map(t => t.finishedHeight)) + PANEL_BODY_MM + 100;
-
-  // Canvas sizing
-  const maxW     = forPrint ? 2400 : 1200;
-  const maxH     = forPrint ? 1200 : 500;
-  const availW   = Math.min(maxW, Math.max(600, sliceMm * 0.3 + MARGIN_LEFT + MARGIN_RIGHT));
-  const availH   = Math.min(maxH, Math.max(250, maxHeightMm * (forPrint ? 1.2 : 0.3) + MARGIN_BOTTOM + MARGIN_TOP));
-  const scaleX   = (availW - MARGIN_LEFT - MARGIN_RIGHT) / sliceMm;
-  const scaleY   = (availH - MARGIN_BOTTOM - MARGIN_TOP) / maxHeightMm;
-
-  sideCanvas.width  = Math.round(availW);
-  sideCanvas.height = Math.round(availH);
-  const W = sideCanvas.width, H = sideCanvas.height;
-
-  sctx.clearRect(0, 0, W, H);
-
-  // Helper: mm to canvas px
-  function toCanvasX(mm) { return MARGIN_LEFT + mm * scaleX; }
-  function toCanvasY(mm) { return H - MARGIN_BOTTOM - mm * scaleY; }
-
-  // Ground line
-  sctx.strokeStyle = '#2a2f3e';
-  sctx.lineWidth   = 1;
-  sctx.beginPath();
-  sctx.moveTo(MARGIN_LEFT, toCanvasY(0));
-  sctx.lineTo(W - MARGIN_RIGHT, toCanvasY(0));
-  sctx.stroke();
-
-  // Y-axis scale (mm)
-  sctx.fillStyle   = '#6b7280';
-  const fontSize = Math.max(9, Math.round(sideCanvas.height / 55));
-  sctx.font        = `${fontSize}px DM Mono, monospace`;
-  sctx.textAlign   = 'right';
-  sctx.textBaseline = 'middle';
-  const tickInterval = maxHeightMm > 1500 ? 500 : maxHeightMm > 600 ? 200 : 100;
-  for (let mm = 0; mm <= maxHeightMm; mm += tickInterval) {
-    const py = toCanvasY(mm);
-    sctx.fillText(mm + '', MARGIN_LEFT - 4, py);
-    sctx.strokeStyle = '#1e2230';
-    sctx.lineWidth   = 0.5;
-    sctx.beginPath();
-    sctx.moveTo(MARGIN_LEFT, py);
-    sctx.lineTo(W - MARGIN_RIGHT, py);
-    sctx.stroke();
-  }
-
-  // X-axis labels (ft)
-  sctx.fillStyle   = '#6b7280';
-  sctx.font        = `${fontSize}px DM Mono, monospace`;
-  sctx.textAlign   = 'center';
-  sctx.textBaseline = 'top';
-  for (let gu = 0; gu <= sliceCount; gu += 2) {
-    const px = toCanvasX(gu * FT2);
-    sctx.fillText(`${(minSlice + gu) * 2}ft`, px, H - MARGIN_BOTTOM + 4);
-  }
-
-  // Y-axis label
-  sctx.save();
-  sctx.translate(10, H / 2);
-  sctx.rotate(-Math.PI / 2);
-  sctx.fillStyle    = '#6b7280';
-  sctx.font         = `${fontSize}px Barlow Condensed, sans-serif`;
-  sctx.textAlign    = 'center';
-  sctx.textBaseline = 'middle';
-  sctx.fillText('mm', 0, 0);
-  sctx.restore();
-
-  // Direction label
-  sctx.fillStyle    = '#f5a623';
-  sctx.font         = `bold ${Math.round(fontSize*1.2)}px Barlow Condensed, sans-serif`;
-  sctx.textAlign    = 'left';
-  sctx.textBaseline = 'top';
-  sctx.fillText(sideDir.toUpperCase() + ' ELEVATION', MARGIN_LEFT + 4, 4);
-
-  // Draw each tier's silhouette — per visible panel span
-  for (const tier of tiers) {
-    const tierH   = tier.finishedHeight;
-    const colBase = TIER_COLORS[(tier.id - 1) % TIER_COLORS.length];
-
-    // Collect unique visible panels for this tier
-    const visiblePanels = new Set();
-    for (let c = minSlice; c < maxSlice; c++) {
-      const p = byCell.get(`${tier.id}_${c}`);
-      if (p) visiblePanels.add(p);
-    }
-
-    // Get nodes for this tier — they already carry floorHeight per point
-    const tierNodes = computeNodes(tier.id);
-
-    // Track projected positions where a leg has already been drawn this tier
-    // to prevent adjacent panels both drawing at a shared node.
-    const drawnLegPositions = new Set();
-
-    for (const p of visiblePanels) {
-      const spanStart = isXAxis ? p.gx : p.gy;
-      const spanEnd   = isXAxis ? p.gx + p.gw : p.gy + p.gh;
-      const xMmStart  = (spanStart - minSlice) * FT2;
-      const xMmEnd    = (spanEnd   - minSlice) * FT2;
-
-      const panelBottom = tierH - PANEL_BODY_MM;
-      const panelTop    = tierH;
-
-      const px1 = toCanvasX(xMmStart + 1);
-      const px2 = toCanvasX(xMmEnd   - 1);
-      const pw  = Math.max(2, px2 - px1);
-
-      // Panel body
-      const pyPT = toCanvasY(panelTop);
-      const pyPB = toCanvasY(panelBottom);
-      const phPx = pyPB - pyPT;
-
-      sctx.fillStyle   = colBase + 'cc';
-      sctx.strokeStyle = colBase;
-      sctx.lineWidth   = 1;
-      sctx.fillRect(px1, pyPT, pw, phPx);
-      sctx.strokeRect(px1, pyPT, pw, phPx);
-
-      // Draw one leg per node that falls on this panel's projected edges.
-      // Every node — corner, edge, or internal — has exactly one leg (splitters
-      // share one leg across multiple panels, so we just draw it once at the node point).
-      // We draw legs for nodes at spanStart and spanEnd of this panel only,
-      // avoiding duplicate draws from adjacent panels sharing the same node.
-      const legPxW = Math.max(4, Math.round(48 * scaleX));
-
-      const depthStart = isXAxis ? p.gy        : p.gx;
-      const depthEnd   = isXAxis ? p.gy + p.gh : p.gx + p.gw;
-
-      const panelProjStart = isXAxis ? p.gx        : p.gy;
-      const panelProjEnd   = isXAxis ? p.gx + p.gw : p.gy + p.gh;
-
-      for (const projPos of [spanStart, spanEnd]) {
-        if (projPos !== panelProjStart && projPos !== panelProjEnd) continue;
-
-        // Find the first node at this projected position within the panel's depth range.
-        // There is exactly one leg per projPos — stop after finding the first node.
-        let node = null;
-        for (let d = depthStart; d <= depthEnd; d++) {
-          const key = isXAxis ? `${projPos},${d}` : `${d},${projPos}`;
-          const n   = tierNodes.get(key);
-          if (n) { node = n; break; }
-        }
-        if (!node) continue;
-
-        // Skip if a leg has already been drawn at this projected position
-        const legKey = `${projPos},${node.floorHeight}`;
-        if (drawnLegPositions.has(legKey)) continue;
-        drawnLegPositions.add(legKey);
-
-        // Leg is inset from the node point, inside the panel boundary.
-        const nodeMm = (projPos - minSlice) * FT2;
-        const nxNode = toCanvasX(nodeMm);
-        const nx     = (projPos === panelProjStart) ? nxNode : nxNode - legPxW;
-
-        const floorH = node.floorHeight;
-        if (panelBottom > floorH) {
-          const pyLT = toCanvasY(panelBottom);
-          const pyLB = toCanvasY(floorH);
-          const lhPx = pyLB - pyLT;
-          sctx.fillStyle   = colBase + '55';
-          sctx.strokeStyle = colBase + '99';
-          sctx.lineWidth   = 0.75;
-          sctx.fillRect(nx, pyLT, legPxW, lhPx);
-          sctx.strokeRect(nx, pyLT, legPxW, lhPx);
-        }
-      }
-    }
-
-    // Dashed tier height line + label
-    if (visiblePanels.size > 0) {
-      const pyLine = toCanvasY(tierH);
-      sctx.strokeStyle = colBase + '55';
-      sctx.lineWidth   = 0.75;
-      sctx.setLineDash([3, 4]);
-      sctx.beginPath();
-      sctx.moveTo(MARGIN_LEFT, pyLine);
-      sctx.lineTo(W - MARGIN_RIGHT, pyLine);
-      sctx.stroke();
-      sctx.setLineDash([]);
-      sctx.fillStyle    = colBase;
-      sctx.font         = `bold ${fontSize}px Barlow Condensed, sans-serif`;
-      sctx.textAlign    = 'left';
-      sctx.textBaseline = 'bottom';
-      sctx.fillText(`${tier.label} ${tierH}mm`, MARGIN_LEFT + 2, pyLine - 1);
-    }
-  }
-}
 
 // ── Watermark ─────────────────────────────────────────────────────────────────
 let wmMode = 'bird';
@@ -2984,8 +2592,7 @@ function autoFill() {
   nextId = id;
   selectedId = null;
   recalcSchedule(); redraw();
-  if (activeView === 'side') drawSideView();
-}
+  }
 
 // ── Print ─────────────────────────────────────────────────────────────────────
 function printSchedule() {
@@ -3359,7 +2966,6 @@ function printSchedule() {
   } catch(e) { alert('Print error: ' + e.message); console.error(e); }
 }
 
-// Generate plan view + left elevation images for print
 function generateElevationImages() {
   if (!panels.some(p => p.category === 'panel')) return '';
 
@@ -3375,11 +2981,9 @@ function generateElevationImages() {
   const pad = 1;
 
   // ── Plan view ──
-  // Render at 2x CELL size for clarity, white background, tier colours, nodes, legend
   const PCELL   = CELL * 2;
   const planW   = (maxGx - minGx + pad * 2) * PCELL;
 
-  // Pre-calculate legend height based on actual wrap
   const legendItemsDef = [
     ...tiers.filter(t => panels.some(p => p.category === 'panel' && p.tier === t.id)).map(t => ({
       label: `${t.label} — ${t.finishedHeight}mm`, dot: false
@@ -3409,11 +3013,9 @@ function generateElevationImages() {
   planC.height  = planH;
   const pc      = planC.getContext('2d');
 
-  // White background
   pc.fillStyle = '#ffffff';
   pc.fillRect(0, 0, planW, planH);
 
-  // Grid
   pc.strokeStyle = '#e0e0e0';
   pc.lineWidth   = 0.5;
   const gW = maxGx - minGx + pad * 2;
@@ -3425,7 +3027,6 @@ function generateElevationImages() {
     pc.beginPath(); pc.moveTo(0, y*PCELL+0.5); pc.lineTo(gW*PCELL, y*PCELL+0.5); pc.stroke();
   }
 
-  // Panels — coloured by tier
   for (const p of panels) {
     if (p.category !== 'panel') continue;
     const tierColor = TIER_COLORS[(p.tier - 1) % TIER_COLORS.length];
@@ -3438,7 +3039,6 @@ function generateElevationImages() {
     pc.strokeStyle = tierColor;
     pc.lineWidth   = 1.5;
     pc.strokeRect(px+1, py+1, pw-2, ph-2);
-    // Panel label
     pc.fillStyle     = 'rgba(255,255,255,0.9)';
     pc.font          = `bold ${Math.min(13, pw/4)}px Arial`;
     pc.textAlign     = 'center';
@@ -3446,7 +3046,6 @@ function generateElevationImages() {
     pc.fillText(PANEL_LABELS[p.type], px + pw/2, py + ph/2);
   }
 
-  // Node markers — per tier
   for (const tier of tiers) {
     const nodes = computeNodes(tier.id);
     for (const [, node] of nodes) {
@@ -3463,71 +3062,113 @@ function generateElevationImages() {
     }
   }
 
-// Legend
-let ly = gH * PCELL + 12;
-const legendItems = [
-  ...tiers.filter(t => panels.some(p => p.category === 'panel' && p.tier === t.id)).map(t => ({
-    color: TIER_COLORS[(t.id-1) % TIER_COLORS.length] + 'bb',
-    stroke: TIER_COLORS[(t.id-1) % TIER_COLORS.length],
-    label: `${t.label} — ${t.finishedHeight}mm`,
-    dot: false
-  })),
-  { color: '#ef4444', label: 'Corner (no splitter)',      dot: true },
-  { color: '#f59e0b', label: 'Edge (2-way splitter)',     dot: true },
-  { color: '#3b82f6', label: 'Internal (4-way splitter)', dot: true },
-];
-pc.font = '12px Arial';
-pc.textBaseline = 'middle';
-let lx = 8;
-pc.textAlign = 'left';
-for (const item of legendItems) {
-  const textW = pc.measureText(item.label).width;
-  const MARKER_W = item.dot ? 16 : 22;
-  const GAP = 6;
-  const itemW = MARKER_W + GAP + textW + 14;
-  if (lx > 8 && lx + itemW > planW - 8) { lx = 8; ly += 22; }
-  if (item.dot) {
-    pc.beginPath();
-    pc.arc(lx + 10, ly + 7, 5, 0, Math.PI * 2);
-    pc.fillStyle = item.color;
-    pc.fill();
-  } else {
-    pc.fillStyle   = item.color;
-    pc.strokeStyle = item.stroke;
-    pc.lineWidth   = 1;
-    pc.fillRect(lx, ly, 20, 14);
-    pc.strokeRect(lx, ly, 20, 14);
+  let ly = gH * PCELL + 12;
+  const legendItems = [
+    ...tiers.filter(t => panels.some(p => p.category === 'panel' && p.tier === t.id)).map(t => ({
+      color: TIER_COLORS[(t.id-1) % TIER_COLORS.length] + 'bb',
+      stroke: TIER_COLORS[(t.id-1) % TIER_COLORS.length],
+      label: `${t.label} — ${t.finishedHeight}mm`, dot: false
+    })),
+    { color: '#ef4444', label: 'Corner (no splitter)',      dot: true },
+    { color: '#f59e0b', label: 'Edge (2-way splitter)',     dot: true },
+    { color: '#3b82f6', label: 'Internal (4-way splitter)', dot: true },
+  ];
+  pc.font = '12px Arial';
+  pc.textBaseline = 'middle';
+  let lx = 8;
+  pc.textAlign = 'left';
+  for (const item of legendItems) {
+    const textW = pc.measureText(item.label).width;
+    const MARKER_W = item.dot ? 16 : 22;
+    const GAP = 6;
+    const itemW = MARKER_W + GAP + textW + 14;
+    if (lx > 8 && lx + itemW > planW - 8) { lx = 8; ly += 22; }
+    if (item.dot) {
+      pc.beginPath();
+      pc.arc(lx + 10, ly + 7, 5, 0, Math.PI * 2);
+      pc.fillStyle = item.color;
+      pc.fill();
+    } else {
+      pc.fillStyle   = item.color;
+      pc.strokeStyle = item.stroke;
+      pc.lineWidth   = 1;
+      pc.fillRect(lx, ly, 20, 14);
+      pc.strokeRect(lx, ly, 20, 14);
+    }
+    pc.fillStyle = '#333333';
+    pc.fillText(item.label, lx + MARKER_W + GAP + 2, ly + 7);
+    lx += itemW;
   }
-  pc.fillStyle = '#333333';
-  pc.fillText(item.label, lx + MARKER_W + GAP + 2, ly + 7);
-  lx += itemW;
-}
 
   const planDataUrl = planC.toDataURL('image/png');
 
- // ── Left elevation ──
-const savedDir = sideDir;
-sideDir = 'left';
-drawSideView(true);
-const leftDataUrl = sideCanvas.toDataURL('image/png');
-sideDir = savedDir;
-drawSideView();
+  // ── Bracing view captures ──
+  // Save current bracing state
+  const savedView        = activeView;
+  const savedBracingTier = typeof bracingActiveTierId !== 'undefined' ? bracingActiveTierId : activeTierId;
+  const savedSubView     = typeof bracingSubView      !== 'undefined' ? bracingSubView      : 'plan';
+
+  // Make bracing container visible so canvases render at correct size
+  const bracingContainer = document.getElementById('bracingViewContainer');
+  const prevDisplay = bracingContainer.style.display;
+  bracingContainer.style.display = 'flex';
+
+  // Set bracing tier to first populated tier
+  const firstBracingTier = tiers.find(t => panels.some(p => p.category === 'panel' && p.tier === t.id));
+
+  let bracingPlanUrl = '', bracingElevXUrl = '', bracingElevYUrl = '';
+
+  if (firstBracingTier) {
+    // Plan view
+    setBracingSubView('plan');
+    renderBracingView();
+    const bPlan = document.getElementById('bracingCanvasPlan');
+    bracingPlanUrl = bPlan && bPlan.width > 0 ? bPlan.toDataURL('image/png') : '';
+
+    // Elevation X
+    setBracingSubView('elevX');
+    renderBracingView();
+    const bElevX = document.getElementById('bracingCanvasElev');
+    bracingElevXUrl = bElevX && bElevX.width > 0 ? bElevX.toDataURL('image/png') : '';
+
+    // Elevation Y
+    setBracingSubView('elevY');
+    renderBracingView();
+    const bElevY = document.getElementById('bracingCanvasElevY');
+    bracingElevYUrl = bElevY && bElevY.width > 0 ? bElevY.toDataURL('image/png') : '';
+  }
+
+  // Restore state
+  bracingContainer.style.display = prevDisplay;
+  setBracingSubView(savedSubView);
+
+  // Build bracing image HTML — only include if we have bracing data
+  const hasBracing = bracingPlanUrl || bracingElevXUrl || bracingElevYUrl;
+  const bracingImgHtml = hasBracing ? `
+      <div class="elevation-item">
+        <p>Bracing — Plan View</p>
+        <img src="${bracingPlanUrl}" alt="Bracing plan view">
+      </div>
+      <div class="elevation-item">
+        <p>Bracing — Elevation (Width)</p>
+        <img src="${bracingElevXUrl}" alt="Bracing elevation X">
+      </div>
+      <div class="elevation-item">
+        <p>Bracing — Elevation (Depth)</p>
+        <img src="${bracingElevYUrl}" alt="Bracing elevation Y">
+      </div>` : '';
 
   return `<div class="elevation-section">
-    <h2>Layout &amp; Elevation</h2>
+    <h2>Layout &amp; Bracing Views</h2>
     <div class="drawings-grid">
       <div class="elevation-item">
         <p>Plan View</p>
         <img src="${planDataUrl}" alt="Plan view">
       </div>
-      <div class="elevation-item">
-        <p>Left Elevation</p>
-        <img src="${leftDataUrl}" alt="Left elevation">
-      </div>
+      ${bracingImgHtml}
     </div>
   </div>`;
 }
-
 // ══════════════════════════════════════════════════════════════════════════════
 // BRACING ENGINE — IStructE TDS 4th Ed. 2017 + Raven Staging practice
 // Thresholds: < 900mm no bracing; 900–1600mm every 3rd bay; > 1600mm every other.

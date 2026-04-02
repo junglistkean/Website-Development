@@ -3025,11 +3025,14 @@ function generateElevationImages() {
   const LEGEND_H = legendRows * 22 + 20;
 
   const planH   = (maxGy - minGy + pad * 2) * PCELL + LEGEND_H;
+  const MAX_PRINT_W = 1200;
+  const planScale = planW > MAX_PRINT_W ? MAX_PRINT_W / planW : 1;
   const planC   = document.createElement('canvas');
-  planC.width   = planW;
-  planC.height  = planH;
+  planC.width   = Math.round(planW * planScale);
+  planC.height  = Math.round(planH * planScale);
   const pc      = planC.getContext('2d');
-
+  pc.scale(planScale, planScale);
+  
   pc.fillStyle = '#ffffff';
   pc.fillRect(0, 0, planW, planH);
 
@@ -3473,110 +3476,190 @@ function calcBracing() {
     const useContX = stageXspanMm <= CONT_THRESHOLD_MM;
     const useContY = stageYspanMm <= CONT_THRESHOLD_MM;
 
-    // ── X-axis diagonal braces (at front row ys[0] and back row ys[last]) ──
-    if (useContX) {
-      const diag = bayDiag(stageXspanMm, vertSpan);
-      // Intermediate legs crossed = nX - 2 (all internal X columns)
-      const swivelClamps = 2 + (nX - 2);
-      for (const yRow of [0, nY - 1]) {
-        diagBraces.push({
-          axis: 'X', continuous: true,
-          bayX: 0, spanBays: totalBaysX, yRow, lean: 'right',
-          x0: xs[0], x1: xs[nX-1], y: ys[yRow],
-          bayWidthMm: stageXspanMm, vertSpanMm: vertSpan,
-          calcLengthMm: diag.length, angleDeg: diag.angle,
-          solution: solveTubeCombination(diag.length),
-          stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
-          tubeCount: 1, swivelClamps
-        });
-      }
-    } else {
-      const xBayW = (xs[1] - xs[0]) * FT2;
-      const xSpan = optimalBaySpan(xBayW, totalBaysX, vertSpan);
-      const xNumGroups = Math.ceil(totalBaysX / xSpan);
-      const xBracedGroups = bracedGroups(xNumGroups, highStage);
-      const midGroup = (xNumGroups - 1) / 2;
+    // ── Helpers: actual panel span at a given row/column ──────────────────────
+    function xNodesInSpan(x0, x1) { return xs.filter(x => x >= x0 && x <= x1).length; }
+    function yNodesInSpan(y0, y1) { return ys.filter(y => y >= y0 && y <= y1).length; }
 
-      const bracedXBays = [];
-      for (const g of xBracedGroups) {
-        const startBay = g * xSpan;
-        const endBay = Math.min(startBay + xSpan - 1, totalBaysX - 1);
-        bracedXBays.push(startBay);
-        const spanW = (xs[endBay + 1] - xs[startBay]) * FT2;
-        const diag = bayDiag(spanW, vertSpan);
-        const lean = g <= midGroup ? 'right' : 'left';
-        // Intermediate legs = number of xs[] positions between start and end (exclusive)
-        const intermediateLegs = (endBay + 1) - startBay - 1; // = spanBays - 1
-        const swivelClamps = 2 + intermediateLegs;
-        for (const yRow of [0, nY - 1]) {
+    // ── X-axis diagonal braces ────────────────────────────────────────────────
+    const frontSpans = getOuterEdgeSpans('front', tp);
+    const backSpans  = getOuterEdgeSpans('back',  tp);
+
+    function addXDiagBraces(spans, defaultLean) {
+      for (const span of spans) {
+        const spanMm = (span.end - span.start) * FT2;
+        if (spanMm < 1) continue;
+
+        // Find which xs[] indices fall within this span
+        const spanXs = xs.filter(x => x >= span.start && x <= span.end);
+        const spanBayCount = spanXs.length - 1;
+
+        if (spanBayCount <= 0) {
+          // Smaller than one bay — single diagonal
+          const diag = bayDiag(spanMm, vertSpan);
           diagBraces.push({
-            axis: 'X', continuous: false,
-            bayX: startBay, spanBays: endBay - startBay + 1, yRow, lean,
-            x0: xs[startBay], x1: xs[endBay + 1], y: ys[yRow],
-            bayWidthMm: spanW, vertSpanMm: vertSpan,
+            axis: 'X', continuous: true,
+            bayX: 0, spanBays: 1, yRow: 0, lean: defaultLean,
+            x0: span.start, x1: span.end, y: span.edgeGu,
+            bayWidthMm: spanMm, vertSpanMm: vertSpan,
+            calcLengthMm: diag.length, angleDeg: diag.angle,
+            solution: solveTubeCombination(diag.length),
+            stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+            tubeCount: 1, swivelClamps: 2
+          });
+          continue;
+        }
+
+        const useContSpan = spanMm <= CONT_THRESHOLD_MM;
+
+        if (useContSpan) {
+          const diag = bayDiag(spanMm, vertSpan);
+          const nXInSpan = xNodesInSpan(span.start, span.end);
+          const swivelClamps = 2 + Math.max(0, nXInSpan - 2);
+          diagBraces.push({
+            axis: 'X', continuous: true,
+            bayX: 0, spanBays: spanBayCount, yRow: 0, lean: defaultLean,
+            x0: span.start, x1: span.end, y: span.edgeGu,
+            bayWidthMm: spanMm, vertSpanMm: vertSpan,
             calcLengthMm: diag.length, angleDeg: diag.angle,
             solution: solveTubeCombination(diag.length),
             stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
             tubeCount: 1, swivelClamps
           });
+        } else {
+          // Bay-span logic applied within this span's xs subset
+          const xBayW = (spanXs[1] - spanXs[0]) * FT2;
+          const xSpan = optimalBaySpan(xBayW, spanBayCount, vertSpan);
+          const xNumGroups = Math.ceil(spanBayCount / xSpan);
+          const xBracedGroups = bracedGroups(xNumGroups, highStage);
+          const midGroup = (xNumGroups - 1) / 2;
+          for (const g of xBracedGroups) {
+            const startBay = g * xSpan;
+            const endBay = Math.min(startBay + xSpan - 1, spanBayCount - 1);
+            const x0 = spanXs[startBay];
+            const x1 = spanXs[endBay + 1];
+            const spanW = (x1 - x0) * FT2;
+            const diag = bayDiag(spanW, vertSpan);
+            const lean = xNumGroups === 1 ? defaultLean : (g < Math.ceil(xNumGroups / 2) ? 'right' : 'left');
+            const swivelClamps = 2 + ((endBay + 1) - startBay - 1);
+            diagBraces.push({
+              axis: 'X', continuous: false,
+              bayX: startBay, spanBays: endBay - startBay + 1, yRow: 0, lean,
+              x0, x1, y: span.edgeGu,
+              bayWidthMm: spanW, vertSpanMm: vertSpan,
+              calcLengthMm: diag.length, angleDeg: diag.angle,
+              solution: solveTubeCombination(diag.length),
+              stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+              tubeCount: 1, swivelClamps
+            });
+          }
         }
       }
-      results._bracedXBays = bracedXBays;
     }
+    addXDiagBraces(frontSpans, 'right');
+    addXDiagBraces(backSpans, 'left');
 
-    // ── Y-axis diagonal braces (at left col xs[0] and right col xs[last]) ──
-    if (useContY) {
-      const diag = bayDiag(stageYspanMm, vertSpan);
-      const swivelClamps = 2 + (nY - 2);
-      for (const xCol of [0, nX - 1]) {
-        diagBraces.push({
-          axis: 'Y', continuous: true,
-          bayY: 0, spanBays: totalBaysY, xCol, lean: 'down',
-          x: xs[xCol], y0: ys[0], y1: ys[nY-1],
-          bayWidthMm: stageYspanMm, vertSpanMm: vertSpan,
-          calcLengthMm: diag.length, angleDeg: diag.angle,
-          solution: solveTubeCombination(diag.length),
-          stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
-          tubeCount: 1, swivelClamps
-        });
-      }
-    } else {
-      const yBayW = (ys[1] - ys[0]) * FT2;
-      const ySpan = optimalBaySpan(yBayW, totalBaysY, vertSpan);
-      const yNumGroups = Math.ceil(totalBaysY / ySpan);
-      const yBracedGroups = bracedGroups(yNumGroups, highStage);
-      const midGroup = (yNumGroups - 1) / 2;
+    // ── Y-axis diagonal braces ────────────────────────────────────────────────
+    const leftSpans  = getOuterEdgeSpans('left',  tp);
+    const rightSpans = getOuterEdgeSpans('right', tp);
 
-      const bracedYBays = [];
-      for (const g of yBracedGroups) {
-        const startBay = g * ySpan;
-        const endBay = Math.min(startBay + ySpan - 1, totalBaysY - 1);
-        bracedYBays.push(startBay);
-        const spanD = (ys[endBay + 1] - ys[startBay]) * FT2;
-        const diag = bayDiag(spanD, vertSpan);
-        const lean = g <= midGroup ? 'down' : 'up';
-        const intermediateLegs = (endBay + 1) - startBay - 1;
-        const swivelClamps = 2 + intermediateLegs;
-        for (const xCol of [0, nX - 1]) {
+    function addYDiagBraces(spans, defaultLean) {
+      for (const span of spans) {
+        const spanMm = (span.end - span.start) * FT2;
+        if (spanMm < 1) continue;
+
+        // Find which ys[] indices fall within this span
+        const spanYs = ys.filter(y => y >= span.start && y <= span.end);
+        const spanBayCount = spanYs.length - 1;
+
+        if (spanBayCount <= 0) {
+          // Smaller than one bay — single diagonal
+          const diag = bayDiag(spanMm, vertSpan);
+          const swivelClamps = 2;
           diagBraces.push({
-            axis: 'Y', continuous: false,
-            bayY: startBay, spanBays: endBay - startBay + 1, xCol, lean,
-            x: xs[xCol], y0: ys[startBay], y1: ys[endBay + 1],
-            bayWidthMm: spanD, vertSpanMm: vertSpan,
+            axis: 'Y', continuous: true,
+            bayY: 0, spanBays: 1, xCol: 0, lean: defaultLean,
+            x: span.edgeGu, y0: span.start, y1: span.end,
+            bayWidthMm: spanMm, vertSpanMm: vertSpan,
             calcLengthMm: diag.length, angleDeg: diag.angle,
             solution: solveTubeCombination(diag.length),
             stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
             tubeCount: 1, swivelClamps
           });
+          continue;
+        }
+
+        const spanContMm = spanMm;
+        const useContSpan = spanContMm <= CONT_THRESHOLD_MM;
+
+        if (useContSpan) {
+          // Continuous single diagonal across this span
+          const diag = bayDiag(spanMm, vertSpan);
+          const nYInSpan = yNodesInSpan(span.start, span.end);
+          const swivelClamps = 2 + Math.max(0, nYInSpan - 2);
+          diagBraces.push({
+            axis: 'Y', continuous: true,
+            bayY: 0, spanBays: spanBayCount, xCol: 0, lean: defaultLean,
+            x: span.edgeGu, y0: span.start, y1: span.end,
+            bayWidthMm: spanMm, vertSpanMm: vertSpan,
+            calcLengthMm: diag.length, angleDeg: diag.angle,
+            solution: solveTubeCombination(diag.length),
+            stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+            tubeCount: 1, swivelClamps
+          });
+        } else {
+          // Bay-span logic applied within this span's ys subset
+          const yBayW = (spanYs[1] - spanYs[0]) * FT2;
+          const ySpan = optimalBaySpan(yBayW, spanBayCount, vertSpan);
+          const yNumGroups = Math.ceil(spanBayCount / ySpan);
+          const yBracedGroups = bracedGroups(yNumGroups, highStage);
+          const midGroup = (yNumGroups - 1) / 2;
+          for (const g of yBracedGroups) {
+            const startBay = g * ySpan;
+            const endBay = Math.min(startBay + ySpan - 1, spanBayCount - 1);
+            const y0 = spanYs[startBay];
+            const y1 = spanYs[endBay + 1];
+            const spanD = (y1 - y0) * FT2;
+            const diag = bayDiag(spanD, vertSpan);
+            const lean = yNumGroups === 1 ? defaultLean : (g < Math.ceil(yNumGroups / 2) ? 'down' : 'up');
+            const swivelClamps = 2 + ((endBay + 1) - startBay - 1);
+            diagBraces.push({
+              axis: 'Y', continuous: false,
+              bayY: startBay, spanBays: endBay - startBay + 1, xCol: 0, lean,
+              x: span.edgeGu, y0, y1,
+              bayWidthMm: spanD, vertSpanMm: vertSpan,
+              calcLengthMm: diag.length, angleDeg: diag.angle,
+              solution: solveTubeCombination(diag.length),
+              stdTubeMm: diag.std, angleOk: diag.angle >= 35 && diag.angle <= 55,
+              tubeCount: 1, swivelClamps
+            });
+          }
         }
       }
-      results._bracedYBays = bracedYBays;
+    }
+    addYDiagBraces(leftSpans, 'down');
+    addYDiagBraces(rightSpans, 'up');
+
+    // ── Plan (horizontal) bracing ─────────────────────────────────────────────
+    function xSpanAtYRow(yGu) {
+      let x0 = Infinity, x1 = -Infinity;
+      for (const p of tp) {
+        if (p.gy === yGu || p.gy + p.gh === yGu) {
+          x0 = Math.min(x0, p.gx); x1 = Math.max(x1, p.gx + p.gw);
+        }
+      }
+      return (x0 === Infinity) ? null : { x0, x1 };
     }
 
-    // ── Plan (horizontal) bracing ──
-    // Each plan brace is one full-length tube. Clamps = number of leg positions it passes through.
-    // X-direction tubes run the full width at selected Y-row positions: nX clamps each.
-    // Y-direction tubes run the full depth at selected X-column positions: nY clamps each.
+    function ySpanAtXCol(xGu) {
+      let y0 = Infinity, y1 = -Infinity;
+      for (const p of tp) {
+        if (p.gx === xGu || p.gx + p.gw === xGu) {
+          y0 = Math.min(y0, p.gy); y1 = Math.max(y1, p.gy + p.gh);
+        }
+      }
+      return (y0 === Infinity) ? null : { y0, y1 };
+    }
+
     function planBracedPositions(total, everyOther) {
       if (total <= 0) return [];
       if (total === 1) return [0];
@@ -3587,7 +3670,6 @@ function calcBracing() {
         if (braced.has(i)) { lastBraced = i; continue; }
         if (i - lastBraced > maxGap) {
           braced.add(i);
-          // Mirror symmetrically from the other end
           const mirror = total - 1 - i;
           if (mirror > 0 && mirror < total - 1) braced.add(mirror);
           lastBraced = i;
@@ -3596,9 +3678,7 @@ function calcBracing() {
       return [...braced].sort((a,b) => a-b);
     }
 
-    // Row indices (into ys[]) that get a full-width X-direction plan tube
     const bracedYPositions = planBracedPositions(nY, highStage);
-    // Column indices (into xs[]) that get a full-depth Y-direction plan tube
     const bracedXPositions = planBracedPositions(nX, highStage);
 
     const planBraces = [];
@@ -3608,28 +3688,30 @@ function calcBracing() {
       : [{ name: 'Base level', height: horizBraceH }];
 
     for (const level of planLevels) {
-      // X-direction: one full-width tube at each braced Y-row position.
-      // Clamps = nX (one at every X leg column along the full width).
       for (const yIdx of bracedYPositions) {
-        const fullWidthMm = (xs[xs.length-1] - xs[0]) * FT2;
-        const sol = solveTubeCombination(Math.round(fullWidthMm));
+        const yGu = ys[yIdx];
+        const span = xSpanAtYRow(yGu);
+        if (!span) continue;
+        const spanMm = (span.x1 - span.x0) * FT2;
+        const nXInSpan = xNodesInSpan(span.x0, span.x1);
+        const sol = solveTubeCombination(Math.round(spanMm));
         planBraces.push({ level: level.name, heightMm: level.height, axis: 'X',
-          edgeY: ys[yIdx],
-          calcLengthMm: Math.round(fullWidthMm),
-          solution: sol,
-          tubeCount: sol.tubes.length, rightAngleClamps: nX,
+          edgeY: yGu, x0: span.x0, x1: span.x1,
+          calcLengthMm: Math.round(spanMm), solution: sol,
+          tubeCount: sol.tubes.length, rightAngleClamps: nXInSpan,
           sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
       }
-      // Y-direction: one full-depth tube at each braced X-column position.
-      // Clamps = nY (one at every Y leg row along the full depth).
       for (const xIdx of bracedXPositions) {
-        const fullDepthMm = (ys[ys.length-1] - ys[0]) * FT2;
-        const sol = solveTubeCombination(Math.round(fullDepthMm));
+        const xGu = xs[xIdx];
+        const span = ySpanAtXCol(xGu);
+        if (!span) continue;
+        const spanMm = (span.y1 - span.y0) * FT2;
+        const nYInSpan = yNodesInSpan(span.y0, span.y1);
+        const sol = solveTubeCombination(Math.round(spanMm));
         planBraces.push({ level: level.name, heightMm: level.height, axis: 'Y',
-          edgeX: xs[xIdx],
-          calcLengthMm: Math.round(fullDepthMm),
-          solution: sol,
-          tubeCount: sol.tubes.length, rightAngleClamps: nY,
+          edgeX: xGu, y0: span.y0, y1: span.y1,
+          calcLengthMm: Math.round(spanMm), solution: sol,
+          tubeCount: sol.tubes.length, rightAngleClamps: nYInSpan,
           sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
       }
     }
@@ -3730,7 +3812,13 @@ function renderBracingView() {
     drawBracingPlan(ar);
     drawBracingElev(ar);
     drawBracingElevY(ar);
+    if (ar && ar.status === 'calc') {
+    drawBracingPlan(ar);
+    drawBracingElev(ar);
+    drawBracingElevY(ar);
+    console.log('Y braces detail', JSON.stringify(ar.diagBraces.filter(b => b.axis==='Y').map(b => ({x: b.x, y0: b.y0, y1: b.y1, lean: b.lean}))));
     setBracingSubView(bracingSubView);
+  }
   } else {
     document.getElementById('bracingCanvasPlan').style.display = 'none';
     document.getElementById('bracingCanvasElev').style.display = 'none';
@@ -3859,21 +3947,14 @@ function drawBracingPlan(r) {
   for (const gy of r.ys) { bctx.beginPath(); bctx.moveTo(PAD,gyPx(gy)); bctx.lineTo(PAD+drawW,gyPx(gy)); bctx.stroke(); }
   bctx.setLineDash([]);
 
-  // Horizontal ties (green) — each planBrace is now a full-span tube
+  // Horizontal ties (green) — drawn to actual panel extent at each row/column
   bctx.strokeStyle = '#22c55ea0'; bctx.lineWidth = 3; bctx.lineCap = 'round';
-  const drawn = new Set();
   for (const pb of r.planBraces) {
     if (pb.level !== 'Base level') continue;
     if (pb.axis === 'X') {
-      // Full-width tube at gy = pb.edgeY, spanning xs[0] to xs[last]
-      const gy = pb.edgeY;
-      const k = `X,${gy}`; if (drawn.has(k)) continue; drawn.add(k);
-      bctx.beginPath(); bctx.moveTo(gxPx(r.xs[0]), gyPx(gy)); bctx.lineTo(gxPx(r.xs[r.xs.length-1]), gyPx(gy)); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(gxPx(pb.x0), gyPx(pb.edgeY)); bctx.lineTo(gxPx(pb.x1), gyPx(pb.edgeY)); bctx.stroke();
     } else {
-      // Full-depth tube at gx = pb.edgeX, spanning ys[0] to ys[last]
-      const gx = pb.edgeX;
-      const k = `Y,${gx}`; if (drawn.has(k)) continue; drawn.add(k);
-      bctx.beginPath(); bctx.moveTo(gxPx(gx), gyPx(r.ys[0])); bctx.lineTo(gxPx(gx), gyPx(r.ys[r.ys.length-1])); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(gxPx(pb.edgeX), gyPx(pb.y0)); bctx.lineTo(gxPx(pb.edgeX), gyPx(pb.y1)); bctx.stroke();
     }
   }
 
@@ -3993,7 +4074,8 @@ function drawBracingElev(r) {
   const xBraceDrawn = new Set();
   for (const b of r.diagBraces) {
     if (b.axis !== 'X') continue;
-    const k = b.bayX + ',' + b.lean;
+    if (b.y !== r.ys[0]) continue;
+    const k = b.x0 + ',' + b.x1 + ',' + b.y + ',' + b.lean;
     if (xBraceDrawn.has(k)) continue; xBraceDrawn.add(k);
     // Map grid unit positions to canvas px via leg index
     const i0 = xsToLegIdx[b.x0] ?? 0;
@@ -4142,10 +4224,14 @@ function drawBracingElevY(r) {
   r.ys.forEach((gy, i) => { ysToLegIdx[gy] = i; });
 
   // Y-axis diagonal braces — uses y0/y1 grid values mapped to canvas px
+  const tp = panels.filter(p => p.category === 'panel' && p.tier === r.tier.id);
   const drawn = new Set();
   for (const b of r.diagBraces) {
     if (b.axis !== 'Y') continue;
-    const k = b.bayY + ',' + b.lean;
+    const spanPanels = tp.filter(p => p.gy < b.y1 && p.gy + p.gh > b.y0);
+    const leftmostX  = Math.min(...spanPanels.map(p => p.gx));
+    if (b.x !== leftmostX) continue;
+    const k = b.x + ',' + b.y0 + ',' + b.y1 + ',' + b.lean;
     if (drawn.has(k)) continue; drawn.add(k);
     const i0 = ysToLegIdx[b.y0] ?? 0;
     const i1 = ysToLegIdx[b.y1] ?? (nLegs - 1);

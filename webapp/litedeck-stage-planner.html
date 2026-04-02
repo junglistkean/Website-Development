@@ -454,9 +454,14 @@
 
   /* ── Print styles ── */
   @media print {
-    body { background: white; color: black; font-size: 11pt; }
+    body { background: white; color: black; font-size: 14pt; }
     .sidebar, .canvas-toolbar, header, .canvas-area, .schedule-panel { display: none !important; }
     .print-view { display: block !important; }
+    .print-view table { font-size: 13pt; border-collapse: collapse; width: 100%; }
+    .print-view table th { font-size: 11pt; padding: 6pt 8pt; }
+    .print-view table td { font-size: 13pt; padding: 6pt 8pt; }
+    .print-view h2 { font-size: 18pt; }
+    .print-view h3 { font-size: 15pt; }
   }
   .print-view { display: none; }
 
@@ -2297,6 +2302,8 @@ function recalcSchedule() {
   document.getElementById('tot-all').textContent    = totalLegs;
   document.getElementById('tot-panels').textContent = totalPanels;
 
+  // ── Steps & Handrails schedule ──
+  appendStepsHrSchedule();
   // ── Bracing schedule ──
   appendBracingSchedule();
   updateFootprint();

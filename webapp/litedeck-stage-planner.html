@@ -662,40 +662,11 @@
           <span class="panel-key">4</span>
         </button>
       </div>
-      <div id="steps-dropdown-header" onclick="toggleStepsDropdown()" class="sidebar-subheading" style="margin-top:12px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; user-select:none;">
-        <span>Steps / Treads</span>
-        <span id="steps-dropdown-arrow" style="font-size:9px;">▶</span>
-      </div>
-      <div id="steps-type-list" style="display:none">
-        <button class="component-btn" onclick="selectSteps('1ft')" id="btn-steps-1ft">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>1ft (305mm) — 2 treads</span>
-        </button>
-        <button class="component-btn" onclick="selectSteps('1.6ft')" id="btn-steps-1.6ft">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>1.6ft (488mm) — 3 treads</span>
-        </button>
-        <button class="component-btn" onclick="selectSteps('2ft')" id="btn-steps-2ft">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>2ft (610mm) — 4 treads</span>
-        </button>
-        <button class="component-btn" onclick="selectSteps('2.6ft')" id="btn-steps-2.6ft">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>2.6ft (792mm) — 5 treads</span>
-        </button>
-        <button class="component-btn" onclick="selectSteps('3ft')" id="btn-steps-3ft">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>3ft (914mm) — 6 treads</span>
-        </button>
-        <button class="component-btn" onclick="selectSteps('1000mm')" id="btn-steps-1000mm">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>1000mm — 7 treads</span>
-        </button>
-        <button class="component-btn" onclick="selectSteps('1200mm')" id="btn-steps-1200mm">
-          <div class="component-swatch" style="background:var(--steps)"></div>
-          <span>1200mm — 8 treads</span>
-        </button>
-      </div>
+      <div class="sidebar-subheading" style="margin-top:12px;">Steps / Treads</div>
+      <button class="component-btn" onclick="selectSteps()" id="btn-steps">
+        <div class="component-swatch" style="background:var(--steps)"></div>
+        <span id="btn-steps-label">Steps — click a stage edge</span>
+      </button>
       <div class="sidebar-subheading" style="margin-top:12px;">Handrails</div>
       <button class="component-btn" onclick="selectHandrail('4ft')" id="btn-hr-4ft">
         <div class="component-swatch" style="background:var(--handrail)"></div>
@@ -1152,20 +1123,27 @@ function onHeightInput() {
 }
 
 // ── Steps tool ────────────────────────────────────────────────────────────────
-function toggleStepsDropdown() {
-  const list  = document.getElementById('steps-type-list');
-  const arrow = document.getElementById('steps-dropdown-arrow');
-  const open  = list.style.display !== 'none';
-  list.style.display  = open ? 'none' : 'block';
-  arrow.textContent   = open ? '▶' : '▼';
+// Returns the STEPS_DATA key whose heightMm best matches the active tier height.
+function stepsKeyForTier() {
+  const tierH = getActiveTier()?.finishedHeight || 0;
+  let bestKey = '1ft', bestDiff = Infinity;
+  for (const [key, data] of Object.entries(STEPS_DATA)) {
+    const diff = Math.abs(data.heightMm - tierH);
+    if (diff < bestDiff) { bestDiff = diff; bestKey = key; }
+  }
+  return bestKey;
 }
 
-function selectSteps(heightKey) {
+function selectSteps() {
   pendingCategory = 'steps';
-  pendingType     = heightKey;
+  pendingType     = stepsKeyForTier(); // resolved from active tier, not chosen by user
   activeTool      = 'place';
   selectedId      = null;
   canvas.style.cursor = 'crosshair';
+  // Update button label to reflect what will be placed
+  const d = STEPS_DATA[pendingType];
+  const lbl = document.getElementById('btn-steps-label');
+  if (lbl) lbl.textContent = `${d.label} — ${d.treads} treads`;
   syncAllPendingButtons();
   updatePendingInfo();
   redraw();
@@ -1197,7 +1175,7 @@ function syncAllPendingButtons() {
     const el = document.getElementById(map[pendingType]);
     if (el) el.classList.add('active');
   } else if (pendingCategory === 'steps') {
-    const el = document.getElementById('btn-steps-' + pendingType);
+    const el = document.getElementById('btn-steps');
     if (el) el.classList.add('active');
   } else if (pendingCategory === 'handrail') {
     const el = document.getElementById('btn-hr-' + pendingType);
@@ -1275,27 +1253,28 @@ function snapHandrailAlong(edge, size) {
 }
 
 // ── Place steps on edge ───────────────────────────────────────────────────────
-function placeSteps(edge, heightKey) {
-  const tierH  = getActiveTier()?.finishedHeight || 0;
-  const stepsH = STEPS_DATA[heightKey].heightMm;
-  if (Math.abs(stepsH - tierH) > 50) {
-    const ok = confirm(
-      `Warning: ${STEPS_DATA[heightKey].label} are designed for ${stepsH}mm, ` +
-      `but this tier is ${tierH}mm. Place anyway?`
-    );
-    if (!ok) return;
-  }
+function placeSteps(edge) {
+  // Resolve the correct steps height from the active tier — no user choice needed
+  const heightKey = stepsKeyForTier();
   const sSpan = [Math.round(edge.alongGu) - STEPS_WIDTH_GU / 2, Math.round(edge.alongGu) + STEPS_WIDTH_GU / 2];
+
   const conflict = panels.find(p =>
     p.category === 'handrail' && p.tier === activeTierId &&
     p.side === edge.side && p.edgeGu === edge.edgeGu &&
     spansOverlap(sSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
   );
+
   if (conflict) {
-    alert('Steps cannot overlap a handrail on the same edge.');
-    return;
+    const ok = confirm(
+      'A handrail is blocking this position.\n\nRemove it and place steps here?'
+    );
+    if (!ok) return;
+    saveHistory();
+    panels = panels.filter(p => p.id !== conflict.id);
+  } else {
+    saveHistory();
   }
-  saveHistory();
+
   panels.push({
     id: nextId++, category: 'steps',
     tier: activeTierId,
@@ -1757,7 +1736,7 @@ function rotatePending() {
 function updatePendingInfo() {
   if (pendingCategory === 'steps') {
     document.getElementById('pending-info').textContent =
-      `Placing: ${STEPS_DATA[pendingType].label} — click a stage edge  [Esc to cancel]`;
+      `Placing: ${STEPS_DATA[stepsKeyForTier()].label} — click a stage edge  [Esc to cancel]`;
   } else if (pendingCategory === 'handrail') {
     document.getElementById('pending-info').textContent =
       `Placing: ${pendingType} handrail — click a stage edge  [Esc to cancel]`;
@@ -1833,7 +1812,7 @@ canvas.addEventListener('click', e => {
   // Steps placement mode
   if (pendingCategory === 'steps') {
     const edge = detectEdge(gx, gy);
-    if (edge) placeSteps(edge, pendingType);
+    if (edge) placeSteps(edge);
     return;
   }
 

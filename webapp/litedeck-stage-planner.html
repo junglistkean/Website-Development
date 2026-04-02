@@ -453,18 +453,28 @@
   .btn-home:hover { animation: none; border-color: var(--text); }
 
   /* ── Print styles ── */
-  @media print {
-    body { background: white; color: black; font-size: 14pt; }
+ @media print {
+    @page {
+      size: A4 portrait;
+      margin: 15mm 12mm;
+    }
+    body {
+      background: white;
+      color: black;
+      font-size: 10pt;
+      width: 100%;
+      max-width: none;
+    }
     .sidebar, .canvas-toolbar, header, .canvas-area, .schedule-panel { display: none !important; }
-    .print-view { display: block !important; }
-    .print-view table { font-size: 13pt; border-collapse: collapse; width: 100%; }
-    .print-view table th { font-size: 11pt; padding: 6pt 8pt; }
-    .print-view table td { font-size: 13pt; padding: 6pt 8pt; }
-    .print-view h2 { font-size: 18pt; }
-    .print-view h3 { font-size: 15pt; }
+    .print-view { display: block !important; width: 100%; }
+    .print-view table { font-size: 10pt; border-collapse: collapse; width: 100%; }
+    .print-view table th { font-size: 9pt; padding: 4pt 6pt; }
+    .print-view table td { font-size: 10pt; padding: 4pt 6pt; }
+    .print-view h2 { font-size: 16pt; }
+    .print-view h3 { font-size: 13pt; }
+    .print-view canvas { max-width: 100% !important; height: auto !important; }
   }
   .print-view { display: none; }
-
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }

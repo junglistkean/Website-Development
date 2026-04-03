@@ -519,7 +519,6 @@
         <button class="tier-remove-btn" onclick="removeTier()" title="Remove last tier">−</button>
         <span style="margin-left:auto; display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted)">
           Logo:
-          <button class="unit-toggle" id="wm-none" onclick="setWatermark('none')">None</button>
           <button class="unit-toggle active" id="wm-bird" onclick="setWatermark('bird')">Bird</button>
           <button class="unit-toggle" id="wm-full" onclick="setWatermark('full')">Full</button>
         </span>
@@ -2387,6 +2386,7 @@ renderTierSummary();
 updatePendingInfo();
 redraw();
 setView('plan');
+setWatermark('bird');
 // Start in simple mode — body already has class simple-mode
 ['hr-side-front','hr-side-back','hr-side-left','hr-side-right'].forEach(id => {
   document.getElementById(id).addEventListener('change', updateHrModalPreview);

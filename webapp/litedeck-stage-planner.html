@@ -759,11 +759,11 @@ const CLAMP_DEDUCT = 40;
 // ── Simple/Advanced toggle ────────────────────────────────────────────────────
 function toggleSimpleMode() {
   simpleMode = !simpleMode;
+  document.getElementById('tier-toolbar-row').style.display = simpleMode ? 'none' : 'flex';
   document.body.classList.toggle('simple-mode', simpleMode);
   const btn = document.getElementById('btn-simple-mode');
   btn.textContent = simpleMode ? 'Advanced View' : 'Simple View';
   btn.classList.toggle('active', !simpleMode);
-  // When switching back to simple, return to plan view
   if (simpleMode && activeView === 'bracing') setView('plan');
   recalcSchedule();
   redraw();
@@ -782,7 +782,6 @@ function setView(v) {
   document.getElementById('canvas-scroll').style.display        = v === 'plan' ? 'block' : 'none';
   document.getElementById('bracingViewContainer').style.display  = v === 'bracing' ? 'flex' : 'none';
   document.getElementById('plan-toolbar-content').style.display  = v === 'plan' ? 'flex' : 'none';
-  document.getElementById('tier-toolbar-row').style.display      = (v === 'plan' && !simpleMode) ? 'flex' : 'none';
   document.getElementById('btn-view-plan').classList.toggle('active', v === 'plan');
   document.getElementById('btn-view-bracing').classList.toggle('active', v === 'bracing');
   if (v === 'bracing') renderBracingView();

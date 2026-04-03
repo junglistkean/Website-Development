@@ -345,6 +345,63 @@
   #btn-simple-mode.active {
     border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.08);
   }
+  #welcome-modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#welcome-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px 36px;
+  max-width: 540px;
+  width: 90%;
+  cursor: default;
+  pointer-events: none;
+}
+#welcome-modal h2 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+#welcome-modal .wm-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: 'DM Mono', monospace;
+}
+#welcome-modal .wm-section {
+  margin-bottom: 18px;
+}
+#welcome-modal .wm-section h3 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+#welcome-modal .wm-section p {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+}
+#welcome-modal .wm-dismiss {
+  margin-top: 24px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+}
 </style>
 </head>
 <body class="simple-mode">
@@ -2393,5 +2450,33 @@ setView('plan');
   document.getElementById(id).addEventListener('change', updateHrModalPreview);
 });
 </script>
+<div id="welcome-modal-overlay" onclick="document.getElementById('welcome-modal-overlay').style.display='none'">
+  <div id="welcome-modal">
+    <h2>Litedeck Stage Planner</h2>
+    <p class="wm-sub">Raven Staging &mdash; Layout Tool</p>
+
+    <div class="wm-section">
+      <h3>Rectangular stages</h3>
+      <p>Set your preferred stage height, enter width and depth values in the Auto-Fill Stage section, then click Generate Layout. Your stage will appear on the grid automatically.</p>
+    </div>
+
+    <div class="wm-section">
+      <h3>Bespoke stages</h3>
+      <p>Drag and drop panels, handrails and steps onto the grid to create a fully custom layout — whatever you can dream up.</p>
+    </div>
+
+    <div class="wm-section">
+      <h3>Advanced view</h3>
+      <p>Add different tiers (each calculated from ground level) for complex, multi-level stages. Access extra views via the Bracing button.</p>
+    </div>
+
+    <div class="wm-section">
+      <h3>Request a quote</h3>
+      <p>Click the Request Quote button in the top left, fill out the short form and hit send. Your layout and a full component list will go straight to our team, who will be in touch with an initial quotation as soon as possible.</p>
+    </div>
+
+    <p class="wm-dismiss">Click anywhere to continue</p>
+  </div>
+</div>
 </body>
 </html>

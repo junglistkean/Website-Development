@@ -19,6 +19,11 @@
     text-decoration: none; border: 1px solid rgba(255,255,255,0.9); padding: 10px 20px; transition: all 0.3s;
   }
   .nav-cta:hover { border-color: var(--gold); color: var(--gold); }
+  nav > div > a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+}
 .carousel-slide.video-slide video {
   position: absolute;
   top: 0;
@@ -70,7 +75,16 @@
   .hero-title .line2 { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(60px, 6.5vw, 100px); font-style: italic; font-weight: 400; color: var(--gold); display: block; letter-spacing: 1px; text-shadow: 0 2px 20px rgba(0,0,0,0.8); }
   .hero-title .line3 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(72px, 8vw, 120px); color: transparent; -webkit-text-stroke: 2px rgba(255,255,255,0.9); display: block; letter-spacing: 2px; filter: drop-shadow(0 2px 12px rgba(0,0,0,0.9)); }
   .carousel-dots { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10; }
-  .dot { width: 24px; height: 3px; background: rgba(255,255,255,0.9); cursor: pointer; transition: all 0.3s; }
+  .dot {
+    width: 24px;
+    height: 3px;
+    background: rgba(255,255,255,0.9);
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 10px 0;
+    background-clip: content-box;
+    -webkit-background-clip: content-box;
+  }
   .dot.active { background: var(--gold); width: 40px; }
   .hero-portfolio-btn {
     font-family: 'Barlow Condensed', sans-serif; font-size: 11px;

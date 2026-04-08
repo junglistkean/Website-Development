@@ -48,6 +48,57 @@
   <link rel="stylesheet" href="css/services.css?v=3">
   <link rel="stylesheet" href="css/main.css">
 
+  <style>
+    /* Photo credit styles */
+    .portfolio-overlay-credit {
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      opacity: 0.75;
+      margin-top: 0.35em;
+      letter-spacing: 0.02em;
+    }
+
+    /* Service card credit badge — shown on hover */
+    .service-card-credit {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.6rem;
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 300;
+      color: rgba(255,255,255,0.7);
+      background: rgba(0,0,0,0.45);
+      padding: 0.15em 0.4em;
+      border-radius: 2px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 5;
+      letter-spacing: 0.02em;
+    }
+    .service-card:hover .service-card-credit {
+      opacity: 1;
+    }
+
+    /* Hero video credit */
+    .carousel-slide-credit {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.75rem;
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 300;
+      color: rgba(255,255,255,0.65);
+      background: rgba(0,0,0,0.4);
+      padding: 0.15em 0.4em;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 5;
+      letter-spacing: 0.02em;
+    }
+  </style>
+
   <!-- EmailJS deferred — loads after page is interactive -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script>
 </head>
@@ -91,25 +142,28 @@
          style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" width="1200" height="675">
 
     <div class="carousel-slide active">
-  <img src="images/WebsiteHeroImages/IMG-20251220-WA0006.webp"
-       alt="Raven Staging event infrastructure"
-       fetchpriority="high"
-       loading="eager"
-       decoding="sync"
-       width="1200" height="675"
-       style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-</div>
+      <img src="images/WebsiteHeroImages/IMG-20251220-WA0006.webp"
+           alt="Raven Staging event infrastructure"
+           fetchpriority="high"
+           loading="eager"
+           decoding="sync"
+           width="1200" height="675"
+           style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+    </div>
     <div class="carousel-slide video-slide" data-duration="6000" aria-hidden="true">
       <video muted playsinline loop aria-hidden="true">
         <source src="images/WebsiteHeroImages/SteelBallRev.mp4" type="video/mp4">
       </video>
     </div>
-    <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/16789_A-Good-Yarn-BD10-Roll_Benjamin-Smith_Big-Blue-Whale-UK-2048x1365.webp')"></div>
+    <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/16789_A-Good-Yarn-BD10-Roll_Benjamin-Smith_Big-Blue-Whale-UK-2048x1365.webp')">
+      <span class="carousel-slide-credit">Benjamin Smith/Big Blue Whale UK</span>
+    </div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/BD25_BrighterStill_CNCDims_EastWestCircle.webp')"></div>
     <div class="carousel-slide video-slide" data-duration="13000" aria-hidden="true">
       <video muted playsinline loop aria-hidden="true">
         <source src="images/WebsiteHeroImages/BrighterStill_StageFlyby.mp4" type="video/mp4">
       </video>
+      <span class="carousel-slide-credit">Johnny Rapley/Yorkshire Drone Pilots</span>
     </div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250120_153207.webp')"></div>
     <div class="carousel-slide" style="background-image: url('images/WebsiteHeroImages/20250410_115730.webp')"></div>
@@ -260,14 +314,15 @@
     <!-- 06 Full Event Delivery -->
     <div class="service-card" data-carousel tabindex="0" role="region" aria-label="Full Event Delivery">
       <div class="service-card-images">
-        <img class="service-card-img active" loading="lazy" src="images/ServiceImages/FullEventDelivery/BDTaste-3324.webp" alt="BD Taste food and drink festival" width="1200" height="800">
-        <img class="service-card-img" loading="lazy" src="images/ServiceImages/FullEventDelivery/BDTaste-3132.webp" alt="BD Taste festival crowd" width="1200" height="800">
+        <img class="service-card-img active" loading="lazy" src="images/ServiceImages/FullEventDelivery/BDTaste-3324.webp" alt="BD Taste food and drink festival" data-credit="Karol Wyszynski" width="1200" height="800">
+        <img class="service-card-img" loading="lazy" src="images/ServiceImages/FullEventDelivery/BDTaste-3132.webp" alt="BD Taste festival crowd" data-credit="Karol Wyszynski" width="1200" height="800">
         <img class="service-card-img" loading="lazy" src="images/ServiceImages/FullEventDelivery/BeerFestBingley-0764.webp" alt="Beer Festival Bingley" width="1200" height="800">
         <img class="service-card-img" loading="lazy" src="images/ServiceImages/FullEventDelivery/BeerFestShipley-7223.webp" alt="Beer Festival Shipley" width="1200" height="800">
-        <img class="service-card-img" loading="lazy" src="images/ServiceImages/FullEventDelivery/TasteBD2025-4652.webp" alt="Taste Bradford 2025 festival" width="1200" height="800">
+        <img class="service-card-img" loading="lazy" src="images/ServiceImages/FullEventDelivery/TasteBD2025-4652.webp" alt="Taste Bradford 2025 festival" data-credit="Karol Wyszynski" width="1200" height="800">
       </div>
       <div class="service-card-overlay"></div>
       <div class="service-card-dots"></div>
+      <span class="service-card-credit"></span>
       <div class="service-card-content">
         <div class="service-number" aria-hidden="true">06</div>
         <div class="service-name">Full Event Delivery</div>
@@ -289,6 +344,7 @@
         <figcaption class="portfolio-overlay">
           <p class="portfolio-overlay-title">Brighter Still - BD25 closing ceremony</p>
           <p class="portfolio-overlay-year">2025</p>
+          <p class="portfolio-overlay-credit">Photo: Karol Wyszynski</p>
         </figcaption>
       </a>
     </figure>
@@ -299,6 +355,7 @@
         <figcaption class="portfolio-overlay">
           <p class="portfolio-overlay-title">We Will Sing - Ann Hamilton/BD25</p>
           <p class="portfolio-overlay-year">2025</p>
+          <p class="portfolio-overlay-credit">Photo: Ann Hamilton</p>
         </figcaption>
       </a>
     </figure>
@@ -309,6 +366,7 @@
         <figcaption class="portfolio-overlay">
           <p class="portfolio-overlay-title">Ride - Spin Arts/BD25</p>
           <p class="portfolio-overlay-year">2025</p>
+          <p class="portfolio-overlay-credit">Photo: Karol Wyszynski</p>
         </figcaption>
       </a>
     </figure>
@@ -620,6 +678,7 @@
   document.querySelectorAll('.service-card[data-carousel]').forEach(function(card) {
     const imgs = card.querySelectorAll('.service-card-img');
     const dotsContainer = card.querySelector('.service-card-dots');
+    const creditEl = card.querySelector('.service-card-credit');
     let current = 0;
     let interval = null;
 
@@ -631,12 +690,19 @@
 
     const dots = dotsContainer.querySelectorAll('.service-card-dot');
 
+    function updateCredit(idx) {
+      if (!creditEl) return;
+      const credit = imgs[idx].dataset.credit || '';
+      creditEl.textContent = credit ? 'Photo: ' + credit : '';
+    }
+
     function goTo(n) {
       imgs[current].classList.remove('active');
       dots[current].classList.remove('active');
       current = (n + imgs.length) % imgs.length;
       imgs[current].classList.add('active');
       dots[current].classList.add('active');
+      updateCredit(current);
     }
 
     function startCarousel() {
@@ -652,6 +718,8 @@
 
     card.addEventListener('mouseenter', startCarousel);
     card.addEventListener('mouseleave', stopCarousel);
+
+    updateCredit(0);
   });
 </script>
 </body>

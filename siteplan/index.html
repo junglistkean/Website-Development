@@ -17,7 +17,7 @@
   --green:#22c55e;--blue:#3b82f6;--red:#ef4444;
   --panel:272px;--topbar:50px;
 }
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
 button{cursor:pointer;font-family:inherit}
 input,select,textarea{font-family:inherit}
 .hidden{display:none!important}
@@ -184,7 +184,7 @@ input,select,textarea{font-family:inherit}
   position:absolute;top:54px;right:10px;width:215px;
   background:rgba(22,24,28,.94);border:1px solid var(--border);border-radius:7px;
   backdrop-filter:blur(8px);z-index:50;overflow:hidden;
-  box-shadow:0 6px 24px rgba(0,0,0,.55);user-select:none;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);user-select:none;touch-action:pan-y;
 }
 #legend-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -193,7 +193,7 @@ input,select,textarea{font-family:inherit}
 #legend-header span{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2)}
 .legend-close{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;display:flex}
 .legend-close:hover{color:var(--text)}
-#legend-body{max-height:420px;overflow-y:auto;padding:4px 0}
+#legend-body{max-height:420px;overflow-y:auto;padding:4px 0;touch-action:pan-y}
 #legend-body::-webkit-scrollbar{width:3px}
 #legend-body::-webkit-scrollbar-thumb{background:var(--border2)}
 #legend.legend--expanded #legend-body{max-height:none;overflow-y:visible}

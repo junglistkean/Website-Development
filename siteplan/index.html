@@ -336,7 +336,7 @@ input,select,textarea{font-family:inherit}
         const btns = g.querySelectorAll('.tb-btn');
         btns.forEach(b => {
           const text = b.textContent.trim();
-          if (['Save','Load','Export','Select','Line','Area','Measure','Pinch','Deselect','Undo'].includes(text)) {
+          if (['Save','Load','Export','JSON','Import','Select','Line','Area','Measure','Pinch','Deselect','Undo'].includes(text)) {
             b.style.display = 'none';
           }
         });
@@ -371,6 +371,14 @@ input,select,textarea{font-family:inherit}
     <button class="tb-btn" onclick="openExportModal()">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="10"/><polyline points="5,7 8,10 11,7"/><path d="M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1"/></svg>
       Export
+    </button>
+    <button class="tb-btn" onclick="exportPlan()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6z"/><polyline points="9,2 9,6 13,6"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="12" x2="9" y2="12"/></svg>
+      JSON
+    </button>
+    <button class="tb-btn" onclick="importPlanFromFile()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6z"/><polyline points="9,2 9,6 13,6"/><line x1="8" y1="9" x2="8" y2="13"/><polyline points="5.5,11 8,13.5 10.5,11"/></svg>
+      Import
     </button>
   </div>
 

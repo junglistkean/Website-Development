@@ -1408,6 +1408,51 @@ function exportPlan() {
   a.click();
 }
 
+function importPlanFromFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      applyPlanData(data);
+      setStatus(`Imported: "${data.planTitle || file.name}"`);
+    } catch (e) {
+      alert('Failed to import plan — invalid JSON file.');
+    }
+  });
+  input.click();
+}
+
+async function loadPlanFromUrl() {
+  const planParam = new URLSearchParams(window.location.search).get('plan');
+  if (!planParam) return;
+  try {
+    const res = await fetch(planParam);
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    applyPlanData(data);
+    setStatus(`Loaded: "${data.planTitle || 'Plan'}"`);
+  } catch (e) {
+    setStatus('Could not load plan from URL.');
+  }
+}
+
+function applyPlanData(data) {
+  State.planTitle = data.planTitle || 'Untitled Plan';
+  document.getElementById('plan-title-text').textContent =
+    State.planTitle + (data.layerNote ? ` — ${data.layerNote}` : '');
+  if (data.layers) layers = data.layers;
+  State.activeLayer = data.activeLayer || 'base';
+  State.elements = deserializeElements(data.elements || []);
+  renderLayerList();
+  updateLegend();
+  redraw();
+}
+
 function serializeElements() {
   return State.elements.map(el => {
     const s = { ...el };
@@ -1665,6 +1710,7 @@ window.onMapReady = function () {
     initCanvas();
     initCanvasEvents();
     if (undoStack.length === 0) saveAutoSnapshot(); // seed if no autosave was restored
+    loadPlanFromUrl(); // load ?plan= JSON if present
   }, 100);
 };
 

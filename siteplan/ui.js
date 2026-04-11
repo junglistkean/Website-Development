@@ -1476,7 +1476,6 @@ async function exportPlan() {
   };
   const json = JSON.stringify(data, null, 2);
   const suggestedName = (State.planTitle || 'siteplan').toLowerCase().replace(/\s+/g, '-') + '.json';
-
   let filename = suggestedName;
 
   if (window.showSaveFilePicker) {
@@ -1583,6 +1582,13 @@ function applyPlanData(data) {
   if (data.layers) layers = data.layers;
   State.activeLayer = data.activeLayer || 'base';
   State.elements = deserializeElements(data.elements || []);
+  // Restore pinchCounter to avoid duplicate labels on next placed pinch point
+  State.pinchCounter = State.elements
+    .filter(e => e.type === 'pinchpoint' && e.label)
+    .reduce((max, e) => {
+      const n = parseInt(e.label.replace(/\D/g, ''), 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
   renderLayerList();
   updateLegend();
   redraw();

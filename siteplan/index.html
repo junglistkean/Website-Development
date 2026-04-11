@@ -798,6 +798,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const n = parseInt(el.id.replace('el-', ''), 10);
   return isNaN(n) ? max : Math.max(max, n);
 }, 0);
+        State.pinchCounter = State.elements
+          .filter(e => e.type === 'pinchpoint' && e.label)
+          .reduce((max, e) => {
+            const n = parseInt(e.label.replace(/\D/g, ''), 10);
+            return isNaN(n) ? max : Math.max(max, n);
+          }, 0);
         renderLayerList();
         updateLegend();
         redraw();

@@ -285,7 +285,6 @@ document.addEventListener('mouseup', onMouseUp);
   }
 
   touchTarget.addEventListener('touchstart', e => {
-    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass')) return;
     e.preventDefault();
     if (e.touches.length === 1) {
       _touchLastPos = getTouchPos(e.touches[0]);
@@ -297,6 +296,7 @@ document.addEventListener('mouseup', onMouseUp);
   }, { passive: false });
 
   touchTarget.addEventListener('touchmove', e => {
+    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass')) return;
     e.preventDefault();
     if (!State.map) return;
     if (e.touches.length === 1 && _touchLastPos) {

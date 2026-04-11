@@ -282,6 +282,18 @@ input,select,textarea{font-family:inherit}
 }
 .btn-danger:hover{background:rgba(239,68,68,.1)}
 
+/* JSON export URL modal */
+.json-url-row{display:flex;gap:6px;align-items:center;margin-top:4px}
+.json-url-row input{flex:1;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)}
+.json-url-row input[readonly]{background:var(--surf3);cursor:text}
+.btn-copy{
+  flex-shrink:0;padding:6px 10px;background:var(--surf3);border:1px solid var(--border2);
+  border-radius:4px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;
+  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .12s;
+}
+.btn-copy:hover{border-color:var(--accent);color:var(--accent)}
+.btn-copy.copied{border-color:var(--green);color:var(--green)}
+
 /* Capacity preview */
 #cap-preview{
   margin-top:12px;padding:10px 12px;background:var(--surf2);border-radius:5px;
@@ -720,6 +732,30 @@ input,select,textarea{font-family:inherit}
       <button class="btn-danger" onclick="removeCapacity()">Remove</button>
       <button class="btn-secondary" onclick="closeModal('modal-capacity')">Cancel</button>
       <button class="btn-primary" onclick="confirmCapacity()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-json-export">
+  <div class="modal">
+    <h3>JSON Exported</h3>
+    <label>Filename</label>
+    <div class="json-url-row">
+      <input type="text" id="json-filename-display" readonly/>
+      <button class="btn-copy" onclick="copyJsonField('json-filename-display', this)">Copy</button>
+    </div>
+    <label>JSON Host Base URL <span style="color:var(--text3);font-weight:400">(where you upload the file)</span></label>
+    <div class="json-url-row">
+      <input type="text" id="json-host-base" placeholder="e.g. https://your-bucket.com/siteplan"
+             oninput="updateJsonShareUrl()"/>
+    </div>
+    <label>Full Share URL</label>
+    <div class="json-url-row">
+      <input type="text" id="json-share-url" readonly placeholder="Set host base URL above to generate"/>
+      <button class="btn-copy" onclick="copyJsonField('json-share-url', this)">Copy</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="closeModal('modal-json-export')">Done</button>
     </div>
   </div>
 </div>

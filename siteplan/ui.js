@@ -267,7 +267,6 @@ document.addEventListener('mouseup', onMouseUp);
   // ── Touch: pan (single finger) + pinch-zoom (two finger) ──────────────────
   // Attach to wrap (not overlay) so it works regardless of what's on top
   const touchTarget = wrap;
-  touchTarget.style.touchAction = 'none';
 
   let _touchLastPos = null;
   let _touchPinchDist = null;
@@ -285,6 +284,7 @@ document.addEventListener('mouseup', onMouseUp);
   }
 
   touchTarget.addEventListener('touchstart', e => {
+    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass')) return;
     e.preventDefault();
     if (e.touches.length === 1) {
       _touchLastPos = getTouchPos(e.touches[0]);

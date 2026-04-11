@@ -1431,11 +1431,9 @@ async function loadPlanFromUrl() {
   const planParam = new URLSearchParams(window.location.search).get('plan');
   if (!planParam) return;
   try {
-    console.log('[SitePlan] Fetching plan:', planParam);
     const res = await fetch(planParam);
     if (!res.ok) throw new Error('fetch failed: ' + res.status);
     const data = await res.json();
-    console.log('[SitePlan] Plan loaded:', data.planTitle, 'elements:', data.elements?.length);
     await new Promise(resolve => {
       const check = setInterval(() => {
         if (State.map && State.map.getProjection() && State.map.getBounds()) {
@@ -1444,11 +1442,9 @@ async function loadPlanFromUrl() {
         }
       }, 100);
     });
-    console.log('[SitePlan] Map ready, applying plan data');
     applyPlanData(data);
     setStatus(`Loaded: "${data.planTitle || 'Plan'}"`);
   } catch (e) {
-    console.error('[SitePlan] loadPlanFromUrl error:', e);
     setStatus('Could not load plan from URL.');
   }
 }

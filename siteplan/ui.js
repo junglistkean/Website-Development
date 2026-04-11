@@ -355,8 +355,11 @@ document.addEventListener('mouseup', onMouseUp);
       if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
       deleteSelected();
     }
-    if (e.key === 'r' && State.selectedId) rotateSelected(15);
-    if (e.key === 'R' && State.selectedId) rotateSelected(-15);
+    if (e.key === 'r' || e.key === 'R') {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+      if (State.selectedId) rotateSelected(e.key === 'r' ? 15 : -15);
+    }
     if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) {
       const active = document.activeElement;
       if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
@@ -581,6 +584,7 @@ function onMouseUp(e) {
   if (State.vertexDragging) {
     State.vertexDragging = false;
     State.vertexIndex = null;
+    updateLegend();
     saveAutoSnapshot();
     return;
   }
@@ -589,6 +593,7 @@ function onMouseUp(e) {
     State.dragId = null;
     State.lastDragPos = null;
     if (State.clickOverlay) State.clickOverlay.style.cursor = 'default';
+    updateLegend();
     saveAutoSnapshot();
   }
 }
@@ -959,7 +964,7 @@ function closePropPanel() {
 
 function updateSelectedLabel(val) {
   const el = State.elements.find(e => e.id === State.selectedId);
-  if (el) { el.label = val; redraw(); }
+  if (el) { el.label = val; updateLegend(); redraw(); }
 }
 
 function updateSelectedSize() {
@@ -1462,18 +1467,72 @@ function deletePlan(key, e) {
   openLoadModal();
 }
 
-function exportPlan() {
+async function exportPlan() {
   const data = {
     planTitle: State.planTitle,
     exportedAt: new Date().toISOString(),
     layers,
     elements: serializeElements(),
   };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (State.planTitle || 'siteplan').toLowerCase().replace(/\s+/g, '-') + '.json';
-  a.click();
+  const json = JSON.stringify(data, null, 2);
+  const suggestedName = (State.planTitle || 'siteplan').toLowerCase().replace(/\s+/g, '-') + '.json';
+
+  let filename = suggestedName;
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'JSON Plan', accept: { 'application/json': ['.json'] } }],
+      });
+      filename = handle.name;
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = suggestedName;
+      a.click();
+    }
+  } else {
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = suggestedName;
+    a.click();
+  }
+
+  document.getElementById('json-filename-display').value = filename;
+  const savedBase = localStorage.getItem('sp_json_host_base') || '';
+  document.getElementById('json-host-base').value = savedBase;
+  updateJsonShareUrl();
+  openModal('modal-json-export');
+}
+
+function updateJsonShareUrl() {
+  let base = document.getElementById('json-host-base').value.trim().replace(/\/$/, '');
+  const filename = document.getElementById('json-filename-display').value;
+  if (base) {
+    if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+    document.getElementById('json-host-base').value = base;
+    localStorage.setItem('sp_json_host_base', base);
+    document.getElementById('json-share-url').value = `${base}/${filename}`;
+  } else {
+    document.getElementById('json-share-url').value = '';
+  }
+}
+
+function copyJsonField(inputId, btn) {
+  const val = document.getElementById(inputId).value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+  });
 }
 
 function importPlanFromFile() {

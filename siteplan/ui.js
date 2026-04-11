@@ -1443,10 +1443,12 @@ async function exportPlan() {
 }
 
 function updateJsonShareUrl() {
-  const base = document.getElementById('json-host-base').value.trim().replace(/\/$/, '');
+  let base = document.getElementById('json-host-base').value.trim().replace(/\/$/, '');
   const filename = document.getElementById('json-filename-display').value;
   const viewerBase = 'https://siteplan.ravenstaging.co.uk/';
   if (base) {
+    if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+    document.getElementById('json-host-base').value = base;
     localStorage.setItem('sp_json_host_base', base);
     document.getElementById('json-share-url').value = `${viewerBase}?plan=${base}/${filename}`;
   } else {

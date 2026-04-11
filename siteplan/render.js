@@ -92,8 +92,8 @@ function layerAlpha(layerId) {
 function drawSymbol(el) {
   if (!el.sym) return;
   const mpp = metersPerPixel();
-  const pw = Math.max(el.wM / mpp, 18);
-  const ph = Math.max(el.dM / mpp, 18);
+  const pw = Math.max(el.wM / mpp, 4);
+  const ph = Math.max(el.dM / mpp, 4);
   const px = latLngToPixel(el.lat, el.lng);
   console.log('[drawSymbol]', el.sym.render, 'px:', px.x.toFixed(1), px.y.toFixed(1), 'lat:', el.lat, 'lng:', el.lng, 'pw:', pw.toFixed(1), 'ph:', ph.toFixed(1));
   ctx.save();
@@ -770,8 +770,8 @@ function drawSelection(el) {
 
   if (el.type === 'symbol') {
     const mpp = metersPerPixel();
-    const pw = Math.max(el.wM / mpp, 18);
-    const ph = Math.max(el.dM / mpp, 18);
+    const pw = Math.max(el.wM / mpp, 4);
+    const ph = Math.max(el.dM / mpp, 4);
     const px = latLngToPixel(el.lat, el.lng);
     ctx.save();
     ctx.translate(px.x, px.y);

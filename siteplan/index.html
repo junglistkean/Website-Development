@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & base ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#16181c;--surf:#1e2126;--surf2:#262b32;--surf3:#2e333c;
+  --border:#333840;--border2:#424954;
+  --text:#dde1e7;--text2:#8b949e;--text3:#555e6b;
+  --accent:#e8a020;--accent2:#c8861a;
+  --green:#22c55e;--blue:#3b82f6;--red:#ef4444;
+  --panel:272px;--topbar:50px;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+.hidden{display:none!important}
+
+/* ── Topbar ── */
+#topbar{
+  height:var(--topbar);background:var(--surf);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;z-index:200;flex-shrink:0;gap:0;
+}
+.logo{
+  padding:0 16px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;
+  letter-spacing:.08em;color:var(--accent);border-right:1px solid var(--border);
+  height:100%;display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.logo span{color:var(--text3);font-weight:400;font-size:13px;letter-spacing:.04em}
+.tb-group{display:flex;align-items:center;height:100%;padding:0 6px;gap:2px;border-right:1px solid var(--border)}
+.tb-btn{
+  height:30px;padding:0 9px;background:transparent;border:1px solid transparent;
+  border-radius:4px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;
+  font-size:12px;font-weight:600;letter-spacing:.05em;cursor:pointer;
+  display:flex;align-items:center;gap:4px;transition:all .12s;white-space:nowrap;
+}
+.tb-btn:hover{background:var(--surf3);color:var(--text);border-color:var(--border)}
+.tb-btn.active{background:var(--accent);color:#000;border-color:var(--accent2)}
+.tb-spacer{flex:1}
+#plan-title-display{
+  padding:0 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;
+  font-weight:600;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px;
+}
+#plan-title-display:hover{color:var(--accent)}
+#zoom-display{padding:0 10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)}
+
+/* ── Main layout ── */
+#main{flex:1;display:flex;overflow:hidden}
+
+/* ── Left panel ── */
+#left-panel{
+  width:var(--panel);background:var(--surf);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-tab{
+  flex:1;padding:9px 4px;background:transparent;border:none;color:var(--text3);
+  font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.07em;cursor:pointer;text-transform:uppercase;
+  border-bottom:2px solid transparent;transition:all .12s;
+}
+.panel-tab:hover{color:var(--text2)}
+.panel-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.panel-content{flex:1;overflow-y:auto;overflow-x:hidden}
+.panel-content::-webkit-scrollbar{width:3px}
+.panel-content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Symbol library */
+.sym-category{border-bottom:1px solid var(--border)}
+.sym-cat-header{
+  padding:7px 11px;font-family:'Barlow Condensed',sans-serif;font-size:10px;
+  font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);
+  cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  user-select:none;background:var(--surf);transition:background .1s;
+}
+.sym-cat-header:hover{background:var(--surf2);color:var(--text2)}
+.sym-cat-arrow{transition:transform .2s;flex-shrink:0}
+.sym-cat-header.collapsed .sym-cat-arrow{transform:rotate(-90deg)}
+.sym-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:5px 7px 7px;background:var(--surf2)}
+.sym-item{
+  background:var(--surf3);border:1px solid var(--border);border-radius:4px;
+  padding:5px 3px;cursor:grab;display:flex;flex-direction:column;align-items:center;
+  gap:3px;transition:all .12s;user-select:none;
+}
+.sym-item:hover{border-color:var(--accent);background:#292f38;transform:translateY(-1px)}
+.sym-item:active{cursor:grabbing}
+.sym-label{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:600;color:var(--text2);text-align:center;line-height:1.2}
+
+/* Line tools */
+.tool-list{padding:5px 7px 7px;background:var(--surf2);display:flex;flex-direction:column;gap:3px}
+.tool-item{
+  background:var(--surf3);border:1px solid var(--border);border-radius:4px;
+  padding:6px 9px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .12s;
+}
+.tool-item:hover{border-color:var(--accent);background:#292f38}
+.tool-item.active{border-color:var(--accent);background:rgba(232,160,32,.1)}
+.tool-name{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--text);letter-spacing:.02em}
+.tool-desc{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* Layers panel */
+.layer-controls{padding:7px;display:flex;gap:4px;border-bottom:1px solid var(--border);flex-shrink:0}
+.layer-btn{
+  flex:1;padding:5px;background:var(--surf3);border:1px solid var(--border);border-radius:4px;
+  color:var(--text2);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;
+  letter-spacing:.04em;transition:all .12s;
+}
+.layer-btn:hover{border-color:var(--accent);color:var(--accent)}
+.layer-item{
+  display:flex;align-items:center;gap:7px;padding:6px 10px;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;
+}
+.layer-item:hover{background:var(--surf2)}
+.layer-item.active-layer{background:rgba(232,160,32,.07);border-left:2px solid var(--accent)}
+.layer-vis{width:18px;height:18px;cursor:pointer;flex-shrink:0}
+.layer-color{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.layer-name{flex:1;font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.layer-name.dimmed{opacity:.38}
+.layer-lock{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 5px;border-radius:3px;font-size:11px}
+.layer-lock:hover{color:var(--red);background:rgba(239,68,68,.1)}
+.full-opacity-list{padding:7px 10px;border-top:1px solid var(--border)}
+.fo-header{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text3);text-transform:uppercase;margin-bottom:5px}
+.fo-item{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;color:var(--text2)}
+.fo-item label{cursor:pointer}
+.fo-item input[type=checkbox]{accent-color:var(--accent);cursor:pointer}
+
+/* ── Map area ── */
+#map-wrap{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%;background:#16181c}
+#draw-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+#draw-canvas.active { pointer-events: all; }
+/* API prompt */
+#api-prompt{
+  position:absolute;inset:0;background:var(--bg);display:flex;
+  align-items:center;justify-content:center;z-index:100;
+}
+.api-card{
+  background:var(--surf);border:1px solid var(--border2);border-radius:10px;
+  padding:30px;max-width:400px;width:90%;
+}
+.api-card h2{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.api-card p{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px}
+.api-card input{
+  width:100%;padding:9px 11px;background:var(--surf2);border:1px solid var(--border2);
+  border-radius:5px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;
+  margin-bottom:10px;outline:none;
+}
+.api-card input:focus{border-color:var(--accent)}
+.api-card .btn-primary{width:100%}
+.api-note{font-size:11px;color:var(--text3);margin-top:8px;text-align:center}
+.api-note a{color:var(--accent)}
+
+/* ── Compass ── */
+#compass{position:absolute;bottom:72px;right:12px;width:50px;height:50px;z-index:20;pointer-events:none}
+#zoom-btns{position:absolute;bottom:130px;right:14px;z-index:20;display:flex;flex-direction:column;gap:4px}
+.zoom-btn{width:32px;height:32px;background:rgba(22,24,28,.88);border:1px solid #333840;border-radius:6px;color:#e2e8f0;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.zoom-btn:hover{background:rgba(50,55,65,.95)}
+
+/* ── Address search ── */
+#addr-search{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;
+  display:flex;background:var(--surf);border:1px solid var(--border2);
+  border-radius:5px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.45);
+}
+#addr-input{
+  width:300px;padding:7px 11px;background:transparent;border:none;
+  color:var(--text);font-size:13px;outline:none;
+}
+#addr-input::placeholder{color:var(--text3)}
+#addr-btn{
+  padding:7px 13px;background:var(--surf3);border:none;border-left:1px solid var(--border);
+  color:var(--text2);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:.04em;transition:all .12s;
+}
+#addr-btn:hover{background:var(--accent);color:#000}
+
+/* ── Legend ── */
+#legend{
+  position:absolute;top:54px;right:10px;width:215px;
+  background:rgba(22,24,28,.94);border:1px solid var(--border);border-radius:7px;
+  backdrop-filter:blur(8px);z-index:50;overflow:hidden;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);user-select:none;
+}
+#legend-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 9px;background:var(--surf2);border-bottom:1px solid var(--border);cursor:move;
+}
+#legend-header span{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2)}
+.legend-close{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;display:flex}
+.legend-close:hover{color:var(--text)}
+#legend-body{max-height:420px;overflow-y:auto;padding:4px 0}
+#legend-body::-webkit-scrollbar{width:3px}
+#legend-body::-webkit-scrollbar-thumb{background:var(--border2)}
+#legend.legend--expanded #legend-body{max-height:none;overflow-y:visible}
+.legend-expand{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;display:flex;margin-right:2px}
+.legend-expand:hover{color:var(--text)}
+@media print{
+  #legend.legend--expanded{max-height:none !important;overflow:visible !important}
+  #legend.legend--expanded #legend-body{max-height:none !important;overflow:visible !important}
+}
+.legend-group-header{padding:5px 9px 2px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:3px}
+.legend-item{display:flex;align-items:center;gap:6px;padding:2px 9px}
+.legend-swatch{width:24px;height:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.legend-item-label{font-size:11px;color:var(--text2);line-height:1.3}
+
+/* ── Status bar ── */
+#statusbar{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(22,24,28,.9);border:1px solid var(--border);border-radius:16px;
+  padding:4px 13px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);
+  z-index:20;pointer-events:none;backdrop-filter:blur(4px);white-space:nowrap;
+}
+
+/* ── Property panel ── */
+#prop-panel{
+  position:absolute;bottom:0;left:0;right:0;background:var(--surf);
+  border-top:1px solid var(--border);padding:8px 14px;z-index:30;
+  display:none;align-items:center;gap:10px;flex-wrap:wrap;
+}
+#prop-panel.open{display:flex}
+#prop-panel label{font-size:10px;color:var(--text3);display:flex;flex-direction:column;gap:2px}
+#prop-panel input,#prop-panel select{
+  padding:4px 6px;background:var(--surf2);border:1px solid var(--border2);
+  border-radius:4px;color:var(--text);font-size:12px;width:90px;outline:none;
+}
+#prop-panel input:focus,#prop-panel select:focus{border-color:var(--accent)}
+#prop-label-input{width:150px!important}
+#prop-height{width:70px!important}
+#prop-close{margin-left:auto;background:none;border:none;color:var(--text3);font-size:17px;padding:2px 5px}
+#prop-close:hover{color:var(--text)}
+
+/* ── Context menu ── */
+#ctx-menu{
+  position:fixed;background:var(--surf);border:1px solid var(--border2);border-radius:6px;
+  padding:3px 0;z-index:500;min-width:165px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:none;
+}
+.ctx-item{
+  padding:6px 13px;font-size:13px;color:var(--text);cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+}
+.ctx-item:hover{background:var(--surf3)}
+.ctx-item.danger{color:var(--red)}
+.ctx-divider{height:1px;background:var(--border);margin:3px 0}
+
+/* ── Modals ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:600;
+  display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--surf);border:1px solid var(--border2);border-radius:9px;
+  padding:22px;min-width:320px;max-width:460px;width:90%;
+}
+.modal h3{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;margin-bottom:14px}
+.modal label{display:block;font-size:11px;font-weight:500;color:var(--text2);margin-bottom:3px;margin-top:11px}
+.modal input,.modal select,.modal textarea{
+  width:100%;padding:7px 9px;background:var(--surf2);border:1px solid var(--border2);
+  border-radius:4px;color:var(--text);font-size:13px;outline:none;
+}
+.modal input:focus,.modal select:focus{border-color:var(--accent)}
+.modal select option{background:var(--surf2)}
+.modal-actions{display:flex;gap:7px;margin-top:18px;justify-content:flex-end}
+.btn-primary{
+  padding:7px 16px;background:var(--accent);border:none;border-radius:4px;
+  color:#000;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.03em;
+}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{
+  padding:7px 14px;background:transparent;border:1px solid var(--border2);border-radius:4px;
+  color:var(--text2);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;
+}
+.btn-secondary:hover{border-color:var(--text2);color:var(--text)}
+.btn-danger{
+  padding:7px 14px;background:transparent;border:1px solid var(--red);border-radius:4px;
+  color:var(--red);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;
+}
+.btn-danger:hover{background:rgba(239,68,68,.1)}
+
+/* Capacity preview */
+#cap-preview{
+  margin-top:12px;padding:10px 12px;background:var(--surf2);border-radius:5px;
+  font-size:13px;line-height:1.7;color:var(--text);
+}
+#cap-preview strong{font-size:20px;color:var(--accent);font-family:'Barlow Condensed',sans-serif}
+#cap-preview small{color:var(--text2)}
+
+/* Export modal */
+#export-size-row { display:flex; gap:7px; flex-wrap:wrap; margin-top:4px; }
+.export-opt {
+  flex:1; min-width:80px; padding:7px 6px; background:var(--surf2); border:1px solid var(--border2);
+  border-radius:5px; color:var(--text2); font-family:"Barlow Condensed",sans-serif;
+  font-size:12px; font-weight:600; letter-spacing:.03em; cursor:pointer; text-align:center;
+  transition:all .12s;
+}
+.export-opt:hover { border-color:var(--accent); color:var(--accent); }
+.export-opt.active { background:rgba(232,160,32,.15); border-color:var(--accent); color:var(--accent); }
+#export-progress { display:none; margin-top:12px; padding:8px 10px; background:var(--surf2);
+  border-radius:4px; font-size:12px; color:var(--text2); text-align:center; }
+
+/* Plan list */
+.plan-list{max-height:220px;overflow-y:auto}
+.plan-item{
+  display:flex;align-items:center;padding:8px 11px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .1s;
+}
+.plan-item:hover{background:var(--surf2)}
+.plan-item-name{flex:1;font-size:13px}
+.plan-item-date{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-right:8px}
+.plan-item-del{background:none;border:none;color:var(--text3);padding:2px 6px;border-radius:3px;font-size:12px}
+.plan-item-del:hover{color:var(--red);background:rgba(239,68,68,.1)}
+
+</style>
+<!-- READONLY MODE -->
+<script>
+  if (new URLSearchParams(window.location.search).has('readonly')) {
+    document.addEventListener('DOMContentLoaded', () => {
+      // Hide all editing UI
+      const hide = [
+        'left-panel',       // symbols/lines/layers panel
+        'tool-group',       // line/polygon/measure/pinch tools
+        'prop-panel',       // properties panel
+      ];
+      hide.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      // Hide save/load/export tb-groups (first tb-group in topbar)
+      document.querySelectorAll('#topbar .tb-group').forEach(g => {
+        // Keep dim controls (4th group) — hide save/load/export and tools
+        const btns = g.querySelectorAll('.tb-btn');
+        btns.forEach(b => {
+          const text = b.textContent.trim();
+          if (['Save','Load','Export','Select','Line','Area','Measure','Pinch','Deselect','Undo'].includes(text)) {
+            b.style.display = 'none';
+          }
+        });
+      });
+      // Hide plan title edit affordance
+      const titleEl = document.getElementById('plan-title-display');
+      if (titleEl) titleEl.style.pointerEvents = 'none';
+      // Add readonly badge
+      const badge = document.createElement('div');
+      badge.textContent = 'VIEW ONLY';
+      badge.style.cssText = 'position:fixed;bottom:12px;right:12px;background:rgba(0,0,0,0.6);color:#f59e0b;font-size:10px;font-family:monospace;padding:4px 8px;border-radius:3px;z-index:9999;letter-spacing:0.1em;pointer-events:none;';
+      document.body.appendChild(badge);
+    });
+  }
+</script>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">SITE<span>PLAN</span></div>
+
+  <div class="tb-group">
+    <button class="tb-btn" onclick="openSaveModal()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 14H3a1 1 0 01-1-1V3a1 1 0 011-1h7l3 3v8a1 1 0 01-1 1z"/><polyline points="9,2 9,6 13,6"/><rect x="4" y="9" width="8" height="5"/></svg>
+      Save
+    </button>
+    <button class="tb-btn" onclick="openLoadModal()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h5l2 2h5v7a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1z"/><line x1="8" y1="8" x2="8" y2="13"/><polyline points="5.5,10.5 8,8 10.5,10.5"/></svg>
+      Load
+    </button>
+    <button class="tb-btn" onclick="openExportModal()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="10"/><polyline points="5,7 8,10 11,7"/><path d="M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1"/></svg>
+      Export
+    </button>
+  </div>
+
+  <div class="tb-group" id="tool-group">
+    <button class="tb-btn active" id="tool-select" onclick="setTool('select')">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l3.5 9.5 2-3.5 3.5-2z"/></svg>
+      Select
+    </button>
+    <button class="tb-btn" id="tool-line" onclick="setTool('line')">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="14" x2="14" y2="2"/></svg>
+      Line
+    </button>
+    <button class="tb-btn" id="tool-polygon" onclick="setTool('polygon')">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="8,2 14,6 12,13 4,13 2,6"/></svg>
+      Area
+    </button>
+    <button class="tb-btn" id="tool-measure" onclick="setTool('measure')">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="14" x2="14" y2="2"/><line x1="2" y1="14" x2="4" y2="12"/><line x1="5" y1="11" x2="7" y2="9"/><line x1="8" y1="8" x2="10" y2="6"/><line x1="11" y1="5" x2="13" y2="3"/></svg>
+      Measure
+    </button>
+    <button class="tb-btn" id="tool-pinchpoint" onclick="setTool('pinchpoint')" title="Mark a pinch point between two locations">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke-width="1.5"><line x1="2" y1="8" x2="14" y2="8" stroke="#ef4444" stroke-dasharray="3,2"/><circle cx="2" cy="8" r="2" fill="#ef4444"/><circle cx="14" cy="8" r="2" fill="#ef4444"/></svg>
+      Pinch
+    </button>
+  </div>
+
+  <div class="tb-group">
+    <button class="tb-btn" onclick="toggleLegend()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="4" height="4"/><line x1="8" y1="4" x2="14" y2="4"/><rect x="2" y="8" width="4" height="4"/><line x1="8" y1="10" x2="14" y2="10"/></svg>
+      Legend
+    </button>
+    <button class="tb-btn" onclick="clearSelection()">Deselect</button>
+    <button class="tb-btn" id="btn-undo" onclick="undo()" disabled title="Nothing to undo">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 6h7a4 4 0 0 1 0 8H5"/><polyline points="2,3 2,6 5,6"/></svg>
+      Undo
+    </button>
+  </div>
+
+  <div class="tb-group">
+  <button class="tb-btn tb-btn-dim active" id="dim-0" onclick="setMapDim(0)">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5"/><line x1="8" y1="1" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="1" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="15" y2="8"/></svg>
+    Full
+  </button>
+  <button class="tb-btn tb-btn-dim" id="dim-30" onclick="setMapDim(0.3)">Dim</button>
+  <button class="tb-btn tb-btn-dim" id="dim-60" onclick="setMapDim(0.6)">Dark</button>
+</div>
+
+  <div class="tb-spacer"></div>
+  <div id="plan-title-display" onclick="renamePlan()">
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3z"/></svg>
+    <span id="plan-title-text">Untitled Plan</span>
+  </div>
+  <div id="zoom-display">z:17</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" onclick="switchPanel('symbols',this)">Symbols</button>
+      <button class="panel-tab" onclick="switchPanel('lines',this)">Lines</button>
+      <button class="panel-tab" onclick="switchPanel('layers',this)">Layers</button>
+    </div>
+
+    <!-- Symbols -->
+    <div class="panel-content" id="panel-symbols"></div>
+
+    <!-- Lines -->
+    <div class="panel-content hidden" id="panel-lines">
+      <div class="sym-category">
+        <div class="sym-cat-header">Fencing
+          <svg class="sym-cat-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4z"/></svg>
+        </div>
+        <div class="tool-list">
+          <div class="tool-item" id="line-ped-barrier" onclick="startLineDraw('ped-barrier')">
+            <svg width="32" height="14" viewBox="0 0 32 14"><line x1="0" y1="7" x2="32" y2="7" stroke="#60a5fa" stroke-width="2.5" stroke-dasharray="6,3"/></svg>
+            <div><div class="tool-name">Pedestrian Barrier</div><div class="tool-desc">Snaps · 2.3m</div></div>
+          </div>
+          <div class="tool-item" id="line-heras" onclick="startLineDraw('heras')">
+            <svg width="32" height="14" viewBox="0 0 32 14"><line x1="0" y1="7" x2="32" y2="7" stroke="#f97316" stroke-width="2.5" stroke-dasharray="10,4"/></svg>
+            <div><div class="tool-name">Heras Fencing</div><div class="tool-desc">Snaps · 3.5m</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sym-category">
+        <div class="sym-cat-header">Infrastructure
+          <svg class="sym-cat-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4z"/></svg>
+        </div>
+        <div class="tool-list">
+          <div class="tool-item" id="line-cable-ramp" onclick="startLineDraw('cable-ramp')">
+            <svg width="32" height="14" viewBox="0 0 32 14"><rect x="0" y="3" width="32" height="8" fill="#1a1a1a" stroke="#4b5563" stroke-width="0.5"/><rect x="0" y="5" width="32" height="4" fill="#fbbf24"/></svg>
+            <div><div class="tool-name">Cable Ramp</div><div class="tool-desc">Snaps · 0.9m</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sym-category">
+        <div class="sym-cat-header">Routes
+          <svg class="sym-cat-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4z"/></svg>
+        </div>
+        <div class="tool-list">
+          <div class="tool-item" id="line-emergency-route" onclick="startLineDraw('emergency-route')">
+            <svg width="32" height="14" viewBox="0 0 32 14"><line x1="0" y1="7" x2="28" y2="7" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="8,4"/><polygon points="26,4 32,7 26,10" fill="#ef4444"/></svg>
+            <div><div class="tool-name">Emergency Route</div></div>
+          </div>
+          <div class="tool-item" id="line-evacuation-route" onclick="startLineDraw('evacuation-route')">
+            <svg width="32" height="14" viewBox="0 0 32 14"><line x1="0" y1="7" x2="28" y2="7" stroke="#22c55e" stroke-width="2.5" stroke-dasharray="8,4"/><polygon points="26,4 32,7 26,10" fill="#22c55e"/></svg>
+            <div><div class="tool-name">Evacuation Route</div></div>
+          </div>
+          <div class="tool-item" id="line-trader-route" onclick="startLineDraw('trader-route')">
+            <svg width="32" height="14" viewBox="0 0 32 14"><line x1="0" y1="7" x2="28" y2="7" stroke="#a78bfa" stroke-width="2" stroke-dasharray="8,4"/><polygon points="26,4 32,7 26,10" fill="#a78bfa"/></svg>
+            <div><div class="tool-name">Trader Access/Egress</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="sym-category">
+        <div class="sym-cat-header">AV
+          <svg class="sym-cat-arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3l3 4 3-4z"/></svg>
+        </div>
+        <div class="tool-list">
+          <div class="tool-item" id="line-lighting-run" onclick="startLineDraw('lighting-run')">
+            <svg width="32" height="14" viewBox="0 0 32 14">
+              <line x1="0" y1="7" x2="32" y2="7" stroke="#a3e635" stroke-width="2" stroke-dasharray="8,4"/>
+              <polyline points="8,3 12,7 8,11" fill="none" stroke="#a3e635" stroke-width="1.5"/>
+              <polyline points="18,3 22,7 18,11" fill="none" stroke="#a3e635" stroke-width="1.5"/>
+            </svg>
+            <div><div class="tool-name">Lighting Run</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layers -->
+    <div class="panel-content hidden" id="panel-layers">
+      <div class="layer-controls">
+        <button class="layer-btn" onclick="addLayer()">+ Layer</button>
+        <button class="layer-btn" onclick="switchPanelById('layers')">↑ Active</button>
+      </div>
+      <div id="layer-list"></div>
+      <div class="full-opacity-list">
+        <div class="fo-header">Full opacity on inactive</div>
+        <div id="fo-items"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map-wrap">
+    <div id="map"></div>
+    <canvas id="draw-canvas"></canvas>
+    <div id="pinch-tooltip" style="position:absolute;display:none;background:rgba(0,0,0,0.8);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;z-index:50;border:1px solid #ef4444;"></div>
+    <div id="sym-note-tooltip" style="position:absolute;background:rgba(0,0,0,0.8);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;z-index:50;max-width:200px;white-space:pre-wrap;"></div>
+    <!-- Address search -->
+    <div id="addr-search">
+      <input id="addr-input" type="text" placeholder="Search location…"
+             onkeydown="if(event.key==='Enter')geocodeAddress()"/>
+      <button id="addr-btn" onclick="geocodeAddress()">Go</button>
+    </div>
+
+    <!-- Compass -->
+    <svg id="compass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="25" cy="25" r="23" fill="rgba(22,24,28,.88)" stroke="#333840" stroke-width="1.5"/>
+      <polygon points="25,6 27.5,25 25,29 22.5,25" fill="#ef4444"/>
+      <polygon points="25,44 27.5,25 25,29 22.5,25" fill="#555e6b"/>
+      <text x="25" y="14" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="7" font-weight="700" fill="#ef4444">N</text>
+      <text x="25" y="47" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="6" fill="#555e6b">S</text>
+      <text x="43" y="28" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="6" fill="#555e6b">E</text>
+      <text x="7" y="28" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-size="6" fill="#555e6b">W</text>
+    </svg>
+
+    <!-- Zoom buttons -->
+    <div id="zoom-btns">
+      <button class="zoom-btn" onclick="mapZoom(1)" title="Zoom in">+</button>
+      <button class="zoom-btn" onclick="mapZoom(-1)" title="Zoom out">−</button>
+    </div>
+
+    <!-- Floating legend -->
+    <div id="legend">
+      <div id="legend-header">
+        <span>Legend</span>
+        <div style="display:flex;align-items:center;gap:2px">
+          <button class="legend-expand" id="legend-expand-btn" title="Expand / Collapse" onclick="toggleLegendExpand()">
+            <svg id="legend-expand-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,10 8,15 13,10"/><polyline points="3,6 8,1 13,6"/></svg>
+          </button>
+          <button class="legend-close" onclick="toggleLegend()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="2" x2="14" y2="14"/><line x1="14" y1="2" x2="2" y2="14"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="legend-body"><p style="padding:10px;color:var(--text3);font-size:12px">Place elements to auto-populate.</p></div>
+    </div>
+
+    <!-- Property panel -->
+    <div id="prop-panel">
+      <label>Label<input id="prop-label-input" type="text" placeholder="Custom label…" oninput="updateSelectedLabel(this.value)"/></label>
+      <label>W (m)<input id="prop-w" type="number" min="0.1" step="0.1" oninput="updateSelectedSize()"/></label>
+      <label>D (m)<input id="prop-d" type="number" min="0.1" step="0.1" oninput="updateSelectedSize()"/></label>
+      <label>Rotation°<input id="prop-rot" type="number" min="0" max="360" step="1" oninput="updateSelectedRotation()"/></label>
+      <label id="prop-h-wrap" style="display:none">Height (m)<input id="prop-height" type="text" placeholder="e.g. 6" oninput="updateSelectedHeight()"/></label>
+      <label>Layer<select id="prop-layer" onchange="moveSelectedToLayer(this.value)"></select></label>
+      <label>Notes<textarea id="prop-notes" rows="2" placeholder="Hover note…" oninput="updateSelectedNote(this.value)" style="resize:vertical;font-size:12px;width:100%"></textarea></label>
+      <button id="prop-close" onclick="closePropPanel()">×</button>
+    </div>
+
+    <!-- Status -->
+    <div id="statusbar">Drag symbols onto the map to place them · Right-click elements to edit</div>
+
+    <!-- API prompt -->
+    <div id="api-prompt">
+      <div class="api-card">
+        <h2>Google Maps API Key</h2>
+        <p>Enter your key to load the satellite map base. Stored locally in your browser only.</p>
+        <input type="text" id="api-key-input" placeholder="AIzaSy…" autocomplete="off"/>
+        <button class="btn-primary" onclick="initMap()">Load Map</button>
+        <p class="api-note">No key yet? <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → APIs &amp; Services → Credentials</p>
+        <p class="api-note" style="margin-top:8px"><a href="#" onclick="loadWithoutMap();return false" style="color:var(--text2)">Continue without map (grid only)</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- EXPORT MODAL -->
+<div class="modal-overlay" id="modal-export">
+  <div class="modal" style="max-width:420px">
+    <h3>Export Plan</h3>
+
+    <label>Format</label>
+    <div id="export-size-row" style="margin-bottom:0">
+      <button class="export-opt active" id="expfmt-pdf" onclick="setExportOpt('fmt','pdf',this)">PDF</button>
+      <button class="export-opt" id="expfmt-png" onclick="setExportOpt('fmt','png',this)">PNG</button>
+    </div>
+
+    <label style="margin-top:12px">Resolution</label>
+    <div id="export-size-row">
+      <button class="export-opt" id="expdpi-72" onclick="setExportOpt('dpi',72,this)">72 DPI<br><small style="font-weight:400;font-size:10px">Digital</small></button>
+      <button class="export-opt active" id="expdpi-150" onclick="setExportOpt('dpi',150,this)">150 DPI<br><small style="font-weight:400;font-size:10px">Standard print</small></button>
+      <button class="export-opt" id="expdpi-300" onclick="setExportOpt('dpi',300,this)">300 DPI<br><small style="font-weight:400;font-size:10px">Professional</small></button>
+      <button class="export-opt" id="expdpi-600" onclick="setExportOpt('dpi',600,this)">600 DPI<br><small style="font-weight:400;font-size:10px">Large format</small></button>
+    </div>
+
+    <div id="export-progress">Capturing…</div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-export')">Cancel</button>
+      <button class="btn-primary" onclick="runExport()">Export</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxEdit()">✏ Edit Properties</div>
+  <div class="ctx-item" id="ctx-capacity" onclick="ctxCapacity()" style="display:none">📐 Capacity…</div>
+  <div class="ctx-item" onclick="ctxDuplicate()">⧉ Duplicate</div>
+  <div class="ctx-item" onclick="ctxMoveLayer()">⬆ Move to Layer…</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item danger" onclick="ctxDelete()">✕ Delete</div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-save">
+  <div class="modal">
+    <h3>Save Plan</h3>
+    <label>Plan Name</label>
+    <input type="text" id="save-name-input" placeholder="e.g. Greenfield Festival 2025"/>
+    <label>Variant / Version Note</label>
+    <input type="text" id="save-layer-note" placeholder="e.g. Base Plan · Electrical · Evacuation"/>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-save')">Cancel</button>
+      <button class="btn-primary" onclick="confirmSave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-load">
+  <div class="modal">
+    <h3>Load Plan</h3>
+    <div class="plan-list" id="plan-list-items"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-load')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-layer">
+  <div class="modal">
+    <h3>Add Layer</h3>
+    <label>Layer Name</label>
+    <input type="text" id="new-layer-name" placeholder="e.g. Electrical Safety"/>
+    <label>Layer Colour</label>
+    <input type="color" id="new-layer-color" value="#3b82f6"/>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-add-layer')">Cancel</button>
+      <button class="btn-primary" onclick="confirmAddLayer()">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-rename">
+  <div class="modal">
+    <h3>Rename Plan</h3>
+    <label>Title</label>
+    <input type="text" id="rename-input"/>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-rename')">Cancel</button>
+      <button class="btn-primary" onclick="confirmRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-move-layer">
+  <div class="modal">
+    <h3>Move to Layer</h3>
+    <label>Target Layer</label>
+    <select id="move-layer-select"></select>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-move-layer')">Cancel</button>
+      <button class="btn-primary" onclick="confirmMoveLayer()">Move</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-capacity">
+  <div class="modal">
+    <h3>Capacity Annotation</h3>
+    <label>Area Label</label>
+    <input type="text" id="cap-label" placeholder="e.g. Main Arena"/>
+    <label>Density Mode</label>
+    <select id="cap-density" onchange="updateCapacityPreview()">
+      <option value="dense">Dense Standing — 0.5m² / person</option>
+      <option value="standing" selected>Comfortable Standing — 0.75m² / person</option>
+      <option value="seated">Festival Seated — 0.5m² / person</option>
+      <option value="seated_ch">Seated (Chairs) — 0.75m² / person</option>
+    </select>
+    <div id="cap-preview">Select density mode to calculate.</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="removeCapacity()">Remove</button>
+      <button class="btn-secondary" onclick="closeModal('modal-capacity')">Cancel</button>
+      <button class="btn-primary" onclick="confirmCapacity()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="siteplan.js"></script>
+<script src="render.js"></script>
+<script src="ui.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initLegendDrag();
+  buildSymbolPanel();
+  renderLayerList();
+  // Auto-load map if API key already saved
+  const key = localStorage.getItem('sp_api_key');
+  if (key) {
+    document.getElementById('api-key-input').value = key;
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry&callback=onMapReady`;
+    script.async = true;
+    script.onerror = () => { document.getElementById('api-prompt').style.display = 'flex'; };
+    document.head.appendChild(script);
+  }
+
+  // Restore autosave silently (no prompt)
+  const auto = localStorage.getItem('siteplan:__autosave__');
+  if (auto) {
+    try {
+      const d = JSON.parse(auto);
+      if (d.elements && d.elements.length > 0) {
+        State.planTitle = d.planTitle;
+        document.getElementById('plan-title-text').textContent = d.planTitle;
+        layers = d.layers || layers;
+        State.activeLayer = d.activeLayer || 'base';
+        State.elements = deserializeElements(d.elements);
+                State.idCounter = State.elements.reduce((max, el) => {
+  const n = parseInt(el.id.replace('el-', ''), 10);
+  return isNaN(n) ? max : Math.max(max, n);
+}, 0);
+        renderLayerList();
+        updateLegend();
+        redraw();
+        saveAutoSnapshot(); // seed undo stack with restored state
+      }
+    } catch (e) {}
+  }
+});
+</script>
+</body>
+</html>

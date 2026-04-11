@@ -1434,6 +1434,14 @@ async function loadPlanFromUrl() {
     const res = await fetch(planParam);
     if (!res.ok) throw new Error('fetch failed');
     const data = await res.json();
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (State.map && State.map.getProjection() && State.map.getBounds()) {
+          clearInterval(check);
+          resolve();
+        }
+      }, 100);
+    });
     applyPlanData(data);
     setStatus(`Loaded: "${data.planTitle || 'Plan'}"`);
   } catch (e) {

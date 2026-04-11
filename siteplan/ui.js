@@ -287,11 +287,8 @@ document.addEventListener('mouseup', onMouseUp);
       if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
       deleteSelected();
     }
-    if (e.key === 'r' || e.key === 'R') {
-      const active = document.activeElement;
-      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
-      if (State.selectedId) rotateSelected(e.key === 'r' ? 15 : -15);
-    }
+    if (e.key === 'r' && State.selectedId) rotateSelected(15);
+    if (e.key === 'R' && State.selectedId) rotateSelected(-15);
     if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) {
       const active = document.activeElement;
       if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
@@ -516,6 +513,7 @@ function onMouseUp(e) {
   if (State.vertexDragging) {
     State.vertexDragging = false;
     State.vertexIndex = null;
+    updateLegend();
     saveAutoSnapshot();
     return;
   }
@@ -524,6 +522,7 @@ function onMouseUp(e) {
     State.dragId = null;
     State.lastDragPos = null;
     if (State.clickOverlay) State.clickOverlay.style.cursor = 'default';
+    updateLegend();
     saveAutoSnapshot();
   }
 }
@@ -894,7 +893,7 @@ function closePropPanel() {
 
 function updateSelectedLabel(val) {
   const el = State.elements.find(e => e.id === State.selectedId);
-  if (el) { el.label = val; redraw(); }
+  if (el) { el.label = val; updateLegend(); redraw(); }
 }
 
 function updateSelectedSize() {

@@ -88,8 +88,8 @@ function layerAlpha(layerId) {
   return 0.22;
 }
 
-//  ── Symbol drawing ─────────────────────────────────────────────────────────
-// function drawSymbol(el) {
+// ── Symbol drawing ─────────────────────────────────────────────────────────
+  function drawSymbol(el) {
   if (!el.sym) return;
   const mpp = metersPerPixel();
   const pw = Math.max(el.wM / mpp, 4);

@@ -285,6 +285,7 @@ document.addEventListener('mouseup', onMouseUp);
   }
 
   touchTarget.addEventListener('touchstart', e => {
+    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass')) return;
     e.preventDefault();
     if (e.touches.length === 1) {
       _touchLastPos = getTouchPos(e.touches[0]);

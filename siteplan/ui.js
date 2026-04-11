@@ -109,13 +109,13 @@ function buildSymbolPanel() {
     for (const sym of cat.symbols) {
       const item = document.createElement('div');
       item.className = 'sym-item';
-      item.draggable = true;
+      item.draggable = !READONLY;
       item.title = sym.label;
 
       item.innerHTML = `<svg width="40" height="30" viewBox="0 0 40 30">${symThumbSVG(sym, 40, 30)}</svg>
                         <span class="sym-label">${sym.label}</span>`;
 
-      item.addEventListener('dragstart', e => {
+      if (!READONLY) item.addEventListener('dragstart', e => {
         e.dataTransfer.setData('symId', sym.id);
         e.dataTransfer.setData('catId', cat.id);
       });

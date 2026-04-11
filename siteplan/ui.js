@@ -1445,7 +1445,7 @@ async function exportPlan() {
 function updateJsonShareUrl() {
   const base = document.getElementById('json-host-base').value.trim().replace(/\/$/, '');
   const filename = document.getElementById('json-filename-display').value;
-  const viewerBase = window.location.origin + window.location.pathname;
+  const viewerBase = 'https://siteplan.ravenstaging.co.uk/';
   if (base) {
     localStorage.setItem('sp_json_host_base', base);
     document.getElementById('json-share-url').value = `${viewerBase}?plan=${base}/${filename}`;

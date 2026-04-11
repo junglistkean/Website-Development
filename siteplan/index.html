@@ -734,8 +734,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initLegendDrag();
   buildSymbolPanel();
   renderLayerList();
-  // Auto-load map if API key already saved
-  const key = localStorage.getItem('sp_api_key');
+  // Hardcoded key for hosted/readonly use — restrict this to ravenstaging.co.uk/* in Google Cloud Console
+  const HOSTED_KEY = 'AIzaSyAg3SagX76P5ZCUPR__BVn3_THptDD-Llo';
+  // Auto-load map if API key already saved, or use hosted key as fallback
+  const key = localStorage.getItem('sp_api_key') || (HOSTED_KEY !== 'YOUR_RESTRICTED_API_KEY_HERE' ? HOSTED_KEY : null);
   if (key) {
     document.getElementById('api-key-input').value = key;
     const script = document.createElement('script');

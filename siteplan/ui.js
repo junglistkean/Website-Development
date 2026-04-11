@@ -264,6 +264,70 @@ document.addEventListener('mouseup', onMouseUp);
   overlay.addEventListener('dragover', e => e.preventDefault());
   overlay.addEventListener('drop', onMapDrop);
 
+  // ── Touch: pan (single finger) + pinch-zoom (two finger) ──────────────────
+  let _touchLastPos = null;
+  let _touchPinchDist = null;
+
+  function touchPos(touch) {
+    const r = document.getElementById('map-wrap').getBoundingClientRect();
+    return { x: touch.clientX - r.left, y: touch.clientY - r.top };
+  }
+
+  function pinchDist(touches) {
+    const a = touches[0], b = touches[1];
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  overlay.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      _touchLastPos = touchPos(e.touches[0]);
+      _touchPinchDist = null;
+    } else if (e.touches.length === 2) {
+      _touchPinchDist = pinchDist(e.touches);
+      _touchLastPos = null;
+    }
+  }, { passive: false });
+
+  overlay.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!State.map) return;
+    if (e.touches.length === 1 && _touchLastPos) {
+      // Pan
+      const curr = touchPos(e.touches[0]);
+      const prevLL = pixelToLatLng(_touchLastPos.x, _touchLastPos.y);
+      const currLL = pixelToLatLng(curr.x, curr.y);
+      const centre = State.map.getCenter();
+      State.map.setCenter({
+        lat: centre.lat() + (prevLL.lat - currLL.lat),
+        lng: centre.lng() + (prevLL.lng - currLL.lng),
+      });
+      _touchLastPos = curr;
+    } else if (e.touches.length === 2 && _touchPinchDist !== null) {
+      // Pinch-zoom
+      const newDist = pinchDist(e.touches);
+      const ratio = newDist / _touchPinchDist;
+      if (ratio > 1.15) {
+        State.map.setZoom(State.map.getZoom() + 1);
+        _touchPinchDist = newDist;
+      } else if (ratio < 0.87) {
+        State.map.setZoom(State.map.getZoom() - 1);
+        _touchPinchDist = newDist;
+      }
+    }
+  }, { passive: false });
+
+  overlay.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+      _touchLastPos = null;
+      _touchPinchDist = null;
+    } else if (e.touches.length === 1) {
+      // One finger lifted from pinch — switch to pan
+      _touchLastPos = touchPos(e.touches[0]);
+      _touchPinchDist = null;
+    }
+  }, { passive: false });
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (State.currentTool === 'measure') {
@@ -1394,75 +1458,18 @@ function deletePlan(key, e) {
   openLoadModal();
 }
 
-async function exportPlan() {
+function exportPlan() {
   const data = {
     planTitle: State.planTitle,
     exportedAt: new Date().toISOString(),
     layers,
     elements: serializeElements(),
   };
-  const json = JSON.stringify(data, null, 2);
-  const suggestedName = (State.planTitle || 'siteplan').toLowerCase().replace(/\s+/g, '-') + '.json';
-
-  let filename = suggestedName;
-
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName,
-        types: [{ description: 'JSON Plan', accept: { 'application/json': ['.json'] } }],
-      });
-      filename = handle.name;
-      const writable = await handle.createWritable();
-      await writable.write(json);
-      await writable.close();
-    } catch (e) {
-      if (e.name === 'AbortError') return; // user cancelled — don't show modal
-      // Fallback to blob download if something went wrong
-      const blob = new Blob([json], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = suggestedName;
-      a.click();
-    }
-  } else {
-    // Fallback for non-supporting browsers
-    const blob = new Blob([json], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = suggestedName;
-    a.click();
-  }
-
-  // Show URL reminder modal with actual saved filename
-  document.getElementById('json-filename-display').value = filename;
-  const savedBase = localStorage.getItem('sp_json_host_base') || '';
-  document.getElementById('json-host-base').value = savedBase;
-  updateJsonShareUrl();
-  openModal('modal-json-export');
-}
-
-function updateJsonShareUrl() {
-  let base = document.getElementById('json-host-base').value.trim().replace(/\/$/, '');
-  const filename = document.getElementById('json-filename-display').value;
-  if (base) {
-    if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
-    document.getElementById('json-host-base').value = base;
-    localStorage.setItem('sp_json_host_base', base);
-    document.getElementById('json-share-url').value = `${base}/${filename}`;
-  } else {
-    document.getElementById('json-share-url').value = '';
-  }
-}
-
-function copyJsonField(inputId, btn) {
-  const val = document.getElementById(inputId).value;
-  if (!val) return;
-  navigator.clipboard.writeText(val).then(() => {
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
-  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (State.planTitle || 'siteplan').toLowerCase().replace(/\s+/g, '-') + '.json';
+  a.click();
 }
 
 function importPlanFromFile() {

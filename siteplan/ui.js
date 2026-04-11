@@ -265,36 +265,41 @@ document.addEventListener('mouseup', onMouseUp);
   overlay.addEventListener('drop', onMapDrop);
 
   // ── Touch: pan (single finger) + pinch-zoom (two finger) ──────────────────
+  // Attach to wrap (not overlay) so it works regardless of what's on top
+  const touchTarget = wrap;
+  touchTarget.style.touchAction = 'none';
+
   let _touchLastPos = null;
   let _touchPinchDist = null;
 
-  function touchPos(touch) {
-    const r = document.getElementById('map-wrap').getBoundingClientRect();
+  function getTouchPos(touch) {
+    const r = wrap.getBoundingClientRect();
     return { x: touch.clientX - r.left, y: touch.clientY - r.top };
   }
 
-  function pinchDist(touches) {
-    const a = touches[0], b = touches[1];
-    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  function getPinchDist(touches) {
+    return Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    );
   }
 
-  overlay.addEventListener('touchstart', e => {
+  touchTarget.addEventListener('touchstart', e => {
     e.preventDefault();
     if (e.touches.length === 1) {
-      _touchLastPos = touchPos(e.touches[0]);
+      _touchLastPos = getTouchPos(e.touches[0]);
       _touchPinchDist = null;
     } else if (e.touches.length === 2) {
-      _touchPinchDist = pinchDist(e.touches);
+      _touchPinchDist = getPinchDist(e.touches);
       _touchLastPos = null;
     }
   }, { passive: false });
 
-  overlay.addEventListener('touchmove', e => {
+  touchTarget.addEventListener('touchmove', e => {
     e.preventDefault();
     if (!State.map) return;
     if (e.touches.length === 1 && _touchLastPos) {
-      // Pan
-      const curr = touchPos(e.touches[0]);
+      const curr = getTouchPos(e.touches[0]);
       const prevLL = pixelToLatLng(_touchLastPos.x, _touchLastPos.y);
       const currLL = pixelToLatLng(curr.x, curr.y);
       const centre = State.map.getCenter();
@@ -304,8 +309,7 @@ document.addEventListener('mouseup', onMouseUp);
       });
       _touchLastPos = curr;
     } else if (e.touches.length === 2 && _touchPinchDist !== null) {
-      // Pinch-zoom
-      const newDist = pinchDist(e.touches);
+      const newDist = getPinchDist(e.touches);
       const ratio = newDist / _touchPinchDist;
       if (ratio > 1.15) {
         State.map.setZoom(State.map.getZoom() + 1);
@@ -317,13 +321,12 @@ document.addEventListener('mouseup', onMouseUp);
     }
   }, { passive: false });
 
-  overlay.addEventListener('touchend', e => {
+  touchTarget.addEventListener('touchend', e => {
     if (e.touches.length === 0) {
       _touchLastPos = null;
       _touchPinchDist = null;
     } else if (e.touches.length === 1) {
-      // One finger lifted from pinch — switch to pan
-      _touchLastPos = touchPos(e.touches[0]);
+      _touchLastPos = getTouchPos(e.touches[0]);
       _touchPinchDist = null;
     }
   }, { passive: false });

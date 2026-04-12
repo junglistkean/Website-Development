@@ -1386,16 +1386,53 @@ function snapHandrailAlong(edge, size) {
 
   const panelStart = bestPanel ? bestPanel.start : edge.edgeStart;
   const panelEnd   = bestPanel ? bestPanel.end   : edge.edgeStart + edge.edgeLen;
+  const edgeEnd    = edge.edgeStart + edge.edgeLen;
   const snapped    = Math.round(edge.alongGu);
-  // Clamp so handrail doesn't overhang the panel
-  return Math.min(Math.max(snapped, panelStart), panelEnd - hrWidthGu);
+  // Clamp to the nearest panel first (panel-aligned snap), then clamp to the
+  // full edge span so the handrail never overshoots the stage boundary.
+  const withinPanel = Math.min(Math.max(snapped, panelStart), panelEnd - hrWidthGu);
+  return Math.min(Math.max(withinPanel, edge.edgeStart), edgeEnd - hrWidthGu);
 }
 
 // ── Place steps on edge ───────────────────────────────────────────────────────
+// Snap the step centre to a panel-aligned position, clamped so the step body
+// (centre ± halfW) never extends beyond the stage edge in either direction.
+function snapStepsAlong(edge) {
+  const halfW = STEPS_WIDTH_GU / 2;
+  const tp = panels.filter(p => p.category === 'panel' && p.tier === activeTierId);
+  let bestPanel = null, bestDist = Infinity;
+  for (const p of tp) {
+    let onEdge = false, start, end;
+    if ((edge.side === 'front' && p.gy === edge.edgeGu) ||
+        (edge.side === 'back'  && p.gy + p.gh === edge.edgeGu)) {
+      onEdge = true; start = p.gx; end = p.gx + p.gw;
+    } else if ((edge.side === 'left'  && p.gx === edge.edgeGu) ||
+               (edge.side === 'right' && p.gx + p.gw === edge.edgeGu)) {
+      onEdge = true; start = p.gy; end = p.gy + p.gh;
+    }
+    if (!onEdge) continue;
+    const mid = (start + end) / 2;
+    const d   = Math.abs(edge.alongGu - mid);
+    if (d < bestDist) { bestDist = d; bestPanel = { start, end }; }
+  }
+  const panelStart = bestPanel ? bestPanel.start : edge.edgeStart;
+  const panelEnd   = bestPanel ? bestPanel.end   : edge.edgeStart + edge.edgeLen;
+  const edgeEnd    = edge.edgeStart + edge.edgeLen;
+  const snapped    = Math.round(edge.alongGu);
+  // Clamp centre within nearest panel, then within overall edge span.
+  const withinPanel = Math.min(Math.max(snapped, panelStart + halfW), panelEnd - halfW);
+  return Math.min(Math.max(withinPanel, edge.edgeStart + halfW), edgeEnd - halfW);
+}
+
 function placeSteps(edge) {
   // Resolve the correct steps height from the active tier — no user choice needed
   const heightKey = stepsKeyForTier();
-  const sSpan = [Math.round(edge.alongGu) - STEPS_WIDTH_GU / 2, Math.round(edge.alongGu) + STEPS_WIDTH_GU / 2];
+  const halfW     = STEPS_WIDTH_GU / 2;
+  const edgeEnd   = edge.edgeStart + edge.edgeLen;
+  // Safety re-clamp: snapStepsAlong should already guarantee this, but guard
+  // here too so nothing off-stage can ever be stored.
+  const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
+  const sSpan = [safeAlong - halfW, safeAlong + halfW];
 
   const conflict = panels.find(p =>
     p.category === 'handrail' && p.tier === activeTierId &&
@@ -1419,7 +1456,7 @@ function placeSteps(edge) {
     tier: activeTierId,
     side: edge.side, edgeGu: edge.edgeGu,
     edgeStart: edge.edgeStart, edgeLen: edge.edgeLen,
-    alongGu: Math.round(edge.alongGu),
+    alongGu: safeAlong,
     heightKey,
   });
   recalcSchedule(); redraw();
@@ -1447,7 +1484,16 @@ function spansOverlap(a, b) {
 
 // ── Place handrail on edge ────────────────────────────────────────────────────
 function placeHandrail(edge, size) {
-  const hrSpan = handrailSpan(edge.alongGu, size);
+  const hrWidthGu = HR_WIDTHS[size] / FT2;
+  const edgeEnd   = edge.edgeStart + edge.edgeLen;
+  // Reject if the edge span is shorter than the handrail.
+  if (edge.edgeLen < hrWidthGu) {
+    alert(`Not enough space on this edge for a ${size} handrail.`);
+    return;
+  }
+  // Safety re-clamp: snapHandrailAlong should already guarantee this.
+  const safeAlong = Math.min(Math.max(edge.alongGu, edge.edgeStart), edgeEnd - hrWidthGu);
+  const hrSpan = handrailSpan(safeAlong, size);
   const conflict = panels.find(p =>
     p.category === 'steps' && p.tier === activeTierId &&
     p.side === edge.side && p.edgeGu === edge.edgeGu &&
@@ -1463,7 +1509,7 @@ function placeHandrail(edge, size) {
     tier: activeTierId,
     side: edge.side, edgeGu: edge.edgeGu,
     edgeStart: edge.edgeStart, edgeLen: edge.edgeLen,
-    alongGu: Math.round(edge.alongGu),
+    alongGu: Math.round(safeAlong),
     size, hrType: 'handrail',
   });
   recalcSchedule(); redraw();
@@ -1929,9 +1975,8 @@ canvas.addEventListener('mousemove', e => {
   document.getElementById('cursor-pos').textContent = `${gx*2}ft, ${gy*2}ft`;
   if (pendingCategory === 'steps' || pendingCategory === 'handrail') {
     const edge = detectEdge(gx, gy);
-    if (edge && pendingCategory === 'handrail') {
-      edge.alongGu = snapHandrailAlong(edge, pendingType);
-    }
+    if (edge && pendingCategory === 'steps')    edge.alongGu = snapStepsAlong(edge);
+    if (edge && pendingCategory === 'handrail') edge.alongGu = snapHandrailAlong(edge, pendingType);
     redraw(gx, gy, edge);
   } else {
     redraw(gx, gy);
@@ -1949,7 +1994,7 @@ canvas.addEventListener('click', e => {
   // Steps placement mode
   if (pendingCategory === 'steps') {
     const edge = detectEdge(gx, gy);
-    if (edge) placeSteps(edge);
+    if (edge) { edge.alongGu = snapStepsAlong(edge); placeSteps(edge); }
     return;
   }
 

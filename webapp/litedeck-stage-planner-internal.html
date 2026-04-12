@@ -1173,8 +1173,7 @@ function renderTierSummary() {
 function setActiveTier(id) {
   activeTierId = id;
   const t = getActiveTier();
-  document.getElementById('cfg-height').value = t.finishedHeight;
-  document.getElementById('lbl-height').textContent = `${t.label} finished height (mm)`;
+  syncHeightInput(t);
   renderTierControls();
   renderTierSummary();
   recalcSchedule();
@@ -1189,8 +1188,7 @@ function addTier() {
   activeTierId = nextTierId;
   nextTierId++;
   const t = getActiveTier();
-  document.getElementById('cfg-height').value = t.finishedHeight;
-  document.getElementById('lbl-height').textContent = `${t.label} finished height (mm)`;
+  syncHeightInput(t);
   renderTierControls();
   renderTierSummary();
   recalcSchedule();
@@ -1207,8 +1205,7 @@ function removeTier() {
     activeTierId = tiers[tiers.length - 1].id;
   }
   const t = getActiveTier();
-  document.getElementById('cfg-height').value = t.finishedHeight;
-  document.getElementById('lbl-height').textContent = `${t.label} finished height (mm)`;
+  syncHeightInput(t);
   renderTierControls();
   renderTierSummary();
   recalcSchedule();
@@ -1216,12 +1213,13 @@ function removeTier() {
 }
 
 function onHeightInput() {
-  const val = parseFloat(document.getElementById('cfg-height').value) || 0;
+  const raw = parseFloat(document.getElementById('cfg-height').value) || 0;
+  const valMm = cfgUnit === 'ft' ? Math.round(raw * 304.8) : raw;
   const t = getActiveTier();
-  if (t) t.finishedHeight = val;
+  if (t) t.finishedHeight = valMm;
   renderTierSummary();
   recalcSchedule();
- }
+}
 
 function onRakeChange() {
   rakeConfig.enabled = document.getElementById('rake-enabled').checked;
@@ -2895,15 +2893,30 @@ function drawWatermark(c) { /* watermark drawn via positioned <img> overlay */ }
 // ── Config unit toggle ────────────────────────────────────────────────────────
 let cfgUnit = 'mm';
 function setCfgUnit(u) {
-  cfgUnit = u;
+  const prev = cfgUnit; cfgUnit = u;
   document.getElementById('cfg-unit-mm').classList.toggle('active', u === 'mm');
   document.getElementById('cfg-unit-ft').classList.toggle('active', u === 'ft');
-  // Simple label update only — inputs always store mm internally
+  // Convert the height input to the new unit
+  const t = getActiveTier();
+  if (t) {
+    const el = document.getElementById('cfg-height');
+    if (prev === 'mm' && u === 'ft') el.value = (t.finishedHeight / 304.8).toFixed(2);
+    else if (prev === 'ft' && u === 'mm') el.value = Math.round(t.finishedHeight);
+    el.step = u === 'ft' ? '0.1' : '1';
+    document.getElementById('lbl-height').textContent = `${t.label} finished height (${u})`;
+  }
+  // Advanced config label suffixes
   const suffix = u === 'mm' ? '(mm)' : '(ft)';
   document.getElementById('lbl-socket').textContent    = `Leg socket ${suffix}`;
   document.getElementById('lbl-splitter').textContent  = `Splitter deduction ${suffix}`;
   document.getElementById('lbl-baseplate').textContent = `Base plate ${suffix}`;
   document.getElementById('lbl-jack').textContent      = `Screw jack min ${suffix}`;
+}
+// Sync the height input display to the current unit
+function syncHeightInput(t) {
+  document.getElementById('cfg-height').value = cfgUnit === 'ft' ? (t.finishedHeight / 304.8).toFixed(2) : Math.round(t.finishedHeight);
+  document.getElementById('cfg-height').step  = cfgUnit === 'ft' ? '0.1' : '1';
+  document.getElementById('lbl-height').textContent = `${t.label} finished height (${cfgUnit})`;
 }
 
 // ── Auto-fill unit toggle ─────────────────────────────────────────────────────
@@ -5047,8 +5060,7 @@ function importLayoutJson(jsonString) {
   }
   // Restore active tier UI
   const t = getActiveTier();
-  document.getElementById('cfg-height').value = t.finishedHeight;
-  document.getElementById('lbl-height').textContent = `${t.label} finished height (mm)`;
+  syncHeightInput(t);
   renderTierControls();
   renderTierSummary();
   recalcSchedule();

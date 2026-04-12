@@ -13,12 +13,34 @@ function switchPanel(name, btn) {
   document.getElementById('panel-' + name).classList.remove('hidden');
 }
 
+// ── Mobile panel toggle ────────────────────────────────────────────────────
+function toggleMobilePanel() {
+  const panel    = document.getElementById('left-panel');
+  const fab      = document.getElementById('panel-fab');
+  const backdrop = document.getElementById('panel-backdrop');
+  const isOpen   = panel.classList.toggle('panel-open');
+  fab.classList.toggle('panel-open', isOpen);
+  if (backdrop) backdrop.classList.toggle('open', isOpen);
+}
+
+function closeMobilePanel() {
+  document.getElementById('left-panel').classList.remove('panel-open');
+  document.getElementById('panel-fab')?.classList.remove('panel-open');
+  const bd = document.getElementById('panel-backdrop');
+  if (bd) bd.classList.remove('open');
+}
+
 // ── Tool switching ─────────────────────────────────────────────────────────
 function setTool(t) {
   State.currentTool = t;
   State.drawing = false;
   State.drawPoints = [];
   State.currentLineType = null;
+  // Clear any pending tap-to-place selection
+  if (State.pendingPlacement) {
+    State.pendingPlacement = null;
+    document.querySelectorAll('.sym-item.tap-armed').forEach(s => s.classList.remove('tap-armed'));
+  }
 
   // Clear measure state when switching away from measure
   if (t !== 'measure') {
@@ -68,6 +90,7 @@ function startLineDraw(lineType) {
   const def = LINE_DEFS[lineType];
   setStatus(`Drawing: ${def.label}${def.snapM ? ` · Snaps to ${def.snapM}m` : ''} · Double-click to finish`);
   switchPanelById('lines');
+  if (window.matchMedia('(max-width:768px)').matches) closeMobilePanel();
 }
 
 function startAreaDraw(areaDef) {
@@ -115,10 +138,23 @@ function buildSymbolPanel() {
       item.innerHTML = `<svg width="40" height="30" viewBox="0 0 40 30">${symThumbSVG(sym, 40, 30)}</svg>
                         <span class="sym-label">${sym.label}</span>`;
 
-      if (!READONLY) item.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('symId', sym.id);
-        e.dataTransfer.setData('catId', cat.id);
-      });
+      if (!READONLY) {
+        item.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('symId', sym.id);
+          e.dataTransfer.setData('catId', cat.id);
+        });
+        // Mobile: tap symbol to arm it for tap-to-place on the map
+        item.addEventListener('touchend', e => {
+          e.stopPropagation();
+          e.preventDefault();
+          State.pendingPlacement = { sym, catId: cat.id };
+          document.querySelectorAll('.sym-item.tap-armed').forEach(s => s.classList.remove('tap-armed'));
+          item.classList.add('tap-armed');
+          setStatus(`Tap the map to place: ${sym.label}`);
+          // Close panel so the map is accessible
+          if (window.matchMedia('(max-width:768px)').matches) closeMobilePanel();
+        });
+      }
 
       grid.appendChild(item);
     }
@@ -143,7 +179,10 @@ function buildSymbolPanel() {
     item.innerHTML = `<svg width="40" height="30" viewBox="0 0 40 30">
       <polygon points="20,4 36,26 4,26" fill="${area.fill}" stroke="${area.stroke}" stroke-width="1.5"/>
     </svg><span class="sym-label">${area.label}</span>`;
-    item.addEventListener('click', () => startAreaDraw(area));
+    item.addEventListener('click', () => {
+      startAreaDraw(area);
+      if (window.matchMedia('(max-width:768px)').matches) closeMobilePanel();
+    });
     areaGrid.appendChild(item);
   }
 
@@ -154,7 +193,10 @@ function buildSymbolPanel() {
     <rect x="4" y="4" width="32" height="22" fill="transparent" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/>
     <line x1="4" y1="4" x2="36" y2="26" stroke="#94a3b8" stroke-width="0.5" opacity="0.3"/>
   </svg><span class="sym-label">Boneyard</span>`;
-  boneItem.addEventListener('click', () => startAreaDraw({ id: 'boneyard-compound', label: 'Boneyard', isBoneyard: true }));
+  boneItem.addEventListener('click', () => {
+    startAreaDraw({ id: 'boneyard-compound', label: 'Boneyard', isBoneyard: true });
+    if (window.matchMedia('(max-width:768px)').matches) closeMobilePanel();
+  });
   areaGrid.appendChild(boneItem);
 
   areaHeader.addEventListener('click', () => {
@@ -264,12 +306,18 @@ document.addEventListener('mouseup', onMouseUp);
   overlay.addEventListener('dragover', e => e.preventDefault());
   overlay.addEventListener('drop', onMapDrop);
 
-  // ── Touch: pan (single finger) + pinch-zoom (two finger) ──────────────────
-  // Attach to wrap (not overlay) so it works regardless of what's on top
+  // ── Touch: pan · pinch-zoom · tap · drag elements · long-press context menu ─
+  // Attach to wrap (not overlay) so it works regardless of what's on top.
   const touchTarget = wrap;
 
-  let _touchLastPos = null;
-  let _touchPinchDist = null;
+  let _touchLastPos    = null;
+  let _touchPinchDist  = null;
+  let _touchStartPos   = null;
+  let _touchStartTime  = 0;
+  let _lastTapTime     = 0;
+  let _lastTapPos      = null;
+  let _longPressTimer  = null;
+  let _touchDraggingEl = false;
 
   function getTouchPos(touch) {
     const r = wrap.getBoundingClientRect();
@@ -283,52 +331,144 @@ document.addEventListener('mouseup', onMouseUp);
     );
   }
 
+  // Synthetic event object so we can reuse the existing mouse handlers.
+  function makeSynth(touch) {
+    return {
+      clientX: touch.clientX, clientY: touch.clientY,
+      button: 0,
+      target: { closest: () => null },
+      stopPropagation: () => {}, preventDefault: () => {},
+    };
+  }
+
   touchTarget.addEventListener('touchstart', e => {
-    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass')) return;
+    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass, #panel-fab')) return;
     e.preventDefault();
+    clearTimeout(_longPressTimer);
+
     if (e.touches.length === 1) {
-      _touchLastPos = getTouchPos(e.touches[0]);
+      const pos = getTouchPos(e.touches[0]);
+      _touchLastPos   = pos;
+      _touchStartPos  = pos;
+      _touchStartTime = Date.now();
       _touchPinchDist = null;
+      _touchDraggingEl = false;
+
+      // Long-press → context menu (500 ms, only in select mode)
+      if (!READONLY && State.currentTool === 'select') {
+        _longPressTimer = setTimeout(() => {
+          const hit = hitTest(pos.x, pos.y);
+          if (hit) {
+            _touchStartPos = null; // suppress tap on touchend
+            State.ctxTargetId = hit.id;
+            selectElement(hit.id);
+            showContextMenu(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        }, 500);
+      }
+
+      // Attempt to start element drag (select tool only)
+      if (!READONLY && State.currentTool === 'select') {
+        onMouseDown(makeSynth(e.touches[0]));
+        if (State.pendingDrag || State.rotateDragging || State.vertexDragging) {
+          _touchDraggingEl = true;
+        }
+      }
+
     } else if (e.touches.length === 2) {
       _touchPinchDist = getPinchDist(e.touches);
-      _touchLastPos = null;
+      _touchLastPos   = null;
+      _touchStartPos  = null;
+      _touchDraggingEl = false;
     }
   }, { passive: false });
 
   touchTarget.addEventListener('touchmove', e => {
-    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass')) return;
+    if (e.target.closest('#legend, #addr-search, #prop-panel, #ctx-menu, #zoom-btns, #compass, #panel-fab')) return;
     e.preventDefault();
-    if (!State.map) return;
+    clearTimeout(_longPressTimer);
+
     if (e.touches.length === 1 && _touchLastPos) {
       const curr = getTouchPos(e.touches[0]);
-      const prevLL = pixelToLatLng(_touchLastPos.x, _touchLastPos.y);
-      const currLL = pixelToLatLng(curr.x, curr.y);
-      const centre = State.map.getCenter();
-      State.map.setCenter({
-        lat: centre.lat() + (prevLL.lat - currLL.lat),
-        lng: centre.lng() + (prevLL.lng - currLL.lng),
-      });
+
+      if (_touchDraggingEl) {
+        // Route to mouse-move so element follows the finger
+        State.mousePos = curr;
+        onMouseMove(makeSynth(e.touches[0]));
+      } else if (State.drawing) {
+        // Live preview while drawing lines/polygons
+        State.mousePos = curr;
+        redraw();
+      } else if (State.map) {
+        // Pan the map
+        const prevLL = pixelToLatLng(_touchLastPos.x, _touchLastPos.y);
+        const currLL = pixelToLatLng(curr.x, curr.y);
+        const centre = State.map.getCenter();
+        State.map.setCenter({
+          lat: centre.lat() + (prevLL.lat - currLL.lat),
+          lng: centre.lng() + (prevLL.lng - currLL.lng),
+        });
+      }
       _touchLastPos = curr;
+
     } else if (e.touches.length === 2 && _touchPinchDist !== null) {
+      if (!State.map) return;
       const newDist = getPinchDist(e.touches);
       const ratio = newDist / _touchPinchDist;
-      if (ratio > 1.15) {
-        State.map.setZoom(State.map.getZoom() + 1);
-        _touchPinchDist = newDist;
-      } else if (ratio < 0.87) {
-        State.map.setZoom(State.map.getZoom() - 1);
-        _touchPinchDist = newDist;
-      }
+      if (ratio > 1.15)      { State.map.setZoom(State.map.getZoom() + 1); _touchPinchDist = newDist; }
+      else if (ratio < 0.87) { State.map.setZoom(State.map.getZoom() - 1); _touchPinchDist = newDist; }
     }
   }, { passive: false });
 
   touchTarget.addEventListener('touchend', e => {
+    clearTimeout(_longPressTimer);
+
+    if (e.changedTouches.length === 1) {
+      const pos = getTouchPos(e.changedTouches[0]);
+      const dt   = _touchStartPos ? Date.now() - _touchStartTime : 9999;
+      const dist = _touchStartPos ? Math.hypot(pos.x - _touchStartPos.x, pos.y - _touchStartPos.y) : 9999;
+
+      if (_touchDraggingEl) {
+        onMouseUp(makeSynth(e.changedTouches[0]));
+
+      } else if (dt < 400 && dist < 12 && _touchStartPos) {
+        // ── TAP ──────────────────────────────────────────────────────────────
+        const now = Date.now();
+        const lastDist = _lastTapPos ? Math.hypot(pos.x - _lastTapPos.x, pos.y - _lastTapPos.y) : 9999;
+
+        if (now - _lastTapTime < 350 && lastDist < 30) {
+          // Double-tap → finish line / polygon
+          _lastTapTime = 0; _lastTapPos = null;
+          onDblClick(makeSynth(e.changedTouches[0]));
+        } else {
+          _lastTapTime = now; _lastTapPos = pos;
+
+          if (State.pendingPlacement && !READONLY) {
+            // Place the armed symbol at tap position
+            const { sym, catId } = State.pendingPlacement;
+            const el = makeSymbolEl(sym, catId, pos.x, pos.y);
+            State.elements.push(el);
+            selectElement(el.id);
+            updateLegend(); redraw(); saveAutoSnapshot();
+            State.pendingPlacement = null;
+            document.querySelectorAll('.sym-item.tap-armed').forEach(s => s.classList.remove('tap-armed'));
+            setStatus('Symbol placed · Tap another symbol to place more');
+          } else {
+            // Tap on map → canvas click (selection, drawing points, measure, etc.)
+            onCanvasClick(makeSynth(e.changedTouches[0]));
+          }
+        }
+      }
+    }
+
     if (e.touches.length === 0) {
-      _touchLastPos = null;
-      _touchPinchDist = null;
+      _touchLastPos = null; _touchStartPos = null;
+      _touchPinchDist = null; _touchDraggingEl = false;
     } else if (e.touches.length === 1) {
-      _touchLastPos = getTouchPos(e.touches[0]);
+      _touchLastPos   = getTouchPos(e.touches[0]);
+      _touchStartPos  = null;
       _touchPinchDist = null;
+      _touchDraggingEl = false;
     }
   }, { passive: false });
 
@@ -1204,7 +1344,13 @@ let legendExpanded = false;
 
 function toggleLegend() {
   legendVisible = !legendVisible;
-  document.getElementById('legend').classList.toggle('hidden', !legendVisible);
+  const legend = document.getElementById('legend');
+  legend.classList.toggle('hidden', !legendVisible);
+  // On mobile the legend is hidden via a media query, not just .hidden —
+  // use a separate class to show it when explicitly toggled on.
+  if (window.matchMedia('(max-width:768px)').matches) {
+    legend.classList.toggle('legend-mobile-show', legendVisible);
+  }
 }
 
 function toggleLegendExpand() {

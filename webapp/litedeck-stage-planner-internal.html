@@ -1492,15 +1492,18 @@ function placeHandrail(edge, size) {
   // Safety re-clamp: snapHandrailAlong should already guarantee this.
   const safeAlong = Math.min(Math.max(edge.alongGu, edge.edgeStart), edgeEnd - hrWidthGu);
   const hrSpan = handrailSpan(safeAlong, size);
-  const conflict = panels.find(p =>
+  const stepsConflict = panels.find(p =>
     p.category === 'steps' && p.tier === activeTierId &&
     p.side === edge.side && p.edgeGu === edge.edgeGu &&
     spansOverlap(stepsSpan(p), hrSpan)
   );
-  if (conflict) {
-    alert('A handrail cannot overlap a set of steps on the same edge.');
-    return;
-  }
+  if (stepsConflict) { alert('A handrail cannot overlap a set of steps on the same edge.'); return; }
+  const hrConflict = panels.find(p =>
+    p.category === 'handrail' && p.tier === activeTierId &&
+    p.side === edge.side && p.edgeGu === edge.edgeGu &&
+    spansOverlap(handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p), hrSpan)
+  );
+  if (hrConflict) { alert('A handrail already occupies this position.'); return; }
   saveHistory();
   panels.push({
     id: nextId++, category: 'handrail',

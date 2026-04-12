@@ -1184,12 +1184,18 @@ function spansOverlap(a, b) { return a[0] < b[1] && a[1] > b[0]; }
 
 function placeHandrail(edge, size) {
   const hrSpan = handrailSpan(edge.alongGu, size);
-  const conflict = panels.find(p =>
+  const stepsConflict = panels.find(p =>
     p.category === 'steps' && p.tier === activeTierId &&
     p.side === edge.side && p.edgeGu === edge.edgeGu &&
     spansOverlap(stepsSpan(p), hrSpan)
   );
-  if (conflict) { alert('A handrail cannot overlap a set of steps on the same edge.'); return; }
+  if (stepsConflict) { alert('A handrail cannot overlap a set of steps on the same edge.'); return; }
+  const hrConflict = panels.find(p =>
+    p.category === 'handrail' && p.tier === activeTierId &&
+    p.side === edge.side && p.edgeGu === edge.edgeGu &&
+    spansOverlap(handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p), hrSpan)
+  );
+  if (hrConflict) { alert('A handrail already occupies this position.'); return; }
   saveHistory();
   panels.push({ id: nextId++, category: 'handrail', tier: activeTierId,
     side: edge.side, edgeGu: edge.edgeGu, edgeStart: edge.edgeStart, edgeLen: edge.edgeLen,

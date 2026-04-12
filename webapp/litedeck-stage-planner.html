@@ -592,7 +592,8 @@
   color: var(--text);
   line-height: 1.6;
 }
-#welcome-modal .wm-dismiss {
+#welcome-modal .wm-dismiss,
+#welcome-modal .wm-continue {
   margin-top: 24px;
   font-size: 11px;
   color: var(--muted);
@@ -3139,6 +3140,27 @@ syncMobHeight();
     <p class="wm-dismiss">Click anywhere to continue</p>
   </div>
 </div>
+<script>
+(function () {
+  if (window.innerWidth < 768) {
+    document.getElementById('welcome-modal').innerHTML = [
+      '<h2>Litedeck Stage Planner</h2>',
+      '<p class="wm-sub">Raven Staging \u2014 Layout Tool</p>',
+      '<div class="wm-section"><h3>Selecting components</h3>',
+      '<p>Tap any panel type in the left sidebar to select it \u2014 it will highlight when active. Tap the grid to place it.</p></div>',
+      '<div class="wm-section"><h3>Rectangular stages</h3>',
+      '<p>Tap the \u2699 button in the bottom toolbar to open the settings drawer. Enter your stage height, width and depth, then tap Generate Layout.</p></div>',
+      '<div class="wm-section"><h3>Bespoke stages</h3>',
+      '<p>Select a panel from the left sidebar and tap the grid to place it. Use the Move \u261e, Rotate \u21bb and Delete \u2715 tools in the bottom toolbar to adjust your layout. Tap Undo \u21a9 to step back.</p></div>',
+      '<div class="wm-section"><h3>Handrails &amp; steps</h3>',
+      '<p>Select HR4, HR8 or STEPS from the bottom toolbar, then tap a stage edge to place. Auto-populate handrails is also available in the \u2699 settings drawer.</p></div>',
+      '<div class="wm-section"><h3>Request a quote</h3>',
+      '<p>Once your layout is complete, tap Request Quote at the top right of the screen \u2014 your layout and component list will go straight to our team.</p></div>',
+      '<p class="wm-continue">Tap anywhere to continue</p>'
+    ].join('');
+  }
+}());
+</script>
 
 <!-- ── Mobile left sidebar ────────────────────────────────── -->
 <div id="mob-sidebar">

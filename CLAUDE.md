@@ -28,7 +28,8 @@ Website Development/
 ├── index.html                     # Main marketing/portfolio site
 ├── litedeck-stage-planner.html    # Standalone Litedeck stage planner tool (~4600 lines)
 ├── webapp/
-│   └── litedeck-stage-planner.html  # Copy of the stage planner (served separately)
+│   ├── litedeck-stage-planner.html          # Client-facing stage planner (served separately)
+│   └── litedeck-stage-planner-internal.html # Internal/staff version of the stage planner
 ├── projects/                      # 10 individual project/case-study pages
 ├── siteplan/                      # Site planner tool (split across 3 JS files)
 │   ├── index.html
@@ -55,7 +56,7 @@ Self-contained single-file tool (~4600 lines). All state and logic are inline. K
 - Undo/redo stack
 - Three canvas views: plan (top-down), side elevation, bracing diagram
 
-Panel types: 8×4, 8×2, 4×4, 4×2 ft. Grid: 56×44 cells at 24px/cell. Supports multi-tier stages with independent finished heights, steps, handrails, infill panels, and auto-handrail population. Saves/loads via `localStorage`. Generates a bill of materials and a print-ready PDF view. The copy in `webapp/` is kept in sync manually.
+Panel types: 8×4, 8×2, 4×4, 4×2 ft. Grid: 56×44 cells at 24px/cell. Supports multi-tier stages with independent finished heights, steps, handrails, infill panels, and auto-handrail population. Saves/loads via `localStorage`. Generates a bill of materials and a print-ready PDF view. The client-facing copy lives at `webapp/litedeck-stage-planner.html`; an internal/staff version is at `webapp/litedeck-stage-planner-internal.html`. Both are kept in sync with the canonical version manually.
 
 ### Site Planner (siteplan/)
 Split across three files:

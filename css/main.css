@@ -284,8 +284,16 @@ footer {
   right: 20px;
   transform: none;
   justify-content: center;
-  flex-wrap: wrap;
- bottom: 15px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+  bottom: 15px;
+}
+.dot {
+  width: 16px;
+}
+.dot.active {
+  width: 28px;
 }
 nav {
   padding: 15px 20px;

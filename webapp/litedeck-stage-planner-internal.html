@@ -723,6 +723,7 @@
       <div class="tools">
         <button class="tool-btn active" id="btn-tool-place" onclick="setTool('place')">✦ Place</button>
         <button class="tool-btn" id="btn-tool-select" onclick="setTool('select')">↖ Select</button>
+        <button class="tool-btn" id="btn-tool-move" onclick="setTool('move')">☞ Move</button>
       </div>
     </div>
 
@@ -733,7 +734,7 @@
         <button class="tool-btn danger" id="btn-tool-delete" onclick="setTool('delete')">✕ Delete</button>
       </div>
       <div style="margin-top:8px; font-size:11px; color:var(--muted); line-height:1.6;">
-        R = rotate · Del = delete · Esc = deselect
+        R = rotate · Del = delete · M = move · Esc = cancel
       </div>
     </div>
 
@@ -1083,6 +1084,9 @@ let pendingRotated = false;
 let activeTool  = 'place';
 let lastDeleteHit = null; // ID of the item currently highlighted in delete-mode hover
 let hoverGxF = -1, hoverGyF = -1; // float cursor coords (grid units) for precise delete hover
+let dragState = null;
+// dragState shape during a move-tool drag:
+// { origItem, preDragSnapshot, ghost: null | {category,valid,...}, offsetGxF, offsetGyF }
 let nextId      = 1;
 let activeView  = 'plan';
 let history     = [];  // undo stack — snapshots of panels array
@@ -1304,8 +1308,9 @@ function selectHandrail(size) {
 function syncAllPendingButtons() {
   document.querySelectorAll('.panel-btn').forEach(b => {
     b.classList.remove('active');
-    b.style.opacity       = (activeTool === 'select') ? '0.4' : '1';
-    b.style.pointerEvents = (activeTool === 'select') ? 'none' : '';
+    const nonPlace = activeTool === 'select' || activeTool === 'move';
+    b.style.opacity       = nonPlace ? '0.4' : '1';
+    b.style.pointerEvents = nonPlace ? 'none' : '';
   });
   document.querySelectorAll('.component-btn').forEach(b => b.classList.remove('active'));
 
@@ -1847,17 +1852,22 @@ function updateHrModalPreview() {
 
 
 function setTool(tool) {
-  // Toggle-off: clicking the active delete tool returns to place
+  // Toggle-off: clicking the active tool again returns to place
   if (tool === 'delete' && activeTool === 'delete') tool = 'place';
+  if (tool === 'move'   && activeTool === 'move')   tool = 'place';
+
+  // Cancel any in-progress drag before switching away from move mode
+  if (activeTool === 'move' && dragState) {
+    panels.push(dragState.origItem);
+    dragState = null;
+    recalcSchedule();
+  }
+
   activeTool = tool;
   canvas.style.cursor = (tool === 'place' || tool === 'delete') ? 'crosshair' : 'default';
   if (tool === 'place') {
     selectedId = null;
-    // Reset to panel mode if coming from steps/handrail
-    if (pendingCategory !== 'panel') {
-      pendingCategory = 'panel';
-      pendingType     = '8x4';
-    }
+    if (pendingCategory !== 'panel') { pendingCategory = 'panel'; pendingType = '8x4'; }
   }
   if (tool === 'delete') {
     selectedId = null;
@@ -1865,9 +1875,10 @@ function setTool(tool) {
   } else {
     lastDeleteHit = null;
   }
-  document.getElementById('btn-tool-place').classList.toggle('active', tool === 'place');
+  document.getElementById('btn-tool-place') .classList.toggle('active', tool === 'place');
   document.getElementById('btn-tool-select').classList.toggle('active', tool === 'select');
   document.getElementById('btn-tool-delete').classList.toggle('active', tool === 'delete');
+  document.getElementById('btn-tool-move')  ?.classList.toggle('active', tool === 'move');
   syncAllPendingButtons();
   updatePendingInfo();
   redraw();
@@ -1897,6 +1908,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 's' || e.key === 'S') setTool('select');
   if (e.key === 'p' || e.key === 'P') setTool('place');
+  if (e.key === 'm' || e.key === 'M') setTool('move');
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
 });
 
@@ -1988,6 +2000,21 @@ canvas.addEventListener('mousemove', e => {
   hoverGxF = (e.clientX - rect.left) * (canvas.width  / rect.width)  / CELL;
   hoverGyF = (e.clientY - rect.top)  * (canvas.height / rect.height) / CELL;
   document.getElementById('cursor-pos').textContent = `${gx*2}ft, ${gy*2}ft`;
+
+  // Move-mode drag: update ghost position
+  if (activeTool === 'move' && dragState) {
+    resolveDragGhost(gx, gy);
+    redraw();
+    return;
+  }
+  // Move-mode hover (no drag): show grab cursor over moveable items
+  if (activeTool === 'move') {
+    const hit = pickMoveTarget(gx, gy);
+    canvas.style.cursor = hit ? 'grab' : 'default';
+    redraw(gx, gy);
+    return;
+  }
+
   if (pendingCategory === 'steps' || pendingCategory === 'handrail') {
     const edge = detectEdge(gx, gy);
     if (edge && pendingCategory === 'steps')    edge.alongGu = snapStepsAlong(edge);
@@ -2001,10 +2028,93 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mouseleave', () => {
   hoverGxF = -1; hoverGyF = -1;
   document.getElementById('cursor-pos').textContent = '—';
+  if (dragState) {
+    // Cancel drag — restore item to original position
+    panels.push(dragState.origItem);
+    dragState = null;
+    canvas.style.cursor = 'default';
+    recalcSchedule();
+  }
+  redraw();
+});
+
+// ── Move-mode mouse handlers ──────────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  if (activeTool !== 'move') return;
+  const rect  = canvas.getBoundingClientRect();
+  const curFx = (e.clientX - rect.left) * (canvas.width  / rect.width)  / CELL;
+  const curFy = (e.clientY - rect.top)  * (canvas.height / rect.height) / CELL;
+  const gx = Math.floor(curFx), gy = Math.floor(curFy);
+
+  const hit = pickMoveTarget(gx, gy, curFx, curFy);
+  if (!hit) return;
+  if (hit.category === 'handrail' && hit.hrType === 'infill') return; // infill panels are auto-generated
+
+  // Save pre-drag state for undo, then remove item
+  const preDragSnapshot = JSON.parse(JSON.stringify(panels));
+  panels = panels.filter(p => p.id !== hit.id);
+
+  const offsetGxF = hit.category === 'panel' ? curFx - hit.gx : 0;
+  const offsetGyF = hit.category === 'panel' ? curFy - hit.gy : 0;
+
+  // Seed float coords so resolveDragGhost has valid coords from the first frame
+  hoverGxF = curFx;
+  hoverGyF = curFy;
+  dragState = {
+    origItem: JSON.parse(JSON.stringify(hit)),
+    preDragSnapshot,
+    ghost: null,
+    offsetGxF, offsetGyF,
+  };
+  resolveDragGhost(gx, gy);
+  canvas.style.cursor = 'grabbing';
+  e.preventDefault();
+  redraw();
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!dragState) return;
+  const ghost = dragState.ghost;
+
+  if (ghost && ghost.valid) {
+    // Commit move: push pre-drag state for undo, place item at new position
+    history.push(dragState.preDragSnapshot);
+    if (history.length > 50) history.shift();
+
+    if (ghost.category === 'panel') {
+      panels.push({ ...dragState.origItem, gx: ghost.gx, gy: ghost.gy });
+    } else if (ghost.category === 'steps') {
+      const edge = ghost.edge;
+      const halfW = STEPS_WIDTH_GU / 2;
+      const edgeEnd = edge.edgeStart + edge.edgeLen;
+      const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
+      panels.push({ ...dragState.origItem,
+        side: edge.side, edgeGu: edge.edgeGu,
+        edgeStart: edge.edgeStart, edgeLen: edge.edgeLen,
+        alongGu: safeAlong });
+    } else if (ghost.category === 'handrail') {
+      const edge = ghost.edge;
+      const hrWidthGu = HR_WIDTHS[dragState.origItem.size] / FT2;
+      const edgeEnd = edge.edgeStart + edge.edgeLen;
+      const safeAlong = Math.min(Math.max(edge.alongGu, edge.edgeStart), edgeEnd - hrWidthGu);
+      panels.push({ ...dragState.origItem,
+        side: edge.side, edgeGu: edge.edgeGu,
+        edgeStart: edge.edgeStart, edgeLen: edge.edgeLen,
+        alongGu: Math.round(safeAlong) });
+    }
+  } else {
+    // Invalid drop — restore to original position, no history entry
+    panels.push(dragState.origItem);
+  }
+
+  dragState = null;
+  canvas.style.cursor = 'grab';
+  recalcSchedule();
   redraw();
 });
 
 canvas.addEventListener('click', e => {
+  if (activeTool === 'move') return; // handled by mousedown/mouseup
   const {gx, gy} = getGridPos(e);
 
   // Delete tool mode — prefer the hover-highlighted item (avoids micro-movement mismatch),
@@ -2116,6 +2226,130 @@ function isNearEdgeItem(item, gx, gy) {
   }
   return false;
 }
+// ── Move-mode helpers ─────────────────────────────────────────────────────────
+
+// Pick the topmost moveable item at (gx, gy) using the same priority order as
+// delete mode: panels → steps → handrails (with float precision for handrails).
+// curFx/curFy are optional float coords; if omitted, gx/gy are used as floats.
+function pickMoveTarget(gx, gy, curFx, curFy) {
+  const fx = curFx !== undefined ? curFx : gx;
+  const fy = curFy !== undefined ? curFy : gy;
+
+  // 1. Panels — exact integer grid bounds
+  let hit = panels.slice().reverse().find(p =>
+    p.tier === activeTierId && p.category === 'panel' &&
+    gx >= p.gx && gx < p.gx + p.gw && gy >= p.gy && gy < p.gy + p.gh
+  );
+  if (hit) return hit;
+
+  // 2. Steps — visual bounding box with buffer
+  const BUF = 0.5;
+  hit = panels.slice().reverse().find(p => {
+    if (p.tier !== activeTierId || p.category !== 'steps') return false;
+    const data = STEPS_DATA[p.heightKey];
+    const dGu  = (data.treads * TREAD_DEPTH_MM) / FT2;
+    const halfW = STEPS_WIDTH_GU / 2;
+    let x1, y1, x2, y2;
+    switch (p.side) {
+      case 'front': x1=p.alongGu-halfW; y1=p.edgeGu-dGu; x2=p.alongGu+halfW; y2=p.edgeGu;     break;
+      case 'back':  x1=p.alongGu-halfW; y1=p.edgeGu;     x2=p.alongGu+halfW; y2=p.edgeGu+dGu; break;
+      case 'left':  x1=p.edgeGu-dGu; y1=p.alongGu-halfW; x2=p.edgeGu;        y2=p.alongGu+halfW; break;
+      case 'right': x1=p.edgeGu;     y1=p.alongGu-halfW; x2=p.edgeGu+dGu;   y2=p.alongGu+halfW; break;
+    }
+    return fx >= x1-BUF && fx <= x2+BUF && fy >= y1-BUF && fy <= y2+BUF;
+  });
+  if (hit) return hit;
+
+  // 3. Handrails — closest edge line
+  const HR_THRESH = 1.0;
+  const hrCandidates = panels.filter(p => {
+    if (p.tier !== activeTierId || p.category !== 'handrail') return false;
+    const widthGu = (p.hrType === 'infill' ? p.infillMm : HR_WIDTHS[p.size]) / FT2;
+    switch (p.side) {
+      case 'front': case 'back':
+        return Math.abs(fy - p.edgeGu) <= HR_THRESH && fx >= p.alongGu && fx <= p.alongGu + widthGu;
+      case 'left': case 'right':
+        return Math.abs(fx - p.edgeGu) <= HR_THRESH && fy >= p.alongGu && fy <= p.alongGu + widthGu;
+    }
+    return false;
+  });
+  if (hrCandidates.length === 1) return hrCandidates[0];
+  if (hrCandidates.length > 1) {
+    return hrCandidates.reduce((best, p) => {
+      const dist     = (p.side === 'front' || p.side === 'back') ? Math.abs(fy - p.edgeGu)    : Math.abs(fx - p.edgeGu);
+      const bestDist = (best.side === 'front' || best.side === 'back') ? Math.abs(fy - best.edgeGu) : Math.abs(fx - best.edgeGu);
+      return dist < bestDist ? p : best;
+    });
+  }
+  return null;
+}
+
+// Recompute dragState.ghost from the current cursor grid position.
+// Called every mousemove while dragState is active.
+function resolveDragGhost(gx, gy) {
+  if (!dragState) return;
+  const item = dragState.origItem;
+
+  if (item.category === 'panel') {
+    const nx = Math.max(0, Math.min(GRID_W - item.gw, Math.floor(hoverGxF - dragState.offsetGxF)));
+    const ny = Math.max(0, Math.min(GRID_H - item.gh, Math.floor(hoverGyF - dragState.offsetGyF)));
+    const candidate = { ...item, gx: nx, gy: ny };
+    dragState.ghost = {
+      category: 'panel',
+      gx: nx, gy: ny, gw: item.gw, gh: item.gh, type: item.type,
+      valid: canPlace(candidate, nx, ny, item.id),
+    };
+
+  } else if (item.category === 'steps') {
+    const edge = detectEdge(gx, gy);
+    if (!edge) { dragState.ghost = null; return; }
+    edge.alongGu = snapStepsAlong(edge);
+    const halfW = STEPS_WIDTH_GU / 2;
+    const edgeEnd = edge.edgeStart + edge.edgeLen;
+    const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
+    const sSpan = [safeAlong - halfW, safeAlong + halfW];
+    const stepsConflict  = panels.find(p =>
+      p.category === 'steps' && p.tier === activeTierId &&
+      p.side === edge.side && p.edgeGu === edge.edgeGu && spansOverlap(stepsSpan(p), sSpan)
+    );
+    const hrConflict = panels.find(p =>
+      p.category === 'handrail' && p.tier === activeTierId &&
+      p.side === edge.side && p.edgeGu === edge.edgeGu &&
+      spansOverlap(handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p), sSpan)
+    );
+    dragState.ghost = {
+      category: 'steps',
+      edge: { ...edge, alongGu: safeAlong },
+      heightKey: item.heightKey,
+      valid: !stepsConflict && !hrConflict,
+    };
+
+  } else if (item.category === 'handrail') {
+    const hrWidthGu = HR_WIDTHS[item.size] / FT2;
+    const edge = detectEdge(gx, gy);
+    if (!edge || edge.edgeLen < hrWidthGu) { dragState.ghost = null; return; }
+    edge.alongGu = snapHandrailAlong(edge, item.size);
+    const edgeEnd = edge.edgeStart + edge.edgeLen;
+    const safeAlong = Math.min(Math.max(edge.alongGu, edge.edgeStart), edgeEnd - hrWidthGu);
+    const hrSpan = handrailSpan(safeAlong, item.size);
+    const stepsConflict = panels.find(p =>
+      p.category === 'steps' && p.tier === activeTierId &&
+      p.side === edge.side && p.edgeGu === edge.edgeGu && spansOverlap(stepsSpan(p), hrSpan)
+    );
+    const hrConflict = panels.find(p =>
+      p.category === 'handrail' && p.tier === activeTierId &&
+      p.side === edge.side && p.edgeGu === edge.edgeGu &&
+      spansOverlap(handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p), hrSpan)
+    );
+    dragState.ghost = {
+      category: 'handrail',
+      edge: { ...edge, alongGu: safeAlong },
+      size: item.size, hrType: item.hrType,
+      valid: !stepsConflict && !hrConflict,
+    };
+  }
+}
+
 // ── Save / Load ───────────────────────────────────────────────────────────────
 function saveLayout(){
   const data={
@@ -2415,6 +2649,91 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
         ctx.fillRect(x1, y1, w, h);
         ctx.strokeRect(x1, y1, w, h);
       }
+    }
+  }
+
+  // ── Move-mode drag ghost ──────────────────────────────────────────────────────
+  if (activeTool === 'move' && dragState) {
+    // Faded origin outline — shows where the item came from
+    const orig = dragState.origItem;
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([3, 3]);
+    if (orig.category === 'panel') {
+      ctx.strokeRect(orig.gx*CELL+1, orig.gy*CELL+1, orig.gw*CELL-2, orig.gh*CELL-2);
+    } else if (orig.category === 'steps') {
+      const data = STEPS_DATA[orig.heightKey];
+      const dGu  = (data.treads * TREAD_DEPTH_MM) / FT2;
+      const halfW = STEPS_WIDTH_GU / 2;
+      let ox, oy, ow, oh;
+      switch (orig.side) {
+        case 'front': ox=(orig.alongGu-halfW)*CELL; oy=(orig.edgeGu-dGu)*CELL; ow=STEPS_WIDTH_GU*CELL; oh=dGu*CELL;    break;
+        case 'back':  ox=(orig.alongGu-halfW)*CELL; oy=orig.edgeGu*CELL;       ow=STEPS_WIDTH_GU*CELL; oh=dGu*CELL;    break;
+        case 'left':  ox=(orig.edgeGu-dGu)*CELL;   oy=(orig.alongGu-halfW)*CELL; ow=dGu*CELL; oh=STEPS_WIDTH_GU*CELL; break;
+        case 'right': ox=orig.edgeGu*CELL;          oy=(orig.alongGu-halfW)*CELL; ow=dGu*CELL; oh=STEPS_WIDTH_GU*CELL; break;
+      }
+      ctx.strokeRect(ox, oy, ow, oh);
+    } else if (orig.category === 'handrail') {
+      const widthGu = HR_WIDTHS[orig.size] / FT2;
+      const PAD = 4;
+      let ox, oy, ow, oh;
+      switch (orig.side) {
+        case 'front': case 'back':  ox=orig.alongGu*CELL;     oy=orig.edgeGu*CELL-PAD; ow=widthGu*CELL; oh=PAD*2; break;
+        case 'left':  case 'right': ox=orig.edgeGu*CELL-PAD;  oy=orig.alongGu*CELL;    ow=PAD*2; oh=widthGu*CELL; break;
+      }
+      ctx.strokeRect(ox, oy, ow, oh);
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // Candidate ghost at new position
+    if (dragState.ghost) {
+      const ghost = dragState.ghost;
+      const ok = ghost.valid;
+      ctx.fillStyle   = ok ? 'rgba(34,197,94,0.2)'  : 'rgba(239,68,68,0.2)';
+      ctx.strokeStyle = ok ? '#22c55e' : '#ef4444';
+      ctx.lineWidth   = 2;
+      ctx.setLineDash([4, 3]);
+
+      if (ghost.category === 'panel') {
+        ctx.fillRect(ghost.gx*CELL+1, ghost.gy*CELL+1, ghost.gw*CELL-2, ghost.gh*CELL-2);
+        ctx.strokeRect(ghost.gx*CELL+1, ghost.gy*CELL+1, ghost.gw*CELL-2, ghost.gh*CELL-2);
+        ctx.setLineDash([]);
+        ctx.fillStyle    = ok ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)';
+        ctx.font         = `bold ${Math.min(11, ghost.gw*CELL/5)}px "Barlow Condensed"`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(PANEL_LABELS[ghost.type], (ghost.gx + ghost.gw/2)*CELL, (ghost.gy + ghost.gh/2)*CELL);
+      } else if (ghost.category === 'steps') {
+        const data = STEPS_DATA[ghost.heightKey];
+        const dGu  = (data.treads * TREAD_DEPTH_MM) / FT2;
+        const halfW = STEPS_WIDTH_GU / 2;
+        let x1, y1, w, h;
+        switch (ghost.edge.side) {
+          case 'front': x1=(ghost.edge.alongGu-halfW)*CELL; y1=(ghost.edge.edgeGu-dGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;    break;
+          case 'back':  x1=(ghost.edge.alongGu-halfW)*CELL; y1=ghost.edge.edgeGu*CELL;       w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;    break;
+          case 'left':  x1=(ghost.edge.edgeGu-dGu)*CELL;   y1=(ghost.edge.alongGu-halfW)*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+          case 'right': x1=ghost.edge.edgeGu*CELL;          y1=(ghost.edge.alongGu-halfW)*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+        }
+        ctx.globalAlpha = 0.8;
+        ctx.fillRect(x1, y1, w, h);
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.globalAlpha = 1;
+      } else if (ghost.category === 'handrail') {
+        const widthGu   = HR_WIDTHS[ghost.size] / FT2;
+        const thickness = 4;
+        let x1, y1, w, h;
+        switch (ghost.edge.side) {
+          case 'front': case 'back':  x1=ghost.edge.alongGu*CELL; y1=ghost.edge.edgeGu*CELL-thickness/2; w=widthGu*CELL; h=thickness; break;
+          case 'left':  case 'right': x1=ghost.edge.edgeGu*CELL-thickness/2; y1=ghost.edge.alongGu*CELL; w=thickness; h=widthGu*CELL; break;
+        }
+        ctx.globalAlpha = 0.8;
+        ctx.fillRect(x1, y1, w, h);
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.globalAlpha = 1;
+      }
+      ctx.setLineDash([]);
     }
   }
 

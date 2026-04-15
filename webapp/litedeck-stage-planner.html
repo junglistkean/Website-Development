@@ -945,6 +945,8 @@ let pendingType    = '8x4';
 let pendingCategory = 'panel';
 let pendingRotated = false;
 let activeTool     = 'place';
+let lastDeleteHit  = null; // ID of the item currently highlighted in delete-mode hover
+let hoverGxF = -1, hoverGyF = -1; // float cursor coords (grid units) for precise delete hover
 let dragState      = null; // { panelId, offsetGx, offsetGy, curGx, curGy, valid, dragging, startClientX, startClientY }
 let nextId         = 1;
 let activeView     = 'plan';
@@ -1525,6 +1527,12 @@ function setTool(tool) {
     selectedId = null;
   }
   if (tool === 'delete' || tool === 'move') { selectedId = null; }
+  if (tool === 'delete') {
+    // Reset any pending step/handrail placement to avoid hover ghost in delete mode
+    if (pendingCategory !== 'panel') { pendingCategory = 'panel'; pendingType = '8x4'; }
+  } else {
+    lastDeleteHit = null;
+  }
   document.getElementById('btn-tool-place') .classList.toggle('active', tool === 'place');
   document.getElementById('btn-tool-move')  ?.classList.toggle('active', tool === 'move');
   document.getElementById('btn-tool-delete').classList.toggle('active', tool === 'delete');
@@ -1639,6 +1647,9 @@ function canPlace(candidate, gx, gy, excludeId = -1) {
 // ── Canvas events ─────────────────────────────────────────────────────────────
 canvas.addEventListener('mousemove', e => {
   const {gx, gy} = getGridPos(e);
+  const rect = canvas.getBoundingClientRect();
+  hoverGxF = (e.clientX - rect.left) * (canvas.width  / rect.width)  / CELL;
+  hoverGyF = (e.clientY - rect.top)  * (canvas.height / rect.height) / CELL;
   document.getElementById('cursor-pos').textContent = `${gx*2}ft, ${gy*2}ft`;
   // Move-tool drag update
   if (dragState) {
@@ -1664,6 +1675,7 @@ canvas.addEventListener('mousemove', e => {
   } else { redraw(gx, gy); }
 });
 canvas.addEventListener('mouseleave', () => {
+  hoverGxF = -1; hoverGyF = -1;
   document.getElementById('cursor-pos').textContent = '—';
   redraw();
 });
@@ -1722,13 +1734,20 @@ function finishDrag() {
 function handleCanvasClick(clientX, clientY) {
   const {gx, gy} = getGridPosXY(clientX, clientY);
   if (activeTool === 'delete') {
-    const hit = panels.slice().reverse().find(p =>
-      p.tier === activeTierId && (
-        (p.category === 'panel' &&
-          gx >= p.gx && gx < p.gx + p.gw && gy >= p.gy && gy < p.gy + p.gh) ||
-        ((p.category === 'steps' || p.category === 'handrail') && isNearEdgeItem(p, gx, gy))
-      )
-    );
+    // Prefer the hover-highlighted item (avoids micro-movement mismatch between mousemove and click),
+    // fall back to position-based hit-test so direct clicks (no prior hover) still work.
+    let hit = lastDeleteHit !== null
+      ? panels.find(p => p.id === lastDeleteHit && p.tier === activeTierId)
+      : null;
+    if (!hit) {
+      hit = panels.slice().reverse().find(p =>
+        p.tier === activeTierId && (
+          (p.category === 'panel' &&
+            gx >= p.gx && gx < p.gx + p.gw && gy >= p.gy && gy < p.gy + p.gh) ||
+          ((p.category === 'steps' || p.category === 'handrail') && isNearEdgeItem(p, gx, gy))
+        )
+      );
+    }
     if (hit) { saveHistory(); panels = panels.filter(p => p.id !== hit.id); recalcSchedule(); redraw(); }
     return;
   }
@@ -2183,16 +2202,104 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
     ctx.setLineDash([4,3]); ctx.strokeRect(hoverGx*CELL+1, hoverGy*CELL+1, gw*CELL-2, gh*CELL-2);
     ctx.setLineDash([]);
   }
-  if (activeTool === 'delete' && hoverGx >= 0) {
-    const hit = panels.slice().reverse().find(p =>
-      p.tier === activeTierId &&
-      hoverGx >= p.gx && hoverGx < p.gx + p.gw && hoverGy >= p.gy && hoverGy < p.gy + p.gh
-    );
+  // Delete hover — red tint on the item under the cursor; also writes lastDeleteHit so the
+  // click handler deletes exactly what is visually highlighted (avoids micro-movement mismatch).
+  // Priority order: panels (exact bounds) → steps (visual bbox) → handrails (closest edge line).
+  // Uses float cursor coords so thin edge items are reachable without THRESH inflation.
+  if (activeTool === 'delete') {
+    let hit = null;
+    if (hoverGxF >= 0) {
+      const fx = hoverGxF, fy = hoverGyF;
+      // 1. Panels — exact float bounds
+      hit = panels.slice().reverse().find(p =>
+        p.tier === activeTierId && p.category === 'panel' &&
+        fx >= p.gx && fx < p.gx + p.gw && fy >= p.gy && fy < p.gy + p.gh
+      );
+      // 2. Steps — visual bounding box with small buffer
+      // NOTE: client stores alongGu as the left/top edge (not centre), matching drawStepsOnCanvas.
+      if (!hit) {
+        const BUF = 0.3;
+        hit = panels.slice().reverse().find(p => {
+          if (p.tier !== activeTierId || p.category !== 'steps') return false;
+          const data = STEPS_DATA[p.heightKey];
+          const dGu  = (data.treads * TREAD_DEPTH_MM) / FT2;
+          let x1, y1, x2, y2;
+          switch (p.side) {
+            case 'front': x1=p.alongGu; y1=p.edgeGu-dGu; x2=p.alongGu+STEPS_WIDTH_GU; y2=p.edgeGu;               break;
+            case 'back':  x1=p.alongGu; y1=p.edgeGu;     x2=p.alongGu+STEPS_WIDTH_GU; y2=p.edgeGu+dGu;           break;
+            case 'left':  x1=p.edgeGu-dGu; y1=p.alongGu; x2=p.edgeGu;                 y2=p.alongGu+STEPS_WIDTH_GU; break;
+            case 'right': x1=p.edgeGu;     y1=p.alongGu; x2=p.edgeGu+dGu;             y2=p.alongGu+STEPS_WIDTH_GU; break;
+          }
+          return fx >= x1-BUF && fx <= x2+BUF && fy >= y1-BUF && fy <= y2+BUF;
+        });
+      }
+      // 3. Handrails — pick closest edge line to disambiguate corners
+      if (!hit) {
+        const HR_THRESH = 1.0;
+        const hrCandidates = panels.filter(p => {
+          if (p.tier !== activeTierId || p.category !== 'handrail') return false;
+          const widthGu = (p.hrType === 'infill' ? p.infillMm : HR_WIDTHS[p.size]) / FT2;
+          switch (p.side) {
+            case 'front': case 'back':
+              return Math.abs(fy - p.edgeGu) <= HR_THRESH &&
+                     fx >= p.alongGu && fx <= p.alongGu + widthGu;
+            case 'left': case 'right':
+              return Math.abs(fx - p.edgeGu) <= HR_THRESH &&
+                     fy >= p.alongGu && fy <= p.alongGu + widthGu;
+          }
+          return false;
+        });
+        if (hrCandidates.length === 1) {
+          hit = hrCandidates[0];
+        } else if (hrCandidates.length > 1) {
+          // at corners, pick whichever edge line is perpendicular-closest to the cursor
+          hit = hrCandidates.reduce((best, p) => {
+            const dist = (p.side === 'front' || p.side === 'back')
+              ? Math.abs(fy - p.edgeGu) : Math.abs(fx - p.edgeGu);
+            const bestDist = (best.side === 'front' || best.side === 'back')
+              ? Math.abs(fy - best.edgeGu) : Math.abs(fx - best.edgeGu);
+            return dist < bestDist ? p : best;
+          });
+        }
+      }
+    }
+    lastDeleteHit = hit ? hit.id : null;
     if (hit) {
-      ctx.fillStyle = 'rgba(239,68,68,0.25)';
-      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
-      ctx.fillRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
-      ctx.strokeRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
+      ctx.fillStyle   = 'rgba(239,68,68,0.25)';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth   = 2;
+      if (hit.category === 'panel') {
+        ctx.fillRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
+        ctx.strokeRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
+      } else if (hit.category === 'steps') {
+        const data  = STEPS_DATA[hit.heightKey];
+        const dGu   = (data.treads * TREAD_DEPTH_MM) / FT2;
+        let x1, y1, w, h;
+        switch (hit.side) {
+          case 'front': x1=hit.alongGu*CELL; y1=(hit.edgeGu-dGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;           break;
+          case 'back':  x1=hit.alongGu*CELL; y1=hit.edgeGu*CELL;       w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;           break;
+          case 'left':  x1=(hit.edgeGu-dGu)*CELL; y1=hit.alongGu*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL;           break;
+          case 'right': x1=hit.edgeGu*CELL;       y1=hit.alongGu*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL;           break;
+        }
+        ctx.fillRect(x1, y1, w, h);
+        ctx.strokeRect(x1, y1, w, h);
+      } else if (hit.category === 'handrail') {
+        const widthGu = (hit.hrType === 'infill' ? hit.infillMm : HR_WIDTHS[hit.size]) / FT2;
+        const PAD = 4; // expand the 4px visual bar so the highlight is visible
+        let x1, y1, w, h;
+        switch (hit.side) {
+          case 'front': case 'back':
+            x1 = hit.alongGu * CELL;      y1 = hit.edgeGu * CELL - PAD;
+            w  = widthGu * CELL;          h  = PAD * 2;
+            break;
+          case 'left': case 'right':
+            x1 = hit.edgeGu * CELL - PAD; y1 = hit.alongGu * CELL;
+            w  = PAD * 2;                 h  = widthGu * CELL;
+            break;
+        }
+        ctx.fillRect(x1, y1, w, h);
+        ctx.strokeRect(x1, y1, w, h);
+      }
     }
   }
 }

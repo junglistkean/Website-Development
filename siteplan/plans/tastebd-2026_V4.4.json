@@ -1,0 +1,2330 @@
+{
+  "planTitle": "TasteBD-2026",
+  "exportedAt": "2026-04-17T16:22:21.681Z",
+  "layers": [
+    {
+      "id": "base",
+      "name": "Base Plan",
+      "color": "#f59e0b",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "electrical",
+      "name": "Electrical Safety",
+      "color": "#3b82f6",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "evacuation",
+      "name": "Evacuation Plan",
+      "color": "#22c55e",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "fire",
+      "name": "Fire Safety",
+      "color": "#ef4444",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "performance",
+      "name": "Performance Layout",
+      "color": "#a78bfa",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "layer-1775760237455",
+      "name": "Areas",
+      "color": "#3b82f6",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "elements": [
+    {
+      "id": "el-2",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.791965477014905,
+      "lng": -1.7549176778793263,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 5.514333127777888,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Carribbean Grill - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-3",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79201063328398,
+      "lng": -1.7545421686172413,
+      "wM": 4,
+      "dM": 2,
+      "rotation": 337.6178801921065,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Cup of Kin - 16A"
+    },
+    {
+      "id": "el-4",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79197181473981,
+      "lng": -1.754986074209206,
+      "wM": 4.5,
+      "dM": 3,
+      "rotation": 7.561660588849065,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Cypriana - 16A"
+    },
+    {
+      "id": "el-5",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.792063711643365,
+      "lng": -1.7547795441150593,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 351.6177548822589,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Porterhouse Bros - power TBC"
+    },
+    {
+      "id": "el-6",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.792068464926075,
+      "lng": -1.7547299232482838,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 345.7847701146558,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Jakes Bakehouse - power tbc"
+    },
+    {
+      "id": "el-7",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79207401042181,
+      "lng": -1.754673596858971,
+      "wM": 4,
+      "dM": 2,
+      "rotation": 340.87025915404183,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Eyes on the Fries - 16A"
+    },
+    {
+      "id": "el-8",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.791981321325395,
+      "lng": -1.7550571527481007,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 16.780651079373456,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Sushi Hometown - 16A"
+    },
+    {
+      "id": "el-9",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79208747805123,
+      "lng": -1.7546212937831807,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 335.3990412243511,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Miski - 16A"
+    },
+    {
+      "id": "el-10",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79207401042173,
+      "lng": -1.754961934328072,
+      "wM": 6,
+      "dM": 3,
+      "rotation": 190.35453145331326,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "My Lahore - 16A"
+    },
+    {
+      "id": "el-11",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79208074423701,
+      "lng": -1.7550363656282353,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 12.154089246778653,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "NUR events - power TBC"
+    },
+    {
+      "id": "el-12",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79197973689457,
+      "lng": -1.7546534802913594,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 334.0519765290736,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "La Caverna - 13A"
+    },
+    {
+      "id": "el-15",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79199478898456,
+      "lng": -1.7546025183200764,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 331.94367789985284,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Jinnah - TBC - 16A"
+    },
+    {
+      "id": "el-16",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79273550358151,
+      "lng": -1.7540620532035756,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 47.95633241176495,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Henna tattoo"
+    },
+    {
+      "id": "el-18",
+      "type": "symbol",
+      "symId": "stretch-tent",
+      "catId": "structures",
+      "label": "Stretch Tent",
+      "lat": 53.79289003635887,
+      "lng": -1.7534900721311497,
+      "wM": 21,
+      "dM": 15,
+      "rotation": 62.04535349095619,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Alcohol area - Stretch Tent"
+    },
+    {
+      "id": "el-19",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79211526037715,
+      "lng": -1.7542591955661702,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 319.7795605709743,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Candy Emporium - 16A"
+    },
+    {
+      "id": "el-20",
+      "type": "symbol",
+      "symId": "bar",
+      "catId": "traders",
+      "label": "Bar",
+      "lat": 53.792829037208094,
+      "lng": -1.7537965145111012,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 0.951665814062892,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Wandering Spirit - 16A"
+    },
+    {
+      "id": "el-21",
+      "type": "symbol",
+      "symId": "bar",
+      "catId": "traders",
+      "label": "Bar",
+      "lat": 53.793037385123284,
+      "lng": -1.753399547576897,
+      "wM": 7,
+      "dM": 4,
+      "rotation": 31.56068174084129,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Corn Dolly - 16A"
+    },
+    {
+      "id": "el-22",
+      "type": "symbol",
+      "symId": "bar",
+      "catId": "traders",
+      "label": "Bar",
+      "lat": 53.792919347838314,
+      "lng": -1.7538005378246235,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 12.947186045989156,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Northern Monk - 16A"
+    },
+    {
+      "id": "el-23",
+      "type": "symbol",
+      "symId": "bar",
+      "catId": "traders",
+      "label": "Bar",
+      "lat": 53.79294390595848,
+      "lng": -1.7531997230052876,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 43.883995260233405,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Amity - 16A"
+    },
+    {
+      "id": "el-24",
+      "type": "symbol",
+      "symId": "bar",
+      "catId": "traders",
+      "label": "Bar",
+      "lat": 53.79275853140542,
+      "lng": -1.7537710335254597,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 342.80145877993414,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Ilkley Brewery - 13A"
+    },
+    {
+      "id": "el-25",
+      "type": "symbol",
+      "symId": "bar",
+      "catId": "traders",
+      "label": "Bar",
+      "lat": 53.792879737936666,
+      "lng": -1.7531400438547062,
+      "wM": 5,
+      "dM": 5,
+      "rotation": 59.01199440781579,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "VDub Camper - 16A"
+    },
+    {
+      "id": "el-26",
+      "type": "symbol",
+      "symId": "hot-food",
+      "catId": "traders",
+      "label": "Hot Food",
+      "lat": 53.79270149291654,
+      "lng": -1.753719401001923,
+      "wM": 4,
+      "dM": 3,
+      "rotation": 34.0452024677773,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Fries the Limit - \"Electric fryers so need 9k of power\""
+    },
+    {
+      "id": "el-30",
+      "type": "symbol",
+      "symId": "bollard-ret",
+      "catId": "access",
+      "label": "Bollard (Retractable)",
+      "lat": 53.79207089365658,
+      "lng": -1.7535678561925816,
+      "wM": 0.5,
+      "dM": 0.5,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-31",
+      "type": "symbol",
+      "symId": "bollard-ret",
+      "catId": "access",
+      "label": "Bollard (Retractable)",
+      "lat": 53.79208594478011,
+      "lng": -1.7535370107889103,
+      "wM": 0.5,
+      "dM": 0.5,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-32",
+      "type": "symbol",
+      "symId": "truss-arch",
+      "catId": "stages",
+      "label": "Truss Archway",
+      "lat": 53.793057980668074,
+      "lng": -1.7536644157171177,
+      "wM": 6,
+      "dM": 0.58,
+      "rotation": 336.58396922468285,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-33",
+      "type": "symbol",
+      "symId": "toilet-perm",
+      "catId": "welfare",
+      "label": "Public Toilets",
+      "lat": 53.79211367186614,
+      "lng": -1.7553729828596043,
+      "wM": 8,
+      "dM": 4,
+      "rotation": 52.819271644773266,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "City Park Public Toilets"
+    },
+    {
+      "id": "el-34",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.79250185437849,
+      "lng": -1.7538870390653538,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 330.49121928732274,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-35",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.79276724184158,
+      "lng": -1.7532091107368397,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 330.7093869113076,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-36",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.79277338119368,
+      "lng": -1.7531906705498623,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 329.63629773173466,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-37",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.79277971879651,
+      "lng": -1.753171895086758,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 327.8035668948014,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-38",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.7927860563984,
+      "lng": -1.7531537901759076,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 329.0362434349603,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-39",
+      "type": "symbol",
+      "symId": "urinal",
+      "catId": "welfare",
+      "label": "Urinal Unit",
+      "lat": 53.79274684247136,
+      "lng": -1.753269125163548,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 332.3390445645693,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-40",
+      "type": "symbol",
+      "symId": "urinal",
+      "catId": "welfare",
+      "label": "Urinal Unit",
+      "lat": 53.7927523878774,
+      "lng": -1.7532503497004437,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 331.2032662570714,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-41",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.792760309884756,
+          "lng": -1.7532993000149655
+        },
+        {
+          "lat": 53.792774370743814,
+          "lng": -1.7532516931761544
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-42",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.79275238787737,
+          "lng": -1.7532309036850857
+        },
+        {
+          "lat": 53.7927646669885,
+          "lng": -1.7532463263869213
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-43",
+      "type": "symbol",
+      "symId": "stage-2x5",
+      "catId": "stages",
+      "label": "Stage 2.5×5",
+      "lat": 53.79276605333918,
+      "lng": -1.7533847954273152,
+      "wM": 2.5,
+      "dM": 5,
+      "rotation": 61.9042200691419,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Live music & DJ stage"
+    },
+    {
+      "id": "el-44",
+      "type": "symbol",
+      "symId": "fa-45x3",
+      "catId": "safety",
+      "label": "First Aid 4.5×3",
+      "lat": 53.79260919733635,
+      "lng": -1.7537844445705342,
+      "wM": 4.5,
+      "dM": 3,
+      "rotation": 333.76663166295924,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "First Aid - base"
+    },
+    {
+      "id": "el-46",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.792526212201295,
+      "lng": -1.753908161461346,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 327.9678472534807,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-47",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.79248937464877,
+      "lng": -1.7538759749531674,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 331.67658195024205,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-48",
+      "type": "symbol",
+      "symId": "portaloo-std",
+      "catId": "welfare",
+      "label": "Portaloo Std",
+      "lat": 53.79251393302072,
+      "lng": -1.7538974326252865,
+      "wM": 1.2,
+      "dM": 1.2,
+      "rotation": 331.86326468107075,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-49",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.792097627062574,
+      "lng": -1.7546625327467846,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-50",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.792189127584756,
+      "lng": -1.7543453615307736,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-51",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79234242022014,
+      "lng": -1.7541710179448056,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-52",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.7921041628208,
+      "lng": -1.7550169196128773,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-53",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79238777413536,
+      "lng": -1.7552931871414112,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-54",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79230063119807,
+      "lng": -1.755250271797173,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-55",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.792574734735375,
+      "lng": -1.7551134791374134,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-56",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79268247436369,
+      "lng": -1.7547942962646412,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-57",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79268405876792,
+      "lng": -1.7544697489738392,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-58",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79265553948253,
+      "lng": -1.7538662519454884,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-59",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79292013432995,
+      "lng": -1.753075000286095,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-60",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79269514959589,
+      "lng": -1.7534183230400013,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-61",
+      "type": "symbol",
+      "symId": "truss-arch",
+      "catId": "stages",
+      "label": "Truss Archway",
+      "lat": 53.79212198565695,
+      "lng": -1.7545146759748387,
+      "wM": 6,
+      "dM": 0.58,
+      "rotation": 333.5765001989291,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-62",
+      "type": "symbol",
+      "symId": "stretch-tent",
+      "catId": "structures",
+      "label": "Stretch Tent",
+      "lat": 53.792452337131046,
+      "lng": -1.755247589588158,
+      "wM": 10.5,
+      "dM": 7.5,
+      "rotation": 300.7494766906177,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Masterclass tent"
+    },
+    {
+      "id": "el-63",
+      "type": "symbol",
+      "symId": "layher-sq",
+      "catId": "structures",
+      "label": "Layher 2.5×2.5",
+      "lat": 53.79277278218003,
+      "lng": -1.7540291961431431,
+      "wM": 2.5,
+      "dM": 2.5,
+      "rotation": 66.19707713630083,
+      "layerId": "base",
+      "heightNote": "",
+      "customLabel": "",
+      "note": "Signage - Layher scaffold tower"
+    },
+    {
+      "id": "el-64",
+      "type": "symbol",
+      "symId": "layher-sq",
+      "catId": "structures",
+      "label": "Layher 2.5×2.5",
+      "lat": 53.79231647225244,
+      "lng": -1.7540352311134266,
+      "wM": 2.5,
+      "dM": 2.5,
+      "rotation": 30.99226189266352,
+      "layerId": "base",
+      "heightNote": "",
+      "customLabel": ""
+    },
+    {
+      "id": "el-65",
+      "type": "symbol",
+      "symId": "layher-sq",
+      "catId": "structures",
+      "label": "Layher 2.5×2.5",
+      "lat": 53.79264840721827,
+      "lng": -1.754210915803902,
+      "wM": 2.5,
+      "dM": 2.5,
+      "rotation": 34.432402286809804,
+      "layerId": "base",
+      "heightNote": "",
+      "customLabel": ""
+    },
+    {
+      "id": "el-66",
+      "type": "symbol",
+      "symId": "art-install",
+      "catId": "art",
+      "label": "Art Installation",
+      "lat": 53.79244520784471,
+      "lng": -1.754501935482018,
+      "wM": 6,
+      "dM": 4,
+      "rotation": 330.520104142754,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Green fish"
+    },
+    {
+      "id": "el-67",
+      "type": "symbol",
+      "symId": "boneyard-compound",
+      "catId": "boneyard",
+      "label": "Boneyard",
+      "lat": 53.79264959665292,
+      "lng": -1.7536764856576847,
+      "wM": 10,
+      "dM": 5,
+      "rotation": 333.29511142893784,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Boneyard - bin store"
+    },
+    {
+      "id": "el-68",
+      "type": "symbol",
+      "symId": "elec-feed",
+      "catId": "infrastructure",
+      "label": "Electric Feed",
+      "lat": 53.79196869222682,
+      "lng": -1.754562285184853,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-69",
+      "type": "symbol",
+      "symId": "ec-45x3",
+      "catId": "safety",
+      "label": "Event Control 4.5×3",
+      "lat": 53.792672965794914,
+      "lng": -1.753561821222298,
+      "wM": 4.5,
+      "dM": 3,
+      "rotation": 334.79887635452496,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Event Control"
+    },
+    {
+      "id": "el-71",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79276565336293,
+          "lng": -1.753426369667046
+        },
+        {
+          "lat": 53.7927030063528,
+          "lng": -1.753685306972983
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-72",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79272129010807,
+          "lng": -1.753736164808266
+        },
+        {
+          "lat": 53.79274980934872,
+          "lng": -1.7537482347488331
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-73",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79290507906793,
+          "lng": -1.7537857856750416
+        },
+        {
+          "lat": 53.79289398829546,
+          "lng": -1.7538434531688618
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-74",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79292963719652,
+          "lng": -1.7537763979434895
+        },
+        {
+          "lat": 53.79296052182962,
+          "lng": -1.75382287292853
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-75",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79304093944087,
+          "lng": -1.7534585561752247
+        },
+        {
+          "lat": 53.79305361591509,
+          "lng": -1.7534686144590306
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-76",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79303460187751,
+          "lng": -1.7533405389785695
+        },
+        {
+          "lat": 53.79307975699565,
+          "lng": -1.7533324923515248
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-77",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.793012817847725,
+          "lng": -1.7532815303802418
+        },
+        {
+          "lat": 53.793038984606234,
+          "lng": -1.7532273888815575
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-78",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.792969247051005,
+          "lng": -1.7532600727081227
+        },
+        {
+          "lat": 53.79294389674843,
+          "lng": -1.753227886199944
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-79",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.792925676208974,
+          "lng": -1.7531983819007801
+        },
+        {
+          "lat": 53.79288961058545,
+          "lng": -1.7531856414079594
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-81",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.7928500199242,
+          "lng": -1.753150102138512
+        },
+        {
+          "lat": 53.792862674055414,
+          "lng": -1.753038733998542
+        },
+        {
+          "lat": 53.79290587126586,
+          "lng": -1.7530280616283345
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-88",
+      "type": "symbol",
+      "symId": "bin-1100-gen",
+      "catId": "waste",
+      "label": "1100L General",
+      "lat": 53.79262900753471,
+      "lng": -1.7536852028369831,
+      "wM": 1.2,
+      "dM": 1,
+      "rotation": 331.71312201037074,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-91",
+      "type": "symbol",
+      "symId": "branding",
+      "catId": "signage",
+      "label": "Branding Point",
+      "lat": 53.79277160374007,
+      "lng": -1.7540285255908894,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 3.6623544829956813,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-92",
+      "type": "symbol",
+      "symId": "branding",
+      "catId": "signage",
+      "label": "Branding Point",
+      "lat": 53.79264762418665,
+      "lng": -1.7542115863561558,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-93",
+      "type": "symbol",
+      "symId": "branding",
+      "catId": "signage",
+      "label": "Branding Point",
+      "lat": 53.7923156884614,
+      "lng": -1.7540359016656804,
+      "wM": 0.8,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-94",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79278546580282,
+          "lng": -1.753355961680405
+        },
+        {
+          "lat": 53.79279199944263,
+          "lng": -1.7533227795581752
+        },
+        {
+          "lat": 53.79275417244355,
+          "lng": -1.7532946217605216
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-111",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79228037692542,
+      "lng": -1.7541787292957234,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 299.10716901966265,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Hooked Aura - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-112",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.792226506629476,
+      "lng": -1.754240420103066,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 307.04247477308286,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Breeosh - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-113",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79225344178606,
+      "lng": -1.7542095746993946,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 307.27817420830286,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Good Things - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-114",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79217422068786,
+      "lng": -1.7540888752937245,
+      "wM": 3,
+      "dM": 6,
+      "rotation": 53.786514173523074,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Naji's Heritage - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-115",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79214966211697,
+      "lng": -1.754153248310082,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 52.71464568005473,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Rani's - Jewllery - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-125",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79215124646176,
+          "lng": -1.754189458131783
+        },
+        {
+          "lat": 53.79212431089038,
+          "lng": -1.7541586127281117
+        },
+        {
+          "lat": 53.79219894655944,
+          "lng": -1.7539784879462217
+        },
+        {
+          "lat": 53.792228088055026,
+          "lng": -1.754007738471024
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-126",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79220670143531,
+          "lng": -1.7542363967895436
+        },
+        {
+          "lat": 53.792224526181684,
+          "lng": -1.7542773004770207
+        },
+        {
+          "lat": 53.79230176666169,
+          "lng": -1.754184764266007
+        },
+        {
+          "lat": 53.79228711078668,
+          "lng": -1.754143190026276
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-128",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79196863773173,
+      "lng": -1.7547165122032093,
+      "wM": 4.5,
+      "dM": 3,
+      "rotation": 348.56528644490834,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Istanbul Grill"
+    },
+    {
+      "id": "el-131",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.792902253442406,
+          "lng": -1.7530260499715733
+        },
+        {
+          "lat": 53.79290072062749,
+          "lng": -1.7530709769725727
+        },
+        {
+          "lat": 53.7929332755852,
+          "lng": -1.753127584112888
+        },
+        {
+          "lat": 53.793003369400544,
+          "lng": -1.753234432983839
+        },
+        {
+          "lat": 53.793028708614685,
+          "lng": -1.753202922657331
+        },
+        {
+          "lat": 53.79308313052586,
+          "lng": -1.753333341730292
+        },
+        {
+          "lat": 53.793063196984406,
+          "lng": -1.753374503204661
+        },
+        {
+          "lat": 53.79307507414296,
+          "lng": -1.7534237854330592
+        },
+        {
+          "lat": 53.79305293346694,
+          "lng": -1.7534615760405425
+        },
+        {
+          "lat": 53.793054532194816,
+          "lng": -1.7535147333241574
+        },
+        {
+          "lat": 53.79308273598456,
+          "lng": -1.753538256289533
+        },
+        {
+          "lat": 53.79305831615435,
+          "lng": -1.7536161359548497
+        },
+        {
+          "lat": 53.79305831615435,
+          "lng": -1.7536161359548497
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-132",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.79304088792147,
+          "lng": -1.7536898967027592
+        },
+        {
+          "lat": 53.793017194185275,
+          "lng": -1.7537885029577405
+        },
+        {
+          "lat": 53.79299392648933,
+          "lng": -1.7537527053458657
+        },
+        {
+          "lat": 53.792963636537706,
+          "lng": -1.7537669750108553
+        },
+        {
+          "lat": 53.792962654926654,
+          "lng": -1.7538201752024674
+        },
+        {
+          "lat": 53.7929000257872,
+          "lng": -1.7538297107475609
+        },
+        {
+          "lat": 53.79286863552963,
+          "lng": -1.7538266880774467
+        },
+        {
+          "lat": 53.79277459649522,
+          "lng": -1.7538390720321284
+        },
+        {
+          "lat": 53.79271791459034,
+          "lng": -1.7537929791497975
+        },
+        {
+          "lat": 53.792659589319975,
+          "lng": -1.753832765291099
+        },
+        {
+          "lat": 53.79262339883246,
+          "lng": -1.7539554353952336
+        },
+        {
+          "lat": 53.792593978967915,
+          "lng": -1.7539232488870549
+        },
+        {
+          "lat": 53.792567044026406,
+          "lng": -1.7539024617671894
+        },
+        {
+          "lat": 53.79257982762544,
+          "lng": -1.7538561936616825
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-133",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.792902253442406,
+          "lng": -1.7530273910760807
+        },
+        {
+          "lat": 53.792915131363976,
+          "lng": -1.7529788344913477
+        },
+        {
+          "lat": 53.792935771236664,
+          "lng": -1.7529386829810512
+        },
+        {
+          "lat": 53.79287294210688,
+          "lng": -1.7528557296991276
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-135",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.792843632015455,
+          "lng": -1.7537717040777134
+        },
+        {
+          "lat": 53.79285534053564,
+          "lng": -1.7538387912794273
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-136",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79281432063896,
+          "lng": -1.7537730451822209
+        },
+        {
+          "lat": 53.7927735604987,
+          "lng": -1.7537615448022725
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-137",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.792192438179804,
+      "lng": -1.7543027814626622,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 316.7430140276033,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Greek Olives - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-138",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.792165502984005,
+      "lng": -1.7543463673591542,
+      "wM": 4.5,
+      "dM": 1.7,
+      "rotation": 323.6743149873911,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Keto Home Bakery - 16A - 2 sockets for microwavbe and hot drink machine"
+    },
+    {
+      "id": "el-139",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79214886653088,
+      "lng": -1.7544020231962132,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 330.74714530927423,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Bubbleicious - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-140",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79220194471536,
+      "lng": -1.754024502277367,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 150.55591429149058,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Kindred Bizarre - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-141",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79209261942625,
+      "lng": -1.7543108280897068,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 149.99111963215898,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Cafe Brigante - 13A"
+    },
+    {
+      "id": "el-144",
+      "type": "symbol",
+      "symId": "litedeck",
+      "catId": "stages",
+      "label": "Litedeck 8×4ft",
+      "lat": 53.79227897994807,
+      "lng": -1.7552509423494267,
+      "wM": 2.44,
+      "dM": 1.22,
+      "rotation": 341.969706663818,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-145",
+      "type": "symbol",
+      "symId": "litedeck",
+      "catId": "stages",
+      "label": "Litedeck 8×4ft",
+      "lat": 53.79226868122002,
+      "lng": -1.7552449073791432,
+      "wM": 2.44,
+      "dM": 1.22,
+      "rotation": 340.8179951570727,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Exercise session Stage"
+    },
+    {
+      "id": "el-146",
+      "type": "symbol",
+      "symId": "litedeck",
+      "catId": "stages",
+      "label": "Litedeck 8×4ft",
+      "lat": 53.79225877859451,
+      "lng": -1.7552395429611134,
+      "wM": 2.44,
+      "dM": 1.22,
+      "rotation": 342.7922693724727,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-148",
+      "type": "symbol",
+      "symId": "pa-stack",
+      "catId": "av",
+      "label": "PA Stack",
+      "lat": 53.79224948791088,
+      "lng": -1.7552174147367405,
+      "wM": 1,
+      "dM": 1,
+      "rotation": 80.70215218880855,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-149",
+      "type": "symbol",
+      "symId": "pa-stack",
+      "catId": "av",
+      "label": "PA Stack",
+      "lat": 53.79229385166481,
+      "lng": -1.7552368607520985,
+      "wM": 1,
+      "dM": 1,
+      "rotation": 61.97828131067797,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-150",
+      "type": "symbol",
+      "symId": "pa-stack",
+      "catId": "av",
+      "label": "PA Stack",
+      "lat": 53.792783038160955,
+      "lng": -1.7533338334560322,
+      "wM": 1,
+      "dM": 1,
+      "rotation": 330.6487703147966,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-151",
+      "type": "symbol",
+      "symId": "pa-stack",
+      "catId": "av",
+      "label": "PA Stack",
+      "lat": 53.79275055793885,
+      "lng": -1.7534357573985981,
+      "wM": 1,
+      "dM": 1,
+      "rotation": 330.9939778236923,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-156",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79269120104281,
+      "lng": -1.7535008009672093,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 336.11242919562784,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "PA - amp rack and mic store"
+    },
+    {
+      "id": "el-157",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79233074682168,
+      "lng": -1.755254965662949,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "PA - amp rack and mic store"
+    },
+    {
+      "id": "el-159",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.792927074033294,
+          "lng": -1.7542156096696782
+        },
+        {
+          "lat": 53.792911474968996,
+          "lng": -1.7542618228293971
+        },
+        {
+          "lat": 53.79289890701636,
+          "lng": -1.7542130341236017
+        },
+        {
+          "lat": 53.792927074033294,
+          "lng": -1.7542156096696782
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-160",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.79267871947212,
+          "lng": -1.7551423128843235
+        },
+        {
+          "lat": 53.79265066056967,
+          "lng": -1.755170033299267
+        },
+        {
+          "lat": 53.79265059705541,
+          "lng": -1.755116807393724
+        },
+        {
+          "lat": 53.79267827333702,
+          "lng": -1.7551420628420966
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-162",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.79276921506075,
+          "lng": -1.7541250851154255
+        },
+        {
+          "lat": 53.792793833139285,
+          "lng": -1.7541121277604166
+        },
+        {
+          "lat": 53.792816163840705,
+          "lng": -1.7540532681328447
+        },
+        {
+          "lat": 53.7927902773348,
+          "lng": -1.7539579264497962
+        },
+        {
+          "lat": 53.79272833713272,
+          "lng": -1.7539618459677064
+        },
+        {
+          "lat": 53.7927224752056,
+          "lng": -1.7540137734413075
+        },
+        {
+          "lat": 53.7927153453926,
+          "lng": -1.7540593709945607
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-163",
+      "type": "line",
+      "lineType": "lighting-run",
+      "points": [
+        {
+          "lat": 53.7929434940226,
+          "lng": -1.7536677684783863
+        },
+        {
+          "lat": 53.79290229740831,
+          "lng": -1.7536101009845662
+        },
+        {
+          "lat": 53.79286823288134,
+          "lng": -1.7535752322673726
+        },
+        {
+          "lat": 53.79283258681661,
+          "lng": -1.7535443868637013
+        },
+        {
+          "lat": 53.79277158742639,
+          "lng": -1.753516223669045
+        },
+        {
+          "lat": 53.792796145633126,
+          "lng": -1.7534840371608662
+        },
+        {
+          "lat": 53.79281911942641,
+          "lng": -1.753429051876061
+        },
+        {
+          "lat": 53.79283258681661,
+          "lng": -1.753366019964211
+        },
+        {
+          "lat": 53.792836547263974,
+          "lng": -1.7533070113658833
+        },
+        {
+          "lat": 53.79287932600016,
+          "lng": -1.7533713843822407
+        },
+        {
+          "lat": 53.79293160872333,
+          "lng": -1.7534223463535237
+        },
+        {
+          "lat": 53.792975974644236,
+          "lng": -1.7534491684436726
+        },
+        {
+          "lat": 53.793009246887785,
+          "lng": -1.7534666028022694
+        },
+        {
+          "lat": 53.79298231166754,
+          "lng": -1.7535001304149556
+        },
+        {
+          "lat": 53.79295616917594,
+          "lng": -1.7535658445358204
+        },
+        {
+          "lat": 53.79294745500843,
+          "lng": -1.7536261942386555
+        },
+        {
+          "lat": 53.792945870614155,
+          "lng": -1.7536650862693715
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-168",
+      "type": "line",
+      "lineType": "lighting-run",
+      "points": [
+        {
+          "lat": 53.79222813320091,
+          "lng": -1.7540070679187703
+        },
+        {
+          "lat": 53.79221308119894,
+          "lng": -1.754048642158501
+        },
+        {
+          "lat": 53.79219248371379,
+          "lng": -1.7540915575027394
+        },
+        {
+          "lat": 53.792171875563064,
+          "lng": -1.7541398372650074
+        },
+        {
+          "lat": 53.79215603132455,
+          "lng": -1.7541881170272755
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-169",
+      "type": "line",
+      "lineType": "lighting-run",
+      "points": [
+        {
+          "lat": 53.79221149677376,
+          "lng": -1.7542270090579914
+        },
+        {
+          "lat": 53.79223843194005,
+          "lng": -1.7541907992362904
+        },
+        {
+          "lat": 53.792258237198325,
+          "lng": -1.7541693415641713
+        },
+        {
+          "lat": 53.792283587915286,
+          "lng": -1.7541438605785298
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-170",
+      "type": "line",
+      "lineType": "lighting-run",
+      "points": [
+        {
+          "lat": 53.79292765007556,
+          "lng": -1.7537723746299672
+        },
+        {
+          "lat": 53.792896754361635,
+          "lng": -1.7537844445705342
+        },
+        {
+          "lat": 53.79289200117286,
+          "lng": -1.7538327243328022
+        },
+        {
+          "lat": 53.79285952103513,
+          "lng": -1.7538313832282948
+        },
+        {
+          "lat": 53.792840508259914,
+          "lng": -1.7537603046894001
+        },
+        {
+          "lat": 53.79282307987503,
+          "lng": -1.7537683513164448
+        },
+        {
+          "lat": 53.792777132280236,
+          "lng": -1.7537562813758778
+        },
+        {
+          "lat": 53.79275178186158,
+          "lng": -1.753738847017281
+        },
+        {
+          "lat": 53.79275178186158,
+          "lng": -1.753736164808266
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-171",
+      "type": "line",
+      "lineType": "lighting-run",
+      "points": [
+        {
+          "lat": 53.79298944143516,
+          "lng": -1.7533096935748982
+        },
+        {
+          "lat": 53.7929640911448,
+          "lng": -1.7532627549171376
+        },
+        {
+          "lat": 53.79293874083912,
+          "lng": -1.7532305684089589
+        },
+        {
+          "lat": 53.79292527348299,
+          "lng": -1.753201064109795
+        },
+        {
+          "lat": 53.79288883765565,
+          "lng": -1.753191676378243
+        },
+        {
+          "lat": 53.79286506642628,
+          "lng": -1.753162172079079
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "pp-177",
+      "type": "pinchpoint",
+      "points": [
+        {
+          "lat": 53.79221045270404,
+          "lng": -1.7542310323715138
+        },
+        {
+          "lat": 53.79216608886198,
+          "lng": -1.7541438605785298
+        }
+      ],
+      "label": "Pinch Point 10",
+      "layerId": "base"
+    },
+    {
+      "id": "el-174",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79240876218606,
+      "lng": -1.7553387846946644,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 29.63838368815135,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Masterclass - backstage prep"
+    },
+    {
+      "id": "el-175",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79276208501034,
+      "lng": -1.7540969219207692,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 48.22029826710724,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Face painting"
+    },
+    {
+      "id": "el-177",
+      "type": "symbol",
+      "symId": "perf-point",
+      "catId": "stages",
+      "label": "Performance Point",
+      "lat": 53.792723252709585,
+      "lng": -1.7543785538673329,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 20.81232297471348,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Madame Zucchini"
+    },
+    {
+      "id": "el-180",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.79205066653605,
+          "lng": -1.7548010017871785
+        },
+        {
+          "lat": 53.79211264023425,
+          "lng": -1.7548190336468439
+        },
+        {
+          "lat": 53.79214150696732,
+          "lng": -1.7546118158300184
+        },
+        {
+          "lat": 53.7920801900106,
+          "lng": -1.754588211289676
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-181",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.792127905900266,
+          "lng": -1.7544140931367802
+        },
+        {
+          "lat": 53.79218177632206,
+          "lng": -1.7544663962125706
+        },
+        {
+          "lat": 53.792238023307924,
+          "lng": -1.7543363090753483
+        },
+        {
+          "lat": 53.79219326338932,
+          "lng": -1.7542705949544835
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-182",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.792076017378456,
+          "lng": -1.7550692226886677
+        },
+        {
+          "lat": 53.79213659468107,
+          "lng": -1.7550406647950978
+        },
+        {
+          "lat": 53.792119589103045,
+          "lng": -1.7548881735801625
+        },
+        {
+          "lat": 53.79205225096417,
+          "lng": -1.7549096312522816
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-183",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.792094237859125,
+          "lng": -1.7543477084636616
+        },
+        {
+          "lat": 53.79207284809617,
+          "lng": -1.7543182041644978
+        },
+        {
+          "lat": 53.79211166654685,
+          "lng": -1.7542203035354542
+        },
+        {
+          "lat": 53.79213788486252,
+          "lng": -1.7542597145629957
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-184",
+      "type": "line",
+      "lineType": "ped-barrier",
+      "points": [
+        {
+          "lat": 53.791974214706094,
+          "lng": -1.7547654625177311
+        },
+        {
+          "lat": 53.791947279370156,
+          "lng": -1.7547493692636418
+        },
+        {
+          "lat": 53.79196470812512,
+          "lng": -1.754630010962479
+        },
+        {
+          "lat": 53.79201065660365,
+          "lng": -1.7545026060342717
+        },
+        {
+          "lat": 53.792031254167874,
+          "lng": -1.7545227226018834
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-185",
+      "type": "line",
+      "lineType": "heras",
+      "points": [
+        {
+          "lat": 53.79199798116463,
+          "lng": -1.7550846453905034
+        },
+        {
+          "lat": 53.79197183805951,
+          "lng": -1.7551061030626225
+        },
+        {
+          "lat": 53.79195044823411,
+          "lng": -1.7549746748208928
+        },
+        {
+          "lat": 53.791944110505966,
+          "lng": -1.754891526341431
+        },
+        {
+          "lat": 53.79197500692161,
+          "lng": -1.7548875030279087
+        }
+      ],
+      "label": "",
+      "layerId": "base"
+    },
+    {
+      "id": "el-186",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79299338519488,
+      "lng": -1.7532741543054509,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 43.00469598721929,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Lucelas - no power requirements - lighting run only"
+    },
+    {
+      "id": "el-189",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79305953643197,
+      "lng": -1.7535531040429997,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 331.1342489386468,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Il Pirata - 16A"
+    },
+    {
+      "id": "el-190",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79268799501755,
+      "lng": -1.7544033643007206,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 18.65291187168998,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Madame Zucchini"
+    },
+    {
+      "id": "el-191",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79264521568004,
+      "lng": -1.7540117617845463,
+      "wM": 4,
+      "dM": 3,
+      "rotation": 60.57254359681025,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "Rossi's Icecreams - No power needed"
+    },
+    {
+      "id": "pp-192",
+      "type": "pinchpoint",
+      "points": [
+        {
+          "lat": 53.79206927859293,
+          "lng": -1.7546340342760014
+        },
+        {
+          "lat": 53.79201540802584,
+          "lng": -1.754593801140778
+        }
+      ],
+      "label": "Pinch Point 15",
+      "layerId": "base"
+    },
+    {
+      "id": "pp-193",
+      "type": "pinchpoint",
+      "points": [
+        {
+          "lat": 53.79214295440353,
+          "lng": -1.7543752011060643
+        },
+        {
+          "lat": 53.79210413598181,
+          "lng": -1.7543269213437962
+        }
+      ],
+      "label": "Pinch Point 16",
+      "layerId": "base"
+    }
+  ]
+}

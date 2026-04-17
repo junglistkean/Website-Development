@@ -577,6 +577,20 @@
   .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
   .modal-actions .btn { flex: 1; }
 
+  /* ── Ramp modal ── */
+  .ramp-preset-row {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  }
+  .ramp-preset-btn {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); padding: 6px 12px; font-size: 12px; cursor: pointer;
+    font-family: 'Barlow', sans-serif; transition: border-color 0.15s, color 0.15s;
+  }
+  .ramp-preset-btn.active {
+    border-color: #e83e8c; color: #e83e8c;
+    background: rgba(232,62,140,0.08);
+  }
+
   .hr-info-box {
     background: rgba(34,197,94,0.08);
     border: 1px solid rgba(34,197,94,0.25);
@@ -648,6 +662,59 @@
   .quote-modal .modal-actions { display: flex; gap: 8px; margin-top: 4px; }
   .quote-modal .modal-actions .btn { flex: 1; }
 
+  /* ── Ramp Side View floating windows ──────────────────────────────────────── */
+  .ramp-sv-window {
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid rgba(232,62,140,0.4);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.65), 0 0 0 1px rgba(232,62,140,0.08);
+    overflow: hidden;
+    min-width: 180px;
+    user-select: none;
+  }
+  .ramp-sv-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    padding: 7px 12px;
+    background: rgba(232,62,140,0.09);
+    border-bottom: 1px solid rgba(232,62,140,0.22);
+    cursor: move;
+  }
+  .ramp-sv-zoom-group {
+    display: flex;
+    gap: 3px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .ramp-sv-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .ramp-sv-close:hover { color: var(--danger); }
+  .ramp-sv-canvas { display: block; }
+  .ramp-sv-zoom-btn {
+    background: #444;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 1px 7px;
+    margin-left: 0;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .ramp-sv-zoom-btn:hover { background: #666; }
+
 </style>
 <body>
 
@@ -716,13 +783,20 @@
         <span>8ft handrail (2438mm)</span>
       </button>
       <button class="btn btn-ghost" style="width:100%; margin-top:4px; font-size:11px; padding:6px" onclick="openHrModal()">⊞ Auto-populate sides</button>
+      <div class="sidebar-subheading" style="margin-top:12px;">Ramps</div>
+      <button class="component-btn" onclick="selectRamp()" id="btn-ramp">
+        <div class="component-swatch" style="background:#e83e8c"></div>
+        <span>Ramp</span>
+      </button>
+      <div id="ramp-config-indicator" style="display:none;margin-top:4px;padding:4px 8px;background:rgba(232,62,140,0.12);border:1px solid rgba(232,62,140,0.4);border-radius:4px;font-size:11px;color:var(--text)">
+        <span id="ramp-config-label">8ft · 1:12</span><button onclick="editRampConfig()" style="background:none;border:none;color:#e83e8c;cursor:pointer;font-size:13px;padding:0 0 0 6px;float:right;line-height:1" title="Edit ramp config">⚙</button>
+      </div>
     </div>
 
     <div class="sidebar-section" id="section-tools">
       <div class="sidebar-label">Tool</div>
       <div class="tools">
         <button class="tool-btn active" id="btn-tool-place" onclick="setTool('place')">✦ Place</button>
-        <button class="tool-btn" id="btn-tool-select" onclick="setTool('select')">↖ Select</button>
         <button class="tool-btn" id="btn-tool-move" onclick="setTool('move')">☞ Move</button>
       </div>
     </div>
@@ -859,6 +933,7 @@
         <div class="legend-item" style="margin-top:6px"><div class="legend-swatch" style="background:var(--steps)"></div> Steps / treads</div>
         <div class="legend-item"><div class="legend-swatch" style="background:var(--handrail)"></div> Handrail (off-the-shelf)</div>
         <div class="legend-item"><div class="legend-swatch" style="background:var(--infill)"></div> Handrail infill (scaffold)</div>
+        <div class="legend-item" style="margin-top:6px"><div class="legend-swatch" style="background:repeating-linear-gradient(45deg,rgba(232,62,140,0.5) 0px,rgba(232,62,140,0.5) 1px,rgba(232,62,140,0.12) 1px,rgba(232,62,140,0.12) 7px);border:1px solid #e83e8c;box-sizing:border-box;"></div> Ramp</div>
       </div>
     </div>
 
@@ -887,17 +962,24 @@
         <span style="font-size:11px;">Grid: 2ft</span>
         <span id="cursor-pos">—</span>
         <span id="pending-info" style="color:var(--accent); font-size:11px;"></span>
-        <span id="footprint-info" style="margin-left:auto; font-size:12px; color:#ffffff; font-family:'Barlow Condensed',sans-serif; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;"></span>
+        <span style="margin-left:auto; display:flex; align-items:center; gap:4px;">
+          <button class="btn btn-ghost" onclick="zoomStep(-1)" title="Zoom out" style="padding:2px 7px; font-size:14px; line-height:1;">−</button>
+          <span id="zoom-display" style="font-size:11px; color:var(--muted); min-width:36px; text-align:center; font-family:'DM Mono',monospace;">100%</span>
+          <button class="btn btn-ghost" onclick="zoomStep(1)" title="Zoom in" style="padding:2px 7px; font-size:14px; line-height:1;">+</button>
+          <button class="btn btn-ghost" onclick="zoomReset()" title="Reset zoom" style="padding:2px 7px; font-size:11px;">1:1</button>
+        </span>
+        <span id="footprint-info" style="font-size:12px; color:#ffffff; font-family:'Barlow Condensed',sans-serif; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;"></span>
       </div>
 
       </div>
 
     <!-- Plan canvas -->
     <div class="canvas-scroll" id="canvas-scroll" style="position:relative">
-      <div style="position:relative; display:inline-block;">
+      <div id="canvas-wrap" style="position:relative; display:inline-block; transform-origin:0 0;">
         <canvas id="stageCanvas"></canvas>
       </div>
     </div>
+
 
     <!-- Watermark overlay — centred on canvas-area, static on scroll -->
     <img id="wm-img" src="" alt="" style="
@@ -964,6 +1046,53 @@
 </div>
 
 <div class="print-view" id="print-view"></div>
+
+<!-- ── Ramp side view floating windows container ── -->
+<div id="ramp-sv-container"></div>
+<div id="ramp-hover-tip" style="display:none;position:fixed;pointer-events:none;
+  background:var(--surface);border:1px solid rgba(232,62,140,0.5);border-radius:4px;
+  padding:4px 9px;font-size:11px;color:var(--muted);font-family:'Barlow',sans-serif;
+  z-index:9999;white-space:nowrap;">Click to open side view</div>
+
+<!-- ── Long ramp advisory modal ── -->
+<div class="modal-overlay" id="long-ramp-modal">
+  <div class="modal" style="max-width:480px;">
+    <p style="margin:0 0 16px;">Requisite gradient of ramp dictates that the ramp length must exceed the stage layout boundary by a significant margin. Various dog leg ramps are available on request (right angle, switchback, snaked, stage hugging) to contain the overall footprint. Please contact Raven with detail on available site specific space surrounding the stage to settle on the most suitable option for your needs.</p>
+    <p style="margin:0;font-size:12px;opacity:0.6;text-align:center;">Click anywhere to continue</p>
+  </div>
+</div>
+
+<!-- ── Ramp configuration modal ── -->
+<div class="modal-overlay" id="ramp-modal">
+  <div class="modal" style="width:400px;max-width:96vw">
+    <h3 style="color:#e83e8c">Configure Ramp</h3>
+    <div class="modal-label">Gradient</div>
+    <div class="ramp-preset-row" style="margin-bottom:12px">
+      <button class="ramp-preset-btn" id="rgrad-12" onclick="rampSetGradient(12)">1:12</button>
+      <button class="ramp-preset-btn" id="rgrad-15" onclick="rampSetGradient(15)">1:15</button>
+      <button class="ramp-preset-btn" id="rgrad-20" onclick="rampSetGradient(20)">1:20</button>
+      <span style="font-size:12px;color:var(--muted);">1 :</span>
+      <input type="number" id="rgrad-custom" min="1" max="100" step="1" placeholder="—"
+             style="width:54px;background:var(--bg);border:1px solid var(--border);color:var(--text);
+                    padding:4px 6px;border-radius:4px;font-size:12px"
+             oninput="rampSetGradientCustom(this.value)">
+    </div>
+    <div class="modal-label">Width</div>
+    <div class="ramp-preset-row" style="margin-bottom:8px">
+      <button class="ramp-preset-btn" id="rwid-4"  onclick="rampSetWidth(4)">4ft</button>
+      <button class="ramp-preset-btn" id="rwid-8"  onclick="rampSetWidth(8)">8ft</button>
+      <button class="ramp-preset-btn" id="rwid-12" onclick="rampSetWidth(12)">12ft</button>
+      <button class="ramp-preset-btn" id="rwid-16" onclick="rampSetWidth(16)">16ft</button>
+    </div>
+    <div id="ramp-warnings" style="font-size:11px;color:var(--danger);line-height:1.7;min-height:16px"></div>
+    <div id="ramp-info" style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px;min-height:14px"></div>
+    <div id="ramp-validate-error" style="font-size:11px;font-weight:600;color:var(--danger);line-height:1.6;margin-top:6px;min-height:0"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="cancelRampModal()">Cancel</button>
+      <button class="btn btn-primary" style="border-color:#e83e8c;background:#e83e8c" onclick="confirmRamp()">Done</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Handrail auto-populate modal ── -->
 <div class="modal-overlay" id="hr-modal">
@@ -1053,13 +1182,13 @@
 <script>
 // ── Constants ────────────────────────────────────────────────────────────────
 const CELL   = 24;
-const GRID_W = 56;
-const GRID_H = 44;
+const GRID_W = 168;
+const GRID_H = 132;
 const FT2    = 609.6;  // mm per 2ft grid unit
 const PANEL_BODY_MM = 175;  // structural depth of a panel
 const LEG_1FT_MM    = 304.8;
 const LEG_1_6FT_MM  = 487.68;
-const BP_SIZES = [18, 12, 9, 6];  // available baseplate shims mm
+const BP_SIZES = [18, 12, 9];  // available baseplate shims mm
 
 const PANEL_SIZES = { '8x4':[4,2], '8x2':[4,1], '4x4':[2,2], '4x2':[2,1] };
 const PANEL_COLORS = { '8x4':'#3b5bdb', '8x2':'#2f9e44', '4x4':'#e67700', '4x2':'#9c36b5' };
@@ -1082,7 +1211,8 @@ let pendingType = '8x4';   // panel type OR steps key OR 'hr-4ft'/'hr-8ft'
 let pendingCategory = 'panel'; // 'panel' | 'steps' | 'handrail'
 let pendingRotated = false;
 let activeTool  = 'place';
-let lastDeleteHit = null; // ID of the item currently highlighted in delete-mode hover
+let lastDeleteHit     = null; // ID of the panels[] item highlighted in delete-mode hover
+let lastDeleteRampHit = null; // ID of the ramp highlighted in delete-mode hover
 let hoverGxF = -1, hoverGyF = -1; // float cursor coords (grid units) for precise delete hover
 let dragState = null;
 // dragState shape during a move-tool drag:
@@ -1091,6 +1221,35 @@ let nextId      = 1;
 let activeView  = 'plan';
 let history     = [];  // undo stack — snapshots of panels array
 let simpleMode  = false;
+
+// ── Zoom state ────────────────────────────────────────────────────────────────
+let viewZoom = 1.0;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 4.0;
+
+// ── Ramp state ────────────────────────────────────────────────────────────────
+let ramps      = [];   // placed ramp objects
+let nextRampId = 1;
+let rampPending       = null;  // set when modal opens in anchor mode (legacy; null in config-first mode)
+let rampConfigured    = false; // true once user has confirmed the ramp config modal
+let rampRecalcWarnings = [];   // [{rampId, message}] — populated by recalcRamps(), read by appendRampSchedule()
+let selectedRampId = null;  // currently selected ramp id (string like 'ramp-1')
+const rampCfg   = { direction: 'south', gradient: 12, widthFt: 8 };
+
+// ── Dogleg ramp state ─────────────────────────────────────────────────────────
+let doglegConfigured = false;
+const doglegCfg = {
+  type:       'straight', // 'straight'|'90left'|'90right'|'stagehugging'
+  spaceWidth: 0,            // mm, snapped to 609.6 grid
+  spaceDepth: 0,            // mm, snapped to 609.6 grid
+  gradient:   12,
+  widthFt:    8,
+};
+// doglegState: null | 'positioning' | 'attachment' | 'ready' | 'placing'
+let doglegState      = null;
+let doglegFixedPos   = null;  // { gx, gy } — canvas grid position where rectangle was fixed
+let doglegAttachment = null;  // { anchorGx, anchorGy, direction, edgeSpan } once attachment set
+let _doglegNormalOverlayText = '';
 
 function toggleSimpleMode() {
   simpleMode = !simpleMode;
@@ -1223,8 +1382,10 @@ function onHeightInput() {
   const valMm = cfgUnit === 'ft' ? Math.round(raw * 304.8) : raw;
   const t = getActiveTier();
   if (t) t.finishedHeight = valMm;
+  recalcRamps();
   renderTierSummary();
   recalcSchedule();
+  redraw();
 }
 
 function onRakeChange() {
@@ -1283,6 +1444,9 @@ function selectSteps() {
   activeTool      = 'place';
   selectedId      = null;
   canvas.style.cursor = 'crosshair';
+  document.getElementById('btn-tool-place') ?.classList.toggle('active', true);
+  document.getElementById('btn-tool-delete')?.classList.toggle('active', false);
+  document.getElementById('btn-tool-move')  ?.classList.toggle('active', false);
   // Update button label to reflect what will be placed
   const d = STEPS_DATA[pendingType];
   const lbl = document.getElementById('btn-steps-label');
@@ -1299,6 +1463,9 @@ function selectHandrail(size) {
   activeTool      = 'place';
   selectedId      = null;
   canvas.style.cursor = 'crosshair';
+  document.getElementById('btn-tool-place') ?.classList.toggle('active', true);
+  document.getElementById('btn-tool-delete')?.classList.toggle('active', false);
+  document.getElementById('btn-tool-move')  ?.classList.toggle('active', false);
   syncAllPendingButtons();
   updatePendingInfo();
   redraw();
@@ -1308,9 +1475,8 @@ function selectHandrail(size) {
 function syncAllPendingButtons() {
   document.querySelectorAll('.panel-btn').forEach(b => {
     b.classList.remove('active');
-    const nonPlace = activeTool === 'select' || activeTool === 'move';
-    b.style.opacity       = nonPlace ? '0.4' : '1';
-    b.style.pointerEvents = nonPlace ? 'none' : '';
+    b.style.opacity       = '1';
+    b.style.pointerEvents = '';
   });
   document.querySelectorAll('.component-btn').forEach(b => b.classList.remove('active'));
 
@@ -1324,6 +1490,12 @@ function syncAllPendingButtons() {
   } else if (pendingCategory === 'handrail') {
     const el = document.getElementById('btn-hr-' + pendingType);
     if (el) el.classList.add('active');
+  } else if (pendingCategory === 'ramp') {
+    const el = document.getElementById('btn-ramp');
+    if (el) el.classList.add('active');
+  } else if (pendingCategory === 'dogleg-ramp') {
+    const el = document.getElementById('btn-dogleg-ramp');
+    if (el) el.classList.add('active');
   }
 }
 
@@ -1333,7 +1505,7 @@ function detectEdge(gx, gy) {
   const tp = panels.filter(p => p.category === 'panel' && p.tier === activeTierId);
   if (!tp.length) return null;
 
-  const THRESH = 3; // grid units — snap distance
+  const THRESH = 2; // grid units — snap distance
   let bestDist = Infinity, bestResult = null;
 
   for (const side of ['front','back','left','right']) {
@@ -1347,9 +1519,8 @@ function detectEdge(gx, gy) {
       if (dEdge > THRESH) continue;
       // Check cursor is within the span's along-axis range (with small tolerance)
       const along = isHoriz ? gx : gy;
-      if (along < span.start - THRESH || along > span.end + THRESH) continue;
-      // Total distance (edge distance dominates, along-axis only breaks ties)
-      const dist = dEdge * 10 + Math.max(0, Math.max(span.start - along, along - span.end));
+      if (along < span.start || along > span.end) continue;
+      const dist = dEdge;
       if (dist < bestDist) {
         bestDist = dist;
         bestResult = {
@@ -1487,6 +1658,33 @@ function spansOverlap(a, b) {
   return a[0] < b[1] && a[1] > b[0];
 }
 
+// Returns true if [safeAlong, safeAlong+hrWidthGu] overlaps any ramp hinge
+// attachment on this edge.  The hinge occupies the full ramp width in GU at
+// the anchor position — handrails cannot be placed there.
+function isRampHingeEdge(edge, safeAlong, hrWidthGu) {
+  // Map ramp direction → which stage edge side it attaches to
+  const DIR_SIDE = { south: 'back', north: 'front', east: 'right', west: 'left' };
+  const hrSpan   = [safeAlong, safeAlong + hrWidthGu];
+
+  for (const ramp of ramps) {
+    if (ramp.tierId !== activeTierId) continue;
+    if (DIR_SIDE[ramp.direction] !== edge.side) continue;
+
+    // edgeGu for the hinge attachment: y for N/S ramps, x for E/W ramps
+    const hingeEdgeGu = (ramp.direction === 'south' || ramp.direction === 'north')
+      ? ramp.anchorGy : ramp.anchorGx;
+    if (hingeEdgeGu !== edge.edgeGu) continue;
+
+    // Along-axis span of the hinge attachment
+    const hingeAlongStart = (ramp.direction === 'south' || ramp.direction === 'north')
+      ? ramp.anchorGx : ramp.anchorGy;
+    const hingeSpan = [hingeAlongStart, hingeAlongStart + ramp.widthCols * 2];
+
+    if (spansOverlap(hrSpan, hingeSpan)) return true;
+  }
+  return false;
+}
+
 // ── Place handrail on edge ────────────────────────────────────────────────────
 function placeHandrail(edge, size) {
   const hrWidthGu = HR_WIDTHS[size] / FT2;
@@ -1511,6 +1709,10 @@ function placeHandrail(edge, size) {
     spansOverlap(handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p), hrSpan)
   );
   if (hrConflict) { alert('A handrail already occupies this position.'); return; }
+  if (isRampHingeEdge(edge, safeAlong, hrWidthGu)) {
+    alert('Handrails cannot be placed on a ramp hinge attachment edge.');
+    return;
+  }
   saveHistory();
   panels.push({
     id: nextId++, category: 'handrail',
@@ -1525,14 +1727,19 @@ function placeHandrail(edge, size) {
 
 // ── Undo ──────────────────────────────────────────────────────────────────────
 function saveHistory() {
-  history.push(JSON.parse(JSON.stringify(panels)));
+  history.push({
+    panels: JSON.parse(JSON.stringify(panels)),
+    ramps:  JSON.parse(JSON.stringify(ramps)),
+  });
   if (history.length > 50) history.shift();
 }
 
 function undo() {
   if (!history.length) return;
-  panels = history.pop();
-  selectedId = null;
+  const snap = history.pop();
+  panels = snap.panels;
+  ramps  = snap.ramps;
+  selectedId = null; selectedRampId = null;
   recalcSchedule(); redraw();
 }
 
@@ -1865,30 +2072,106 @@ function setTool(tool) {
 
   activeTool = tool;
   canvas.style.cursor = (tool === 'place' || tool === 'delete') ? 'crosshair' : 'default';
+
   if (tool === 'place') {
     selectedId = null;
-    if (pendingCategory !== 'panel') { pendingCategory = 'panel'; pendingType = '8x4'; }
+    selectedRampId = null;
+    // Reset to panel mode if coming from steps/handrail/ramp
+    if (pendingCategory !== 'panel') {
+      pendingCategory = 'panel';
+      pendingType     = '8x4';
+      rampConfigured  = false;
+      resetDoglegTool();
+    }
+  }
+  if (tool === 'move') {
+    if (pendingCategory !== 'panel') { pendingCategory = 'panel'; pendingType = '8x4'; rampConfigured = false; resetDoglegTool(); }
   }
   if (tool === 'delete') {
     selectedId = null;
+    selectedRampId = null;
     if (pendingCategory !== 'panel') { pendingCategory = 'panel'; pendingType = '8x4'; }
   } else {
-    lastDeleteHit = null;
+    lastDeleteHit     = null;
+    lastDeleteRampHit = null;
   }
+
   document.getElementById('btn-tool-place') .classList.toggle('active', tool === 'place');
-  document.getElementById('btn-tool-select').classList.toggle('active', tool === 'select');
-  document.getElementById('btn-tool-delete').classList.toggle('active', tool === 'delete');
+  document.getElementById('btn-tool-delete')?.classList.toggle('active', tool === 'delete');
   document.getElementById('btn-tool-move')  ?.classList.toggle('active', tool === 'move');
   syncAllPendingButtons();
   updatePendingInfo();
+  updateRampIndicator();
+  updateDoglegIndicator();
   redraw();
 }
 
 // ── Canvas setup ──────────────────────────────────────────────────────────────
-const canvas = document.getElementById('stageCanvas');
-const ctx    = canvas.getContext('2d');
+const canvas     = document.getElementById('stageCanvas');
+const ctx        = canvas.getContext('2d');
+const canvasWrap = document.getElementById('canvas-wrap');
+const scrollEl   = document.getElementById('canvas-scroll');
 canvas.width  = GRID_W * CELL + 1;
 canvas.height = GRID_H * CELL + 1;
+
+// ── Zoom ──────────────────────────────────────────────────────────────────────
+function applyZoom(newZoom, pivotScreenX, pivotScreenY) {
+  newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+  const oldZoom = viewZoom;
+  if (newZoom === oldZoom) return;
+
+  // canvas coordinates of the pivot point before zoom
+  const scrollR = scrollEl.getBoundingClientRect();
+  const pad = 24; // .canvas-scroll padding
+  const canvasX = (pivotScreenX - scrollR.left + scrollEl.scrollLeft - pad) / oldZoom;
+  const canvasY = (pivotScreenY - scrollR.top  + scrollEl.scrollTop  - pad) / oldZoom;
+
+  viewZoom = newZoom;
+  canvasWrap.style.transform = `scale(${viewZoom})`;
+  // expand scroll bounds to match scaled size
+  canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
+  canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
+
+  // keep the pivot point under the cursor
+  scrollEl.scrollLeft = pad + canvasX * viewZoom - (pivotScreenX - scrollR.left);
+  scrollEl.scrollTop  = pad + canvasY * viewZoom - (pivotScreenY - scrollR.top);
+
+  updateZoomDisplay();
+}
+
+function zoomStep(dir) {
+  // dir: +1 = zoom in, -1 = zoom out; pivot = canvas centre
+  const factor = dir > 0 ? 1.2 : 1 / 1.2;
+  const scrollR = scrollEl.getBoundingClientRect();
+  const cx = scrollR.left + scrollR.width  / 2;
+  const cy = scrollR.top  + scrollR.height / 2;
+  applyZoom(viewZoom * factor, cx, cy);
+}
+
+function zoomReset() {
+  const scrollR = scrollEl.getBoundingClientRect();
+  const cx = scrollR.left + scrollR.width  / 2;
+  const cy = scrollR.top  + scrollR.height / 2;
+  applyZoom(1.0, cx, cy);
+  // re-centre on the original 56×44 working area (top-left of expanded grid)
+  const pad = 24;
+  const workCX = (56 * CELL) / 2;
+  const workCY = (44 * CELL) / 2;
+  scrollEl.scrollLeft = Math.max(0, pad + workCX - scrollR.width  / 2);
+  scrollEl.scrollTop  = Math.max(0, pad + workCY - scrollR.height / 2);
+}
+
+function updateZoomDisplay() {
+  const el = document.getElementById('zoom-display');
+  if (el) el.textContent = Math.round(viewZoom * 100) + '%';
+}
+
+// Wheel zoom (toward cursor)
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  applyZoom(viewZoom * factor, e.clientX, e.clientY);
+}, { passive: false });
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
@@ -1900,13 +2183,17 @@ document.addEventListener('keydown', e => {
   if (e.key === 'r' || e.key === 'R') rotatePending();
   if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
   if (e.key === 'Escape') {
-    selectedId = null;
+    selectedId      = null;
+    selectedRampId  = null;
     pendingCategory = 'panel';
     pendingType     = '8x4';
+    rampConfigured  = false;
+    resetDoglegTool();
     syncAllPendingButtons();
     setTool('place');
+    updateRampIndicator();
+    updateDoglegIndicator();
   }
-  if (e.key === 's' || e.key === 'S') setTool('select');
   if (e.key === 'p' || e.key === 'P') setTool('place');
   if (e.key === 'm' || e.key === 'M') setTool('move');
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
@@ -1915,8 +2202,13 @@ document.addEventListener('keydown', e => {
 // ── Panel management ──────────────────────────────────────────────────────────
 function selectPanel(type) {
   pendingCategory = 'panel';
-  pendingType = type;
-  selectedId  = null;
+  pendingType     = type;
+  activeTool      = 'place';
+  selectedId      = null;
+  selectedRampId  = null;
+  document.getElementById('btn-tool-place') ?.classList.toggle('active', true);
+  document.getElementById('btn-tool-delete')?.classList.toggle('active', false);
+  document.getElementById('btn-tool-move')  ?.classList.toggle('active', false);
   syncAllPendingButtons();
   updatePendingInfo();
   redraw();
@@ -1948,6 +2240,10 @@ function updatePendingInfo() {
   } else if (pendingCategory === 'handrail') {
     document.getElementById('pending-info').textContent =
       `Placing: ${pendingType} handrail — click a stage edge  [Esc to cancel]`;
+  } else if (pendingCategory === 'ramp') {
+    document.getElementById('pending-info').textContent = rampConfigured
+      ? `Ramp (${rampCfg.widthFt}ft · 1:${rampCfg.gradient}) — click a stage edge to place  [Esc to cancel]`
+      : `Ramp — use the modal to configure, then click a stage edge  [Esc to cancel]`;
   } else if (activeTool === 'place') {
     document.getElementById('pending-info').textContent =
       `${PANEL_LABELS[pendingType]}${pendingRotated ? ' ↻' : ''}`;
@@ -1963,6 +2259,13 @@ function getPendingDims() {
 }
 
 function deleteSelected() {
+  if (selectedRampId !== null) {
+    saveHistory();
+    ramps = ramps.filter(r => r.id !== selectedRampId);
+    selectedRampId = null;
+    recalcSchedule(); redraw();
+    return;
+  }
   if (selectedId === null) return;
   saveHistory();
   panels = panels.filter(p => p.id !== selectedId);
@@ -1972,9 +2275,10 @@ function deleteSelected() {
 
 function clearStage() {
   if (panels.length && !confirm('Clear all panels, steps and handrails?')) return;
-  panels = []; selectedId = null;
+  panels = []; ramps = []; selectedId = null; selectedRampId = null;
+  Object.keys(rampSvWindows).forEach(id => { rampSvWindows[id].remove(); delete rampSvWindows[id]; });
   recalcSchedule(); redraw();
- }
+}
 
 // ── Collision detection ───────────────────────────────────────────────────────
 function canPlace(candidate, gx, gy, excludeId = -1) {
@@ -1997,8 +2301,8 @@ function canPlace(candidate, gx, gy, excludeId = -1) {
 canvas.addEventListener('mousemove', e => {
   const {gx, gy} = getGridPos(e);
   const rect = canvas.getBoundingClientRect();
-  hoverGxF = (e.clientX - rect.left) * (canvas.width  / rect.width)  / CELL;
-  hoverGyF = (e.clientY - rect.top)  * (canvas.height / rect.height) / CELL;
+  hoverGxF = (e.clientX - rect.left) / (CELL * viewZoom);
+  hoverGyF = (e.clientY - rect.top)  / (CELL * viewZoom);
   document.getElementById('cursor-pos').textContent = `${gx*2}ft, ${gy*2}ft`;
 
   // Move-mode drag: update ghost position
@@ -2011,14 +2315,29 @@ canvas.addEventListener('mousemove', e => {
   if (activeTool === 'move') {
     const hit = pickMoveTarget(gx, gy);
     canvas.style.cursor = hit ? 'grab' : 'default';
+    const rampHover = ramps.find(r => isInRamp(r, gx, gy));
+    const tip = document.getElementById('ramp-hover-tip');
+    if (rampHover) {
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 8)  + 'px';
+    } else {
+      tip.style.display = 'none';
+    }
     redraw(gx, gy);
     return;
   }
 
-  if (pendingCategory === 'steps' || pendingCategory === 'handrail') {
+  if (pendingCategory === 'steps' || pendingCategory === 'handrail' ||
+      (activeTool === 'place' && pendingCategory === 'ramp' && rampConfigured)) {
     const edge = detectEdge(gx, gy);
     if (edge && pendingCategory === 'steps')    edge.alongGu = snapStepsAlong(edge);
     if (edge && pendingCategory === 'handrail') edge.alongGu = snapHandrailAlong(edge, pendingType);
+    if (edge && pendingCategory === 'ramp') {
+      const rampWidthGu = (rampCfg.widthFt / 4) * 2;
+      const maxAlong    = edge.edgeStart + edge.edgeLen - rampWidthGu;
+      edge.alongGu      = Math.max(edge.edgeStart, Math.min(Math.round(edge.alongGu), maxAlong));
+    }
     redraw(gx, gy, edge);
   } else {
     redraw(gx, gy);
@@ -2028,6 +2347,7 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mouseleave', () => {
   hoverGxF = -1; hoverGyF = -1;
   document.getElementById('cursor-pos').textContent = '—';
+  document.getElementById('ramp-hover-tip').style.display = 'none';
   if (dragState) {
     // Cancel drag — restore item to original position
     panels.push(dragState.origItem);
@@ -2051,7 +2371,7 @@ canvas.addEventListener('mousedown', e => {
   if (hit.category === 'handrail' && hit.hrType === 'infill') return; // infill panels are auto-generated
 
   // Save pre-drag state for undo, then remove item
-  const preDragSnapshot = JSON.parse(JSON.stringify(panels));
+  const preDragSnapshot = { panels: JSON.parse(JSON.stringify(panels)), ramps: JSON.parse(JSON.stringify(ramps)) };
   panels = panels.filter(p => p.id !== hit.id);
 
   const offsetGxF = hit.category === 'panel' ? curFx - hit.gx : 0;
@@ -2114,7 +2434,12 @@ canvas.addEventListener('mouseup', e => {
 });
 
 canvas.addEventListener('click', e => {
-  if (activeTool === 'move') return; // handled by mousedown/mouseup
+  if (activeTool === 'move') {
+    const {gx, gy} = getGridPos(e);
+    const rampHit = ramps.find(r => isInRamp(r, gx, gy));
+    if (rampHit) openRampSideView(rampHit);
+    return;
+  }
   const {gx, gy} = getGridPos(e);
 
   // Delete tool mode — prefer the hover-highlighted item (avoids micro-movement mismatch),
@@ -2132,7 +2457,12 @@ canvas.addEventListener('click', e => {
         )
       );
     }
-    if (hit) { saveHistory(); panels = panels.filter(p => p.id !== hit.id); recalcSchedule(); redraw(); }
+    if (hit) { saveHistory(); panels = panels.filter(p => p.id !== hit.id); recalcSchedule(); redraw(); return; }
+    // Ramp deletion — prefer hover-highlighted ramp, fall back to click-position hit-test
+    const rampDel = lastDeleteRampHit !== null
+      ? ramps.find(r => r.id === lastDeleteRampHit)
+      : ramps.find(r => isInRamp(r, gx, gy));
+    if (rampDel) { deleteRamp(rampDel.id); }
     return;
   }
 
@@ -2153,25 +2483,89 @@ canvas.addEventListener('click', e => {
     return;
   }
 
+  // Dogleg ramp tool
+  if (pendingCategory === 'dogleg-ramp') {
+    if (doglegState === 'positioning') {
+      doglegFixedPos = { gx, gy };
+      doglegState    = 'attachment';
+      showDoglegOverlay('Click attachment point on stage edge', true, false);
+      redraw();
+      return;
+    }
+
+    if (doglegState === 'attachment') {
+      const SIDE_DIR = { front: 'north', back: 'south', left: 'west', right: 'east' };
+
+      // 1. Valid edge
+      const edge = detectEdge(gx, gy);
+      if (!edge) {
+        showDoglegOverlayBrief('Click on a stage edge to attach the ramp.');
+        return;
+      }
+
+      // 2. Wide enough for selected ramp width
+      const rampWidthGu = (doglegCfg.widthFt / 4) * 2;
+      const maxAlong    = edge.edgeStart + edge.edgeLen - rampWidthGu;
+      if (maxAlong < edge.edgeStart) {
+        showDoglegOverlayBrief('Ramp width exceeds available stage edge — choose a wider edge or reduce ramp width.');
+        return;
+      }
+
+      // Snap anchor to edge face, clamped within the edge span
+      const snappedAlong = Math.round(Math.min(Math.max(edge.alongGu, edge.edgeStart), maxAlong));
+      let anchorGx, anchorGy;
+      if (edge.side === 'front' || edge.side === 'back') {
+        anchorGx = snappedAlong; anchorGy = edge.edgeGu;
+      } else {
+        anchorGx = edge.edgeGu;  anchorGy = snappedAlong;
+      }
+
+      // 3. Anchor within available space rectangle
+      const wGu = Math.round(doglegCfg.spaceWidth / (FT2 / 2));
+      const hGu = Math.round(doglegCfg.spaceDepth / (FT2 / 2));
+      if (anchorGx < doglegFixedPos.gx || anchorGx > doglegFixedPos.gx + wGu ||
+          anchorGy < doglegFixedPos.gy || anchorGy > doglegFixedPos.gy + hGu) {
+        showDoglegOverlayBrief('Attachment point must be within the defined available space.');
+        return;
+      }
+
+      // All checks pass
+      const direction = SIDE_DIR[edge.side];
+      doglegAttachment = { anchorGx, anchorGy, direction, edgeSpan: edge.edgeLen };
+      doglegState = 'ready';
+
+      const DIR_LABEL = { north: 'North', south: 'South', east: 'East', west: 'West' };
+      showDoglegOverlay(
+        `Attachment set — ${DIR_LABEL[direction]} edge. Confirm or reposition.`,
+        true, true
+      );
+
+      redraw();
+      return;
+    }
+
+    // 'ready' state — block all other canvas clicks
+    return;
+  }
+
+  // Ramp placement mode — config was done at tool selection; place immediately on edge click
+  if (activeTool === 'place' && pendingCategory === 'ramp') {
+    if (!rampConfigured) { openRampConfigModal(); return; }
+    const edge = detectEdge(gx, gy);
+    if (edge) {
+      const prevCount = ramps.length;
+      placeRamp(gx, gy, activeTierId, edge);
+      if (ramps.length > prevCount && !ramps[ramps.length - 1]._longRampWarning) openRampSideView(ramps[ramps.length - 1]);
+    }
+    return;
+  }
+
   // Panel hit test — only panels (not steps/handrails)
   const hit = panels.slice().reverse().find(p =>
     p.category === 'panel' &&
     p.tier === activeTierId &&
     gx >= p.gx && gx < p.gx + p.gw && gy >= p.gy && gy < p.gy + p.gh
   );
-
-  // Also hit-test steps/handrails in select mode (click near their edge)
-  const edgeHit = (activeTool === 'select') ? panels.slice().reverse().find(p =>
-    (p.category === 'steps' || p.category === 'handrail') &&
-    p.tier === activeTierId &&
-    isNearEdgeItem(p, gx, gy)
-  ) : null;
-
-  if (activeTool === 'select') {
-    const target = edgeHit || hit;
-    selectedId = target ? (selectedId === target.id ? null : target.id) : null;
-    redraw(); return;
-  }
 
   if (hit) {
     selectedId = (selectedId === hit.id) ? null : hit.id;
@@ -2183,18 +2577,17 @@ canvas.addEventListener('click', e => {
   if (canPlace(candidate, gx, gy)) {
     saveHistory();
     panels.push(candidate);
-    selectedId = null;
+    selectedId     = null;
+    selectedRampId = null;
     recalcSchedule(); redraw();
   }
 });
 
 function getGridPos(e) {
-  const rect   = canvas.getBoundingClientRect();
-  const scaleX = canvas.width  / rect.width;
-  const scaleY = canvas.height / rect.height;
+  const rect = canvas.getBoundingClientRect();
   return {
-    gx: Math.floor((e.clientX - rect.left) * scaleX / CELL),
-    gy: Math.floor((e.clientY - rect.top)  * scaleY / CELL)
+    gx: Math.floor((e.clientX - rect.left) / (CELL * viewZoom)),
+    gy: Math.floor((e.clientY - rect.top)  / (CELL * viewZoom))
   };
 }
 
@@ -2226,11 +2619,6 @@ function isNearEdgeItem(item, gx, gy) {
   }
   return false;
 }
-// ── Move-mode helpers ─────────────────────────────────────────────────────────
-
-// Pick the topmost moveable item at (gx, gy) using the same priority order as
-// delete mode: panels → steps → handrails (with float precision for handrails).
-// curFx/curFy are optional float coords; if omitted, gx/gy are used as floats.
 function pickMoveTarget(gx, gy, curFx, curFy) {
   const fx = curFx !== undefined ? curFx : gx;
   const fy = curFy !== undefined ? curFy : gy;
@@ -2356,6 +2744,8 @@ function saveLayout(){
     version:1,
     tiers:tiers,
     panels:panels,
+    ramps:ramps,
+    nextRampId:nextRampId,
     savedAt:new Date().toISOString()
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -2376,9 +2766,13 @@ function loadLayout(e){
       if(!data.tiers||!data.panels)throw new Error('Invalid layout file');
       tiers=data.tiers;
       panels=data.panels;
+      ramps=data.ramps||[];
+      nextRampId=data.nextRampId||1;
+      selectedId=null; selectedRampId=null;
       renderTierControls();
       renderTierSummary();
       updatePendingInfo();
+      recalcSchedule();
       redraw();
       document.getElementById('loadFileInput').value='';
     }catch(err){
@@ -2450,6 +2844,9 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
   }
   ctx.globalAlpha = 1;
 
+  // ── Draw ramps ──
+  drawRampsOnCanvas();
+
   // Hover preview for edge-snap modes
   if (hoverEdge) {
     if (pendingCategory === 'steps') {
@@ -2498,7 +2895,7 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       }
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-    } else {
+    } else if (pendingCategory === 'handrail') {
       // Handrail ghost — draw as a positioned rectangle matching the snapped position
       const widthGu   = HR_WIDTHS[pendingType] / FT2;
       const thickness = 4;
@@ -2522,6 +2919,44 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       ctx.strokeRect(x1, y1, w, hh);
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
+    } else if (activeTool === 'place' && pendingCategory === 'ramp' && rampConfigured) {
+      // Ramp ghost — footprint outline based on configured width/gradient
+      const SIDE_DIR = { front: 'north', back: 'south', left: 'west', right: 'east' };
+      const direction = SIDE_DIR[hoverEdge.side];
+      const tier = tiers.find(t => t.id === activeTierId);
+      const sh   = tier ? tier.finishedHeight : 0;
+      if (sh > 0) {
+        const flights     = splitRampIntoFlights(sh, rampCfg.gradient);
+        const slopedRunGu = flights
+          .filter(s => s.type === 'flight')
+          .reduce((sum, f) => {
+            const fp = rampPanelFill(f.goingMm);
+            return sum + fp.reduce((s, p) => s + p.guDepth, 0);
+          }, 0);
+        const landingGu = flights
+          .filter(s => s.type === 'landing')
+          .reduce((sum, f) => sum + f.depthGu, 0);
+        const botGu     = Math.round(RAMP_BOTTOM_MM / (FT2 / 2));  // always 4 GU
+        const totalGu   = slopedRunGu + landingGu + botGu;
+        const widthGu   = (rampCfg.widthFt / 4) * 2;
+        const along     = hoverEdge.alongGu;
+        let x1, y1, w, h;
+        switch (direction) {
+          case 'south': x1 = along * CELL;                          y1 = hoverEdge.edgeGu * CELL;             w = widthGu * CELL; h = totalGu * CELL; break;
+          case 'north': x1 = along * CELL;                          y1 = (hoverEdge.edgeGu - totalGu) * CELL; w = widthGu * CELL; h = totalGu * CELL; break;
+          case 'east':  x1 = hoverEdge.edgeGu * CELL;               y1 = along * CELL;                        w = totalGu * CELL; h = widthGu * CELL; break;
+          case 'west':  x1 = (hoverEdge.edgeGu - totalGu) * CELL;   y1 = along * CELL;                        w = totalGu * CELL; h = widthGu * CELL; break;
+        }
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle   = 'rgba(232,62,140,0.15)';
+        ctx.fillRect(x1, y1, w, h);
+        ctx.strokeStyle = '#e83e8c';
+        ctx.lineWidth   = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
     }
   }
 
@@ -2538,24 +2973,14 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
     ctx.setLineDash([]);
   }
 
-  // Select hover
-  if (activeTool === 'select' && hoverGx >= 0) {
-    const hit = panels.slice().reverse().find(p =>
-      p.tier === activeTierId &&
-      hoverGx >= p.gx && hoverGx < p.gx + p.gw && hoverGy >= p.gy && hoverGy < p.gy + p.gh
-    );
-    if (hit && hit.id !== selectedId) {
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      ctx.fillRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
-    }
-  }
-
-  // Delete hover — red tint on the item under the cursor; also writes lastDeleteHit so the
-  // click handler deletes exactly what is visually highlighted (avoids micro-movement mismatch).
-  // Priority order: panels (exact bounds) → steps (visual bbox) → handrails (closest edge line).
+  // Delete hover — red tint on the item under the cursor; also writes lastDeleteHit /
+  // lastDeleteRampHit so the click handler deletes exactly what is visually highlighted
+  // (avoids micro-movement mismatch).
+  // Priority order: panels → steps → handrails → ramps.
   // Uses float cursor coords so thin edge items are reachable without THRESH inflation.
   if (activeTool === 'delete') {
     let hit = null;
+    let rampDelHover = null;
     if (hoverGxF >= 0) {
       const fx = hoverGxF, fy = hoverGyF;
       // 1. Panels — exact float bounds
@@ -2610,12 +3035,17 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
           });
         }
       }
+      // 4. Ramps — full footprint bounding box (only if no panel/steps/handrail hit)
+      if (!hit) {
+        rampDelHover = ramps.find(r => isInRamp(r, fx, fy));
+      }
     }
-    lastDeleteHit = hit ? hit.id : null;
+    lastDeleteHit     = hit ? hit.id : null;
+    lastDeleteRampHit = rampDelHover ? rampDelHover.id : null;
+    ctx.fillStyle   = 'rgba(239,68,68,0.25)';
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth   = 2;
     if (hit) {
-      ctx.fillStyle   = 'rgba(239,68,68,0.25)';
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth   = 2;
       if (hit.category === 'panel') {
         ctx.fillRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
         ctx.strokeRect(hit.gx*CELL+1, hit.gy*CELL+1, hit.gw*CELL-2, hit.gh*CELL-2);
@@ -2649,6 +3079,22 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
         ctx.fillRect(x1, y1, w, h);
         ctx.strokeRect(x1, y1, w, h);
       }
+    } else if (rampDelHover) {
+      // Compute ramp footprint bounding box (matches isInRamp logic)
+      const col0r = rampDelHover.panels.filter(p => p.panelCol === 0).sort((a,b) => a.panelRow - b.panelRow);
+      let slopedRunGu = 0;
+      for (const p of col0r) slopedRunGu += (rampDelHover.direction === 'north' || rampDelHover.direction === 'south') ? p.gh : p.gw;
+      const rampBotGu = 1219.2 / FT2;
+      const widthGuR  = rampDelHover.widthCols * 2;
+      let rx, ry, rw, rh;
+      switch (rampDelHover.direction) {
+        case 'south': rx = rampDelHover.anchorGx*CELL;                                      ry = rampDelHover.anchorGy*CELL;                                      rw = widthGuR*CELL; rh = (slopedRunGu+rampBotGu)*CELL; break;
+        case 'north': rx = rampDelHover.anchorGx*CELL;                                      ry = (rampDelHover.anchorGy-slopedRunGu-rampBotGu)*CELL;              rw = widthGuR*CELL; rh = (slopedRunGu+rampBotGu)*CELL; break;
+        case 'east':  rx = rampDelHover.anchorGx*CELL;                                      ry = rampDelHover.anchorGy*CELL;                                      rw = (slopedRunGu+rampBotGu)*CELL; rh = widthGuR*CELL; break;
+        case 'west':  rx = (rampDelHover.anchorGx-slopedRunGu-rampBotGu)*CELL;              ry = rampDelHover.anchorGy*CELL;                                      rw = (slopedRunGu+rampBotGu)*CELL; rh = widthGuR*CELL; break;
+      }
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
     }
   }
 
@@ -2736,6 +3182,112 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       ctx.setLineDash([]);
     }
   }
+
+  // ── Dogleg ghost rectangle ──
+  if (pendingCategory === 'dogleg-ramp' && doglegConfigured && doglegState) {
+    const wGu = Math.round(doglegCfg.spaceWidth / (FT2 / 2));
+    const hGu = Math.round(doglegCfg.spaceDepth / (FT2 / 2));
+    let rx, ry;
+    const isFixed = doglegState === 'attachment' || doglegState === 'ready' || doglegState === 'placing';
+    if (isFixed && doglegFixedPos) {
+      rx = doglegFixedPos.gx; ry = doglegFixedPos.gy;
+    } else if (doglegState === 'positioning') {
+      // Follow cursor; fall back to last fixed pos if cursor not on canvas yet
+      if (hoverGx >= 0) { rx = hoverGx; ry = hoverGy; }
+      else if (doglegFixedPos) { rx = doglegFixedPos.gx; ry = doglegFixedPos.gy; }
+    }
+    if (rx !== undefined) {
+      ctx.save();
+      // Dashed border — slightly muted once fixed, brighter while following cursor
+      ctx.globalAlpha = isFixed ? 0.7 : 0.85;
+      ctx.fillStyle   = 'rgba(200,215,230,0.18)';
+      ctx.fillRect(rx * CELL, ry * CELL, wGu * CELL, hGu * CELL);
+      ctx.strokeStyle = isFixed ? 'rgba(200,215,230,0.5)' : 'rgba(200,215,230,0.9)';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(rx * CELL, ry * CELL, wGu * CELL, hGu * CELL);
+      ctx.setLineDash([]);
+      // Dimension label
+      const label = `${Math.round(doglegCfg.spaceWidth).toLocaleString()} × ${Math.round(doglegCfg.spaceDepth).toLocaleString()}mm`;
+      const cx    = (rx + wGu / 2) * CELL;
+      const cy    = (ry + hGu / 2) * CELL;
+      ctx.font        = 'bold 11px "DM Mono", monospace';
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle   = 'rgba(15,17,23,0.7)';
+      const tm = ctx.measureText(label);
+      ctx.fillRect(cx - tm.width/2 - 4, cy - 8, tm.width + 8, 16);
+      ctx.fillStyle = 'rgba(200,215,230,0.95)';
+      ctx.fillText(label, cx, cy);
+      ctx.restore();
+    }
+  }
+
+  // ── Dogleg ghost ramp (placing state — straight run) ──
+  if (pendingCategory === 'dogleg-ramp' && doglegState === 'placing' &&
+      doglegCfg.type === 'straight' && doglegAttachment) {
+    const { anchorGx, anchorGy, direction } = doglegAttachment;
+    const tier = tiers.find(t => t.id === activeTierId);
+    const sh = tier ? tier.finishedHeight : 0;
+    if (sh > 0) {
+      const depthPanels = rampPanelFill(sh * doglegCfg.gradient);
+      const slopedRunGu = depthPanels.reduce((s, p) => s + p.guDepth, 0);
+      const landingGu = USE_LANDING_SPLITS
+        ? splitRampIntoFlights(sh, doglegCfg.gradient).filter(s => s.type === 'landing').length * LANDING_DEPTH_GU
+        : 0;
+      const botGu   = Math.round(RAMP_BOTTOM_MM / (FT2 / 2));
+      const totalGu = slopedRunGu + landingGu + botGu;
+      const widthGu = (doglegCfg.widthFt / 4) * 2;
+      let x1, y1, w, h;
+      switch (direction) {
+        case 'south': x1 = anchorGx * CELL;             y1 = anchorGy * CELL;             w = widthGu * CELL; h = totalGu * CELL; break;
+        case 'north': x1 = anchorGx * CELL;             y1 = (anchorGy - totalGu) * CELL; w = widthGu * CELL; h = totalGu * CELL; break;
+        case 'east':  x1 = anchorGx * CELL;             y1 = anchorGy * CELL;             w = totalGu * CELL; h = widthGu * CELL; break;
+        case 'west':  x1 = (anchorGx - totalGu) * CELL; y1 = anchorGy * CELL;             w = totalGu * CELL; h = widthGu * CELL; break;
+      }
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle   = 'rgba(232,62,140,0.15)';
+      ctx.fillRect(x1, y1, w, h);
+      ctx.strokeStyle = '#e83e8c';
+      ctx.lineWidth   = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x1, y1, w, h);
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // ── Dogleg attachment marker ──
+  if (pendingCategory === 'dogleg-ramp' && doglegAttachment &&
+      (doglegState === 'ready' || doglegState === 'attachment' || doglegState === 'placing')) {
+    const { anchorGx, anchorGy, direction } = doglegAttachment;
+    const widthGu   = (doglegCfg.widthFt / 4) * 2;
+    const barThick  = 5;   // px height/width of the marker bar
+    let mx, my, mw, mh;
+    switch (direction) {
+      case 'south': mx = anchorGx*CELL;            my = anchorGy*CELL - barThick/2; mw = widthGu*CELL; mh = barThick; break;
+      case 'north': mx = anchorGx*CELL;            my = anchorGy*CELL - barThick/2; mw = widthGu*CELL; mh = barThick; break;
+      case 'east':  mx = anchorGx*CELL - barThick/2; my = anchorGy*CELL;            mw = barThick; mh = widthGu*CELL; break;
+      case 'west':  mx = anchorGx*CELL - barThick/2; my = anchorGy*CELL;            mw = barThick; mh = widthGu*CELL; break;
+    }
+    ctx.save();
+    ctx.fillStyle   = '#e83e8c';
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(mx, my, mw, mh);
+    // Anchor corner circle
+    ctx.beginPath();
+    ctx.arc(anchorGx * CELL, anchorGy * CELL, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
 
 }
 
@@ -2878,6 +3430,514 @@ function drawHandrailOnCanvas(h) {
   }
 }
 
+// ── Ramp side handrail lines ──────────────────────────────────────────────────
+// Draws a handrail line on each long side of the ramp body, running from the
+// hinge attachment edge to the leading face of the ramp bottom panel.
+// bodyGu = total GU depth of the ramp body (slopedRunGu or totalBodyGu).
+function drawRampSideHandrails(ramp, bodyGu, isSelected) {
+  if (bodyGu <= 0) return;
+  const { anchorGx, anchorGy, direction, widthCols } = ramp;
+  const widthGu   = widthCols * 2;
+  const col       = '#22c55e';
+  const thickness = 4;  // px — matches drawHandrailOnCanvas
+
+  // Two rectangles: one on each outer long side, centred on the edge line
+  let lx, ly, lw, lh, rx2, ry2, rw2, rh2;
+  switch (direction) {
+    case 'south':
+      lx  = anchorGx * CELL - thickness / 2;
+      ly  = anchorGy * CELL;
+      lw  = thickness; lh = bodyGu * CELL;
+      rx2 = (anchorGx + widthGu) * CELL - thickness / 2;
+      ry2 = ly; rw2 = thickness; rh2 = lh;
+      break;
+    case 'north':
+      lx  = anchorGx * CELL - thickness / 2;
+      ly  = (anchorGy - bodyGu) * CELL;
+      lw  = thickness; lh = bodyGu * CELL;
+      rx2 = (anchorGx + widthGu) * CELL - thickness / 2;
+      ry2 = ly; rw2 = thickness; rh2 = lh;
+      break;
+    case 'east':
+      lx  = anchorGx * CELL;
+      ly  = anchorGy * CELL - thickness / 2;
+      lw  = bodyGu * CELL; lh = thickness;
+      rx2 = lx;
+      ry2 = (anchorGy + widthGu) * CELL - thickness / 2;
+      rw2 = lw; rh2 = thickness;
+      break;
+    case 'west':
+      lx  = (anchorGx - bodyGu) * CELL;
+      ly  = anchorGy * CELL - thickness / 2;
+      lw  = bodyGu * CELL; lh = thickness;
+      rx2 = lx;
+      ry2 = (anchorGy + widthGu) * CELL - thickness / 2;
+      rw2 = lw; rh2 = thickness;
+      break;
+  }
+
+  ctx.fillStyle   = isSelected ? col + 'ee' : col + 'cc';
+  ctx.strokeStyle = isSelected ? '#f5a623' : col;
+  ctx.lineWidth   = isSelected ? 2.5 : 1.5;
+  ctx.fillRect(lx,  ly,  lw,  lh);
+  ctx.strokeRect(lx,  ly,  lw,  lh);
+  ctx.fillRect(rx2, ry2, rw2, rh2);
+  ctx.strokeRect(rx2, ry2, rw2, rh2);
+}
+
+// ── Ramp canvas rendering ─────────────────────────────────────────────────────
+// Helper: fill + hatch a clipped rect. angleDeg: 45 = '/' lines, 135 = '\' lines.
+function drawHatchedRect(x, y, w, h, bgColor, lineColor, angleDeg) {
+  if (w <= 0 || h <= 0) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth   = 1;
+  const spacing = 7;
+  const ext     = Math.max(w, h) + spacing;
+  ctx.beginPath();
+  for (let offset = -ext; offset <= w + ext; offset += spacing) {
+    if (angleDeg === 45) {
+      // '/' — from bottom-left to top-right
+      ctx.moveTo(x + offset,     y + h);
+      ctx.lineTo(x + offset + h, y);
+    } else {
+      // '\' — from top-left to bottom-right
+      ctx.moveTo(x + offset,     y);
+      ctx.lineTo(x + offset + h, y + h);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+
+function renderFlightSegmentOnCanvas(flight, ramp, isSelected) {
+  const { anchorGx, anchorGy, direction, widthCols } = ramp;
+  const { panels: fPanels, anchorGuDepth } = flight;
+  const widthGu = widthCols * 2;
+  const colGu   = 2;
+
+  // Effective anchor for this flight
+  let fAGx = anchorGx, fAGy = anchorGy;
+  switch (direction) {
+    case 'south': fAGy += anchorGuDepth; break;
+    case 'north': fAGy -= anchorGuDepth; break;
+    case 'east':  fAGx += anchorGuDepth; break;
+    case 'west':  fAGx -= anchorGuDepth; break;
+  }
+
+  const col0 = fPanels.filter(p => p.panelCol === 0).sort((a, b) => a.panelRow - b.panelRow);
+  const rowBoundaryGu = [0];
+  let cumGu = 0;
+  for (const p of col0) {
+    const depGu = (direction === 'north' || direction === 'south') ? p.gh : p.gw;
+    cumGu += depGu;
+    rowBoundaryGu.push(cumGu);
+  }
+
+  // Build cells
+  const cells = [];
+  let bx, by, bw, bh;
+  switch (direction) {
+    case 'south': {
+      bx = fAGx * CELL; by = fAGy * CELL; bw = widthGu * CELL; bh = cumGu * CELL;
+      for (let i = 0; i < col0.length; i++) {
+        const y0 = by + rowBoundaryGu[i] * CELL;
+        const ch = (rowBoundaryGu[i+1] - rowBoundaryGu[i]) * CELL;
+        for (let j = 0; j < widthCols; j++) cells.push({ x: bx + j*colGu*CELL, y: y0, w: colGu*CELL, h: ch, text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(colGu*CELL, ch) });
+      }
+      break;
+    }
+    case 'north': {
+      bx = fAGx * CELL; by = (anchorGy - anchorGuDepth - cumGu) * CELL; bw = widthGu * CELL; bh = cumGu * CELL;
+      for (let i = 0; i < col0.length; i++) {
+        const y0 = (anchorGy - anchorGuDepth) * CELL - rowBoundaryGu[i+1] * CELL;
+        const ch = (rowBoundaryGu[i+1] - rowBoundaryGu[i]) * CELL;
+        for (let j = 0; j < widthCols; j++) cells.push({ x: bx + j*colGu*CELL, y: y0, w: colGu*CELL, h: ch, text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(colGu*CELL, ch) });
+      }
+      break;
+    }
+    case 'east': {
+      bx = fAGx * CELL; by = fAGy * CELL; bw = cumGu * CELL; bh = widthGu * CELL;
+      for (let i = 0; i < col0.length; i++) {
+        const x0 = bx + rowBoundaryGu[i] * CELL;
+        const cw = (rowBoundaryGu[i+1] - rowBoundaryGu[i]) * CELL;
+        for (let j = 0; j < widthCols; j++) cells.push({ x: x0, y: by + j*colGu*CELL, w: cw, h: colGu*CELL, text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(cw, colGu*CELL) });
+      }
+      break;
+    }
+    case 'west': {
+      bx = (anchorGx - anchorGuDepth - cumGu) * CELL; by = fAGy * CELL; bw = cumGu * CELL; bh = widthGu * CELL;
+      for (let i = 0; i < col0.length; i++) {
+        const x0 = (anchorGx - anchorGuDepth) * CELL - rowBoundaryGu[i+1] * CELL;
+        const cw = (rowBoundaryGu[i+1] - rowBoundaryGu[i]) * CELL;
+        for (let j = 0; j < widthCols; j++) cells.push({ x: x0, y: by + j*colGu*CELL, w: cw, h: colGu*CELL, text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(cw, colGu*CELL) });
+      }
+      break;
+    }
+  }
+
+  for (const cell of cells) drawHatchedRect(cell.x, cell.y, cell.w, cell.h, 'rgba(232,62,140,0.12)', 'rgba(232,62,140,0.45)', 45);
+  ctx.strokeStyle = 'rgba(232,62,140,0.7)'; ctx.lineWidth = 1.5;
+  for (const cell of cells) ctx.strokeRect(cell.x, cell.y, cell.w, cell.h);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const cell of cells) {
+    if (cell.minDim < 14) continue;
+    ctx.fillStyle = isSelected ? 'rgba(245,166,35,0.9)' : 'rgba(232,62,140,0.9)';
+    ctx.font = `bold ${cell.minDim >= 28 ? 10 : 8}px "Barlow Condensed"`;
+    ctx.fillText(cell.text, cell.x + cell.w/2, cell.y + cell.h/2);
+  }
+  // Flight body outline
+  const strokeCol = isSelected ? '#f5a623' : '#e83e8c';
+  ctx.strokeStyle = strokeCol; ctx.lineWidth = isSelected ? 2.5 : 2;
+  ctx.strokeRect(bx, by, bw, bh);
+}
+
+// Render an intermediate level landing rectangle.
+// Styled like a flat stage panel — solid fill with a label.
+function renderRampLandingOnCanvas(landing, ramp, isSelected) {
+  const { anchorGx, anchorGy, direction } = ramp;
+  const widthGu  = landing.widthCols * 2;
+  const depthGu  = landing.depthGu;
+  let lx, ly, lw, lh;
+  switch (direction) {
+    case 'south': lx = anchorGx * CELL; ly = (anchorGy + landing.anchorGuDepth) * CELL; lw = widthGu * CELL; lh = depthGu * CELL; break;
+    case 'north': lx = anchorGx * CELL; ly = (anchorGy - landing.anchorGuDepth - depthGu) * CELL; lw = widthGu * CELL; lh = depthGu * CELL; break;
+    case 'east':  lx = (anchorGx + landing.anchorGuDepth) * CELL; ly = anchorGy * CELL; lw = depthGu * CELL; lh = widthGu * CELL; break;
+    case 'west':  lx = (anchorGx - landing.anchorGuDepth - depthGu) * CELL; ly = anchorGy * CELL; lw = depthGu * CELL; lh = widthGu * CELL; break;
+  }
+  // Fill — same blue tint as stage panels, distinct from flight hatch
+  ctx.fillStyle = 'rgba(59,91,219,0.18)';
+  ctx.fillRect(lx, ly, lw, lh);
+  // Border
+  ctx.strokeStyle = isSelected ? '#f5a623' : '#3b5bdb';
+  ctx.lineWidth   = isSelected ? 2.5 : 2;
+  ctx.strokeRect(lx, ly, lw, lh);
+  // Label
+  const minDim = Math.min(lw, lh);
+  if (minDim >= 14) {
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle    = isSelected ? '#f5a623' : '#3b5bdb';
+    ctx.font         = `bold ${minDim >= 28 ? 10 : 8}px "Barlow Condensed"`;
+    ctx.fillText('LANDING', lx + lw/2, ly + lh/2 - (minDim >= 28 ? 5 : 0));
+    if (minDim >= 28) {
+      ctx.font = `9px "Barlow Condensed"`;
+      ctx.fillStyle = isSelected ? 'rgba(245,166,35,0.8)' : 'rgba(59,91,219,0.8)';
+      ctx.fillText(`${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm`, lx + lw/2, ly + lh/2 + 6);
+    }
+  }
+}
+
+function drawRampsOnCanvas() {
+  if (!ramps.length) return;
+
+  for (const ramp of ramps) {
+    const isSelected = ramp.id === selectedRampId;
+
+    const { anchorGx, anchorGy, direction, widthCols,
+            hingeDepthMm, gradient, id, panels: rPanels } = ramp;
+
+    const widthGu   = widthCols * 2;
+    const rampBotGu = 1219.2 / FT2;  // 4ft ramp bottom unit = 2 GU, always fixed
+
+    // ── Multi-flight path (ramp.flights present) ──────────────────────────────
+    if (ramp.flights) {
+      const tbGu     = ramp.totalBodyGu || ramp.flights.reduce((s, f) => s + (f.depthGu ?? f.panels.filter(p => p.panelCol === 0).reduce((ss, p) => ss + ((direction === 'north' || direction === 'south') ? p.gh : p.gw), 0)), 0);
+      const hingeGpx = Math.max(hingeDepthMm / FT2 * CELL, 3);
+      const bwPx     = widthGu * CELL;
+
+      for (const seg of ramp.flights) {
+        if (seg.type === 'flight') renderFlightSegmentOnCanvas(seg, ramp, isSelected);
+        else renderRampLandingOnCanvas(seg, ramp, isSelected);
+      }
+
+      // Hinge + ramp-bottom positions, computed from totalBodyGu
+      let hx, hy, hw, hh, rx, ry, rw, rh;
+      switch (direction) {
+        case 'south':
+          hx = anchorGx * CELL; hy = anchorGy * CELL;        hw = bwPx; hh = hingeGpx;
+          rx = anchorGx * CELL; ry = (anchorGy + tbGu) * CELL; rw = bwPx; rh = rampBotGu * CELL; break;
+        case 'north':
+          hx = anchorGx * CELL; hy = anchorGy * CELL - hingeGpx; hw = bwPx; hh = hingeGpx;
+          rx = anchorGx * CELL; ry = (anchorGy - tbGu - rampBotGu) * CELL; rw = bwPx; rh = rampBotGu * CELL; break;
+        case 'east':
+          hx = anchorGx * CELL;        hy = anchorGy * CELL; hw = hingeGpx; hh = bwPx;
+          rx = (anchorGx + tbGu) * CELL; ry = anchorGy * CELL; rw = rampBotGu * CELL; rh = bwPx; break;
+        case 'west':
+          hx = anchorGx * CELL - hingeGpx; hy = anchorGy * CELL; hw = hingeGpx; hh = bwPx;
+          rx = (anchorGx - tbGu - rampBotGu) * CELL; ry = anchorGy * CELL; rw = rampBotGu * CELL; rh = bwPx; break;
+      }
+      drawHatchedRect(rx, ry, rw, rh, 'rgba(232,62,140,0.07)', 'rgba(232,62,140,0.3)', 135);
+      ctx.strokeStyle = isSelected ? '#f5a623' : 'rgba(232,62,140,0.7)';
+      ctx.lineWidth   = isSelected ? 2.5 : 1.5;
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.fillStyle = '#e83e8c'; ctx.fillRect(hx, hy, hw, hh);
+      if (Math.min(hw, hh) >= 4 && Math.max(hw, hh) >= 28) {
+        ctx.save(); ctx.fillStyle = '#fff'; ctx.font = `bold 7px "Barlow Condensed"`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('HINGE', hx + hw/2, hy + hh/2); ctx.restore();
+      }
+      if (Math.min(rw, rh) >= 18) {
+        ctx.fillStyle = 'rgba(232,62,140,0.8)'; ctx.font = `bold 8px "Barlow Condensed"`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('RAMP BOTTOM', rx + rw/2, ry + rh/2);
+      }
+      // Side handrail lines — run the full body length on each outer edge
+      drawRampSideHandrails(ramp, tbGu, isSelected);
+
+      // R-label on first flight body
+      const ff = ramp.flights.find(s => s.type === 'flight');
+      if (ff) {
+        const fp = ff.panels.filter(p => p.panelCol === 0);
+        let fbGu = fp.reduce((s, p) => s + ((direction === 'north' || direction === 'south') ? p.gh : p.gw), 0);
+        let fbx, fby, fbw, fbh;
+        switch (direction) {
+          case 'south': fbx = anchorGx * CELL;         fby = anchorGy * CELL;        fbw = bwPx;        fbh = fbGu * CELL; break;
+          case 'north': fbx = anchorGx * CELL;         fby = (anchorGy - fbGu) * CELL; fbw = bwPx;      fbh = fbGu * CELL; break;
+          case 'east':  fbx = anchorGx * CELL;         fby = anchorGy * CELL;        fbw = fbGu * CELL; fbh = bwPx;        break;
+          case 'west':  fbx = (anchorGx - fbGu) * CELL; fby = anchorGy * CELL;       fbw = fbGu * CELL; fbh = bwPx;        break;
+        }
+        const labelCol = isSelected ? '#f5a623' : '#e83e8c';
+        const bCx = fbx + fbw/2; const bCy = fby + fbh/2; const bMin = Math.min(fbw, fbh);
+        const rn  = id.replace('ramp-', '');
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (bMin >= 30) {
+          ctx.fillStyle = labelCol; ctx.font = `bold 11px "Barlow Condensed"`;
+          ctx.fillText(`R${rn}`, bCx, bCy - (bMin >= 50 ? 9 : 0));
+          if (bMin >= 40) { ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillText(`1:${gradient}`, bCx, bCy + 5); }
+          if (bMin >= 72) { ctx.font = `9px "Barlow Condensed"`; ctx.fillStyle = 'rgba(232,62,140,0.7)'; ctx.fillText(`${Math.round(ramp.slopedRun).toLocaleString()}mm`, bCx, bCy + 18); }
+        } else if (bMin >= 14) {
+          ctx.fillStyle = labelCol; ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillText(`R${rn}`, bCx, bCy);
+        }
+      }
+      continue;  // skip legacy path below
+    }
+
+    // ── Build row boundaries and labels from ramp.panels[] ────────────────────
+    // col0: one panel per row, in row order — depth axis comes from actual grid dims.
+    const col0 = rPanels.filter(p => p.panelCol === 0)
+                        .sort((a, b) => a.panelRow - b.panelRow);
+    const rowBoundaryGu = [0];  // cumulative GU from anchor per row boundary
+    let cumGu = 0;
+    for (const p of col0) {
+      const depGu = (direction === 'north' || direction === 'south') ? p.gh : p.gw;
+      cumGu += depGu;
+      rowBoundaryGu.push(cumGu);
+    }
+    // slopedRunGu is the total of actual panel depths from ramp.panels — not derived
+    // from slopedRun mm, to guarantee canvas matches what addRamp() produced.
+    const slopedRunGu = rowBoundaryGu[rowBoundaryGu.length - 1];
+    const hingeGpx    = Math.max(hingeDepthMm / FT2 * CELL, 3);  // at least 3px
+
+    // ── Bounding rects for body, hinge strip, ramp bottom ─────────────────────
+    let bx, by, bw, bh;    // sloped body
+    let hx, hy, hw, hh;    // hinge strip
+    let rx, ry, rw, rh;    // ramp bottom
+    // Per-cell: one entry per (row × col) panel — {x,y,w,h,text,minDim}
+    const cells = [];
+    const colGu = 2;  // each panel column is always 2 GU wide
+
+    switch (direction) {
+      case 'south': {
+        bx = anchorGx * CELL;  by = anchorGy * CELL;
+        bw = widthGu * CELL;   bh = slopedRunGu * CELL;
+        hx = bx; hy = by; hw = bw; hh = hingeGpx;
+        rx = bx; ry = by + bh; rw = bw; rh = rampBotGu * CELL;
+        for (let i = 0; i < col0.length; i++) {
+          const y0 = by + rowBoundaryGu[i]     * CELL;
+          const ch = (rowBoundaryGu[i + 1] - rowBoundaryGu[i]) * CELL;
+          for (let j = 0; j < widthCols; j++) {
+            const cx = bx + j * colGu * CELL;
+            const cw = colGu * CELL;
+            cells.push({ x: cx, y: y0, w: cw, h: ch,
+              text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(cw, ch) });
+          }
+        }
+        break;
+      }
+      case 'north': {
+        bx = anchorGx * CELL;  by = (anchorGy - slopedRunGu) * CELL;
+        bw = widthGu * CELL;   bh = slopedRunGu * CELL;
+        hx = bx; hy = by + bh - hingeGpx; hw = bw; hh = hingeGpx;
+        rx = bx; ry = by - rampBotGu * CELL; rw = bw; rh = rampBotGu * CELL;
+        for (let i = 0; i < col0.length; i++) {
+          const y0 = anchorGy * CELL - rowBoundaryGu[i + 1] * CELL;
+          const ch = (rowBoundaryGu[i + 1] - rowBoundaryGu[i]) * CELL;
+          for (let j = 0; j < widthCols; j++) {
+            const cx = bx + j * colGu * CELL;
+            const cw = colGu * CELL;
+            cells.push({ x: cx, y: y0, w: cw, h: ch,
+              text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(cw, ch) });
+          }
+        }
+        break;
+      }
+      case 'east': {
+        bx = anchorGx * CELL;    by = anchorGy * CELL;
+        bw = slopedRunGu * CELL; bh = widthGu * CELL;
+        hx = bx; hy = by; hw = hingeGpx; hh = bh;
+        rx = bx + bw; ry = by; rw = rampBotGu * CELL; rh = bh;
+        for (let i = 0; i < col0.length; i++) {
+          const x0 = bx + rowBoundaryGu[i]     * CELL;
+          const cw = (rowBoundaryGu[i + 1] - rowBoundaryGu[i]) * CELL;
+          for (let j = 0; j < widthCols; j++) {
+            const cy = by + j * colGu * CELL;
+            const ch = colGu * CELL;
+            cells.push({ x: x0, y: cy, w: cw, h: ch,
+              text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(cw, ch) });
+          }
+        }
+        break;
+      }
+      case 'west': {
+        bx = (anchorGx - slopedRunGu) * CELL; by = anchorGy * CELL;
+        bw = slopedRunGu * CELL;               bh = widthGu * CELL;
+        hx = bx + bw - hingeGpx; hy = by; hw = hingeGpx; hh = bh;
+        rx = bx - rampBotGu * CELL; ry = by; rw = rampBotGu * CELL; rh = bh;
+        for (let i = 0; i < col0.length; i++) {
+          const x0 = anchorGx * CELL - rowBoundaryGu[i + 1] * CELL;
+          const cw = (rowBoundaryGu[i + 1] - rowBoundaryGu[i]) * CELL;
+          for (let j = 0; j < widthCols; j++) {
+            const cy = by + j * colGu * CELL;
+            const ch = colGu * CELL;
+            cells.push({ x: x0, y: cy, w: cw, h: ch,
+              text: PANEL_LABELS[col0[i].litedeckType], minDim: Math.min(cw, ch) });
+          }
+        }
+        break;
+      }
+    }
+
+    // ── Draw body cells (45° hatch, one rect per panel) ──────────────────────
+    for (const cell of cells) {
+      drawHatchedRect(cell.x, cell.y, cell.w, cell.h,
+        'rgba(232,62,140,0.12)', 'rgba(232,62,140,0.45)', 45);
+    }
+
+    // ── Draw ramp bottom (135° hatch, different angle) ─────────────────────────
+    drawHatchedRect(rx, ry, rw, rh,
+      'rgba(232,62,140,0.07)', 'rgba(232,62,140,0.3)', 135);
+
+    // ── Cell borders — stroke each panel cell individually ────────────────────
+    ctx.strokeStyle = 'rgba(232,62,140,0.7)';
+    ctx.lineWidth   = 1.5;
+    for (const cell of cells) {
+      ctx.strokeRect(cell.x, cell.y, cell.w, cell.h);
+    }
+
+    // ── Per-cell panel size labels ────────────────────────────────────────────
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    for (const cell of cells) {
+      if (cell.minDim < 14) continue;
+      ctx.fillStyle = isSelected ? 'rgba(245,166,35,0.9)' : 'rgba(232,62,140,0.9)';
+      ctx.font      = `bold ${cell.minDim >= 28 ? 10 : 8}px "Barlow Condensed"`;
+      ctx.fillText(cell.text, cell.x + cell.w / 2, cell.y + cell.h / 2);
+    }
+
+    // ── Outlines ─────────────────────────────────────────────────────────────
+    const strokeCol = isSelected ? '#f5a623' : '#e83e8c';
+    const strokeW   = isSelected ? 2.5 : 2;
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth   = strokeW;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.strokeStyle = isSelected ? '#f5a623' : 'rgba(232,62,140,0.7)';
+    ctx.lineWidth   = isSelected ? 2.5 : 1.5;
+    ctx.strokeRect(rx, ry, rw, rh);
+
+    // ── Hinge bar (solid, at stage junction) ──────────────────────────────────
+    ctx.fillStyle = '#e83e8c';
+    ctx.fillRect(hx, hy, hw, hh);
+    // HINGE label if bar is tall/wide enough
+    const hingeMinDim = Math.min(hw, hh);
+    const hingeMaxDim = Math.max(hw, hh);
+    if (hingeMinDim >= 4 && hingeMaxDim >= 28) {
+      ctx.save();
+      ctx.fillStyle    = '#fff';
+      ctx.font         = `bold 7px "Barlow Condensed"`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('HINGE', hx + hw / 2, hy + hh / 2);
+      ctx.restore();
+    }
+
+    // ── Ramp bottom label ─────────────────────────────────────────────────────
+    const botMinDim = Math.min(rw, rh);
+    if (botMinDim >= 18) {
+      ctx.fillStyle    = 'rgba(232,62,140,0.8)';
+      ctx.font         = `bold 8px "Barlow Condensed"`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('RAMP BOTTOM', rx + rw / 2, ry + rh / 2);
+    }
+
+    // ── Side handrail lines ───────────────────────────────────────────────────
+    drawRampSideHandrails(ramp, slopedRunGu, isSelected);
+
+    // ── Body labels (ID, gradient, footprint) ─────────────────────────────────
+    const labelCol   = isSelected ? '#f5a623' : '#e83e8c';
+    const bodyCx     = bx + bw / 2;
+    const bodyCy     = by + bh / 2;
+    const bodyMinDim = Math.min(bw, bh);
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    const rampNum = id.replace('ramp-', '');
+    if (bodyMinDim >= 30) {
+      ctx.fillStyle = labelCol;
+      ctx.font      = `bold 11px "Barlow Condensed"`;
+      ctx.fillText(`R${rampNum}`, bodyCx, bodyCy - (bodyMinDim >= 50 ? 9 : 0));
+      if (bodyMinDim >= 40) {
+        ctx.font = `bold 9px "Barlow Condensed"`;
+        ctx.fillText(`1:${gradient}`, bodyCx, bodyCy + 5);
+      }
+      if (bodyMinDim >= 72) {
+        ctx.font      = `9px "Barlow Condensed"`;
+        ctx.fillStyle = 'rgba(232,62,140,0.7)';
+        ctx.fillText(`${Math.round(ramp.slopedRun).toLocaleString()}mm`, bodyCx, bodyCy + 18);
+      }
+    } else if (bodyMinDim >= 14) {
+      ctx.fillStyle = labelCol;
+      ctx.font      = `bold 9px "Barlow Condensed"`;
+      ctx.fillText(`R${rampNum}`, bodyCx, bodyCy);
+    }
+  }
+}
+
+// ── Ramp hit testing ──────────────────────────────────────────────────────────
+function isInRamp(ramp, gx, gy) {
+  // Derive slopedRunGu from ramp.panels[] (matches drawRampsOnCanvas exactly)
+  const col0 = ramp.panels.filter(p => p.panelCol === 0).sort((a,b) => a.panelRow - b.panelRow);
+  let slopedRunGu = 0;
+  for (const p of col0) {
+    slopedRunGu += (ramp.direction === 'north' || ramp.direction === 'south') ? p.gh : p.gw;
+  }
+  const rampBotGu   = 1219.2 / FT2;  // 4ft ramp bottom = 2 GU, always fixed
+  const widthGu     = ramp.widthCols * 2;
+  const { anchorGx, anchorGy, direction } = ramp;
+
+  switch (direction) {
+    case 'south':
+      return gx >= anchorGx && gx < anchorGx + widthGu &&
+             gy >= anchorGy && gy < anchorGy + slopedRunGu + rampBotGu;
+    case 'north':
+      return gx >= anchorGx && gx < anchorGx + widthGu &&
+             gy >  anchorGy - slopedRunGu - rampBotGu && gy <= anchorGy;
+    case 'east':
+      return gx >= anchorGx && gx < anchorGx + slopedRunGu + rampBotGu &&
+             gy >= anchorGy && gy < anchorGy + widthGu;
+    case 'west':
+      return gx >  anchorGx - slopedRunGu - rampBotGu && gx <= anchorGx &&
+             gy >= anchorGy && gy < anchorGy + widthGu;
+  }
+  return false;
+}
+
 // ── Node computation (active tier) ───────────────────────────────────────────
 function computeNodes(tierId = activeTierId) {
   const tierPanels  = panels.filter(p => p.category === 'panel' && p.tier === tierId);
@@ -3012,10 +4072,8 @@ function calcLeg(finishedHeight, splitterCount, nodeType) {
       plates = [baseplateStd];
       smallJackNeeded = true;
     } else {
-      // Splitter node (or 1ft corner): stack plates; enforce minimum one plate
       const plateTarget = Math.max(remainder, 0);
       plates = plateTarget > 0 ? greedyStack(plateTarget) : [Math.min(...BP_SIZES.filter(s => s <= baseplateStd)) || baseplateStd];
-      // If remainder was exactly 0 (leg+splitter hits height exactly), force minimum plate
       if (plates.length === 0) plates = [baseplateStd];
       smallJackNeeded = false;
     }
@@ -3041,7 +4099,7 @@ function greedyStack(target) {
   for (const sz of BP_SIZES) {
     while (remaining >= sz) { result.push(sz); remaining -= sz; }
   }
-  if (remaining > 0) result.push(remaining); // bespoke remainder
+  if (remaining >= 9) result.push(remaining); // discard sub-9mm remainder — within physical tolerance
   return result;
 }
 
@@ -3052,6 +4110,1260 @@ function mmToLabel(mm) {
   const wholeFt  = Math.floor(halfFeet / 2);
   const hasHalf  = halfFeet % 2 === 1;
   return hasHalf ? `${wholeFt}′ 6″` : `${wholeFt}ft`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── RAMP ENGINE ─────────────────────────────────────────────────────────────
+// All ramp logic is isolated here for clean porting to the client version.
+// Porting notes for client version:
+//   • Client schedule is simplified — omit per-node row detail table
+//   • Client has no Send Quote / pricing; ramp hardware has no line-item price
+//   • Client uses read-only config; gradient/width selectors can be hidden
+// ════════════════════════════════════════════════════════════════════════════
+
+// Count ramp panels sharing the corner at grid node (rowIdx, colIdx).
+// Panel (pr, pc) exists for pr∈[0,totalRows-1], pc∈[0,widthCols-1].
+function countPanelsAtRampNode(rowIdx, colIdx, totalRows, widthCols) {
+  let count = 0;
+  for (const pr of [rowIdx - 1, rowIdx]) {
+    for (const pc of [colIdx - 1, colIdx]) {
+      if (pr >= 0 && pr < totalRows && pc >= 0 && pc < widthCols) count++;
+    }
+  }
+  return count;
+}
+
+// Canvas grid position (gx, gy) of ramp node (rowIdx, colIdx).
+// anchor = top-left node of the hinge row in grid units.
+// rowIdx grows away from stage; colIdx grows perpendicular (left→right when facing ramp).
+function rampNodeGridPos(anchorGx, anchorGy, direction, rowIdx, colIdx) {
+  switch (direction) {
+    case 'south': return { gx: anchorGx + colIdx * 2, gy: anchorGy + rowIdx * 4 };
+    case 'north': return { gx: anchorGx + colIdx * 2, gy: anchorGy - rowIdx * 4 };
+    case 'east':  return { gx: anchorGx + rowIdx * 4, gy: anchorGy + colIdx * 2 };
+    case 'west':  return { gx: anchorGx - rowIdx * 4, gy: anchorGy + colIdx * 2 };
+  }
+}
+
+// Shared leg-label formatter (mirrors the local legMmToFtLabel inside buildScheduleData).
+function rampLegLabel(mm) {
+  if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
+  if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
+  const halfFeet = Math.round(mm / 152.4) / 2;
+  const wholeFt  = Math.floor(halfFeet);
+  const hasHalf  = (halfFeet % 1) !== 0;
+  const ftLabel  = hasHalf ? `${wholeFt}'6"` : `${wholeFt}ft`;
+  return `${ftLabel} leg (${Math.round(mm)}mm)`;
+}
+
+// ── rampPanelFill ─────────────────────────────────────────────────────────────
+// Greedy fill of the theoretical run using standard panel sizes (depth axis).
+// Always 4ft wide; depth varies. Each entry: { lengthMm, sizeFt, guDepth, litedeckType }
+// 8ft first, 4ft second, 2ft third (minimum unit).
+const RAMP_HINGE_DEPTH_MM  = 50;      // measured physical hardware — do not change
+const RAMP_BOTTOM_MM       = 1219.2;  // 4'×4' ramp bottom unit, always 1 per width column
+
+// riseMm / gradientDenominator / heightTolerance are optional.
+// When provided, a panel is NOT added if it would cause (goingSoFar + panel.lengthMm) / gradient
+// to exceed riseMm + heightTolerance — preventing a trailing panel that barely overshoots
+// the theoretical rise by more than the allowed margin.
+function rampPanelFill(theoreticalRun, riseMm, gradientDenominator, heightTolerance) {
+  const SIZES = [
+    { lengthMm: 2438.4, sizeFt: 8, guDepth: 4, litedeckType: '8x4' },
+    { lengthMm: 1219.2, sizeFt: 4, guDepth: 2, litedeckType: '4x4' },
+    // 4x2 panels are not used in ramp passes — minimum pass panel is 4x4
+  ];
+  const result = [];
+  let remaining  = theoreticalRun;
+  let goingSoFar = 0;
+  const checkOvershoot = riseMm != null && gradientDenominator != null && heightTolerance != null;
+  while (remaining > 0) {
+    const sz = remaining > 1219.2 ? SIZES[0]   // 8ft — covers any remainder that needs more than one 4ft
+             :                      SIZES[1];  // 4ft minimum
+    // 175mm remaining height check: if the remaining rise is within the ramp bottom's
+    // capacity (≤ 175mm), stop — the ramp bottom handles the final drop to ground.
+    if (gradientDenominator != null && remaining / gradientDenominator <= 225) break;
+    // Overshoot check: skip this panel if it would push the actual rise more than
+    // heightTolerance beyond the theoretical rise for this flight.
+    if (checkOvershoot && (goingSoFar + sz.lengthMm) / gradientDenominator > riseMm + heightTolerance) break;
+    result.push({ ...sz });
+    goingSoFar += sz.lengthMm;
+    remaining  -= sz.lengthMm;
+    // Proximity stop: if we're within 100mm of the theoretical going (either side),
+    // don't append another panel — the gap is within tolerance.
+    if (Math.abs(remaining) < 100) break;
+    if (sz === SIZES[SIZES.length - 1] && remaining > 0) break; // minimum unit — stop
+  }
+  return result;
+}
+
+// ── Landing compliance (UK AD M / Doc K / BS 8300) ───────────────────────────
+// When a ramp flight exceeds the max permitted going for its gradient an
+// intermediate level landing is required.  Minimum landing depth is 1,500mm;
+// two 4ft Litedeck panels in series (2,438.4mm) is the minimum compliant unit.
+const USE_LANDING_SPLITS     = true;
+const LANDING_PANEL_DEPTH_MM = 1219.2;                      // one 4ft panel
+const LANDING_DEPTH_MM       = 2 * LANDING_PANEL_DEPTH_MM;  // 2,438.4mm
+const LANDING_DEPTH_GU       = 4;                           // 2 rows × 2 GU
+
+// Returns the maximum permitted horizontal going (mm) for one flight at gradient 1:g.
+// AD M table values govern the three standard gradients; formula interpolates others.
+function maxGoingForGradient(g) {
+  if (g >= 20) return Math.min(g * 500, 10000);   // 1:20 → 10,000mm
+  if (g >= 15) return 5000;                         // 1:15 →  5,000mm
+  if (g >= 12) return 2000;                         // 1:12 →  2,000mm
+  return Math.max(Math.min(g * 167, 2000), 300);    // steeper: scale proportionally
+}
+
+// Pure function — no side effects.
+// Returns segments in descent order (stage → ground), each a flight or landing:
+//   flight:  { type:'flight',  riseMm, goingMm, heightAtStart, heightAtEnd }
+//   landing: { type:'landing', depthMm, depthGu, heightMm }
+// Rules (BS 8300 / AD M temporary ramps):
+//   • No top or bottom landings — hinge and ramp-bottom unit serve those transitions.
+//   • One intermediate landing per 625mm of vertical rise (triggered when rise > 625mm).
+//   • Landings placed at equal horizontal intervals; each flight seeded from actual
+//     remaining height so panel-fill overshoot doesn't propagate as phantom extra panels.
+function splitRampIntoFlights(totalRiseMm, gradientDenominator) {
+  // numLandings: 0 for ≤625mm rise, 1 for 626–1250mm, 2 for 1251–1875mm, etc.
+  const numLandings = Math.max(0, Math.ceil(totalRiseMm / 625) - 1);
+  const numFlights  = numLandings + 1;
+  const segments    = [];
+
+  // Evenly-spaced target heights at which intermediate landings are placed.
+  const targetHeights = Array.from({ length: numFlights }, (_, i) =>
+    i === numFlights - 1 ? 0
+    : totalRiseMm - Math.round(totalRiseMm * (i + 1) / numFlights)
+  );
+
+  // heightNow: the ACTUAL height remaining after each flight's panel fill.
+  // rampPanelFill rounds up to the next panel boundary, so each flight consumes
+  // more height than the theoretical rise.  Seeding from the real remainder
+  // prevents subsequent flights from padding to match a symmetric theoretical value.
+  let heightNow = totalRiseMm;
+
+  for (let i = 0; i < numFlights; i++) {
+    const theoreticalRise  = Math.max(0, heightNow - targetHeights[i]);
+    const theoreticalGoing = theoreticalRise * gradientDenominator;
+
+    // Panel fill with overshoot guard: a trailing panel is suppressed if it would push
+    // actualRise more than 100mm beyond theoreticalRise (avoids spurious extra panels).
+    // goingMm stores the actual going so computeRampFlights can re-call rampPanelFill(goingMm)
+    // and obtain exactly the same panel set (actualGoing is always a clean panel-size sum).
+    const panels      = rampPanelFill(theoreticalGoing, theoreticalRise, gradientDenominator, 100);
+    const actualGoing = panels.reduce((s, p) => s + p.lengthMm, 0);
+    const actualRise  = actualGoing / gradientDenominator;
+
+    segments.push({
+      type:          'flight',
+      riseMm:        actualRise,   // actual: matches slopedRun / gradient in computeRampFlights
+      goingMm:       actualGoing,  // actual: safe for rampPanelFill re-call (clean panel-size sum)
+      heightAtStart: heightNow,
+      heightAtEnd:   heightNow - actualRise,
+    });
+
+    heightNow -= actualRise;  // advance by ACTUAL consumed height, not theoretical
+
+    if (i < numLandings) {
+      segments.push({ type: 'landing', depthMm: LANDING_DEPTH_MM, depthGu: LANDING_DEPTH_GU, heightMm: heightNow });
+    }
+  }
+
+  return segments;
+}
+
+// ── Turn landing geometry by ramp width ──────────────────────────────────────
+// Returns the physical dimensions and panel breakdown for a turn landing.
+// depthMm = dimension in the direction of travel (along the ramp run).
+// widthMm = dimension across (perpendicular to direction of travel).
+function calcTurnLandingGeometry(rampWidthMm) {
+  const rw = Math.round(rampWidthMm);
+  if (rw === 1219) {
+    // 4ft ramp — one rotated 8×4 panel spans both runs + spacer
+    return { depthMm: 1219.2, widthMm: 2438.4, rotated: true,
+             panels: [{ count: 1, label: '8×4 (rotated)' }] };
+  }
+  if (rw === 2438) {
+    // 8ft ramp — two standard 8×4 panels stacked in depth
+    return { depthMm: 2438.4, widthMm: 2438.4, rotated: false,
+             panels: [{ count: 2, label: '8×4' }] };
+  }
+  // 12ft or 16ft ramp — 4×4 panels tile the landing (widthCols × 2 rows)
+  const widthCols = Math.round(rampWidthMm / 1219.2);
+  return { depthMm: 2438.4, widthMm: rampWidthMm, rotated: false,
+           panels: [{ count: widthCols * 2, label: '4×4' }] };
+}
+
+// Builds the enriched flights[] array (used by addRamp and the backwards-compat reload).
+// Pure w.r.t. ramp identity — no nextRampId mutation, no ramps[] push.
+function computeRampFlights(anchorGx, anchorGy, direction, gradient, widthCols, stageHeight, tierPanels) {
+  const flights        = [];
+  const allFltPanels   = [];
+  const allFltLegs     = [];
+  const allFltSplits   = [];
+  const panelSummaryAll = {};
+  let cumGuDepth     = 0;
+  let globalPanelRow = 0;
+  let totalSlopedRun = 0;
+  let totalLandingMm = 0;
+
+  for (const seg of splitRampIntoFlights(stageHeight, gradient)) {
+    if (seg.type === 'flight') {
+      const depthPanels = rampPanelFill(seg.goingMm);
+      const totalRows   = depthPanels.length;
+      const slopedRun   = depthPanels.reduce((s, p) => s + p.lengthMm, 0);
+      totalSlopedRun   += slopedRun;
+
+      const fPanels = [];
+      let localGu   = 0;
+      for (let pr = 0; pr < totalRows; pr++) {
+        const dp = depthPanels[pr];
+        for (let pc = 0; pc < widthCols; pc++) {
+          const aGu = cumGuDepth + localGu;
+          let gx, gy, gw, gh;
+          switch (direction) {
+            case 'south': gx = anchorGx + pc*2;       gy = anchorGy + aGu;            gw = 2;          gh = dp.guDepth; break;
+            case 'north': gx = anchorGx + pc*2;       gy = anchorGy - aGu - dp.guDepth; gw = 2;        gh = dp.guDepth; break;
+            case 'east':  gx = anchorGx + aGu;        gy = anchorGy + pc*2;            gw = dp.guDepth; gh = 2;          break;
+            case 'west':  gx = anchorGx - aGu - dp.guDepth; gy = anchorGy + pc*2;     gw = dp.guDepth; gh = 2;          break;
+          }
+          const panel = { panelRow: pr, panelCol: pc, gx, gy, gw, gh, lengthMm: dp.lengthMm, sizeFt: dp.sizeFt, litedeckType: dp.litedeckType };
+          fPanels.push(panel);
+          allFltPanels.push({ ...panel, panelRow: globalPanelRow + pr });
+        }
+        localGu += dp.guDepth;
+      }
+
+      const nodeGuDepths = [0]; const nodeMmDepths = [0];
+      let cgd = 0, cmd = 0;
+      for (const dp of depthPanels) { cgd += dp.guDepth; nodeGuDepths.push(cgd); cmd += dp.lengthMm; nodeMmDepths.push(cmd); }
+
+      const fLegs = []; const fSplits = [];
+      for (let rowIdx = 1; rowIdx <= totalRows; rowIdx++) {
+        const cumDepthMm   = nodeMmDepths[rowIdx];
+        const guDepthAtRow = nodeGuDepths[rowIdx];
+        const heightAtNode = seg.heightAtStart - (cumDepthMm / slopedRun) * seg.riseMm;
+        for (let colIdx = 0; colIdx <= widthCols; colIdx++) {
+          const aGu = cumGuDepth + guDepthAtRow;
+          let nGx, nGy;
+          switch (direction) {
+            case 'south': nGx = anchorGx + colIdx*2; nGy = anchorGy + aGu; break;
+            case 'north': nGx = anchorGx + colIdx*2; nGy = anchorGy - aGu; break;
+            case 'east':  nGx = anchorGx + aGu;      nGy = anchorGy + colIdx*2; break;
+            case 'west':  nGx = anchorGx - aGu;      nGy = anchorGy + colIdx*2; break;
+          }
+          const rakeOffset = getRakeOffsetMm(nGx, nGy, tierPanels);
+          const effectiveH = Math.max(0, heightAtNode - rakeOffset);
+          const panelCount = countPanelsAtRampNode(rowIdx, colIdx, totalRows, widthCols);
+          const nodeType   = panelCount >= 3 ? 'internal' : panelCount >= 2 ? 'edge' : 'corner';
+          const splCount   = nodeType === 'corner' ? 0 : 1;
+          if (effectiveH < PANEL_BODY_MM) {
+            // Node is at or near ground level — no standard leg fits here, but retain in
+            // legs[] as a profile boundary for the side-view renderer.  The lowNode flag
+            // suppresses this entry in the schedule / accumulateLeg.
+            const leg = { rowIdx, colIdx, heightAtNode: Math.round(heightAtNode), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: depthPanels[rowIdx-1].sizeFt, nodeType, splitterCount: splCount, legResult: null, lowNode: true };
+            fLegs.push(leg); allFltLegs.push(leg);
+            continue;  // no splitter entry for ground-level nodes
+          }
+          const legResult  = calcLeg(effectiveH, splCount, nodeType);
+          const leg = { rowIdx, colIdx, heightAtNode: Math.round(heightAtNode), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: depthPanels[rowIdx-1].sizeFt, nodeType, splitterCount: splCount, legResult };
+          fLegs.push(leg); allFltLegs.push(leg);
+          if (nodeType === 'edge')     { fSplits.push({ rowIdx, colIdx, type: '2-way' }); allFltSplits.push({ rowIdx, colIdx, type: '2-way' }); }
+          if (nodeType === 'internal') { fSplits.push({ rowIdx, colIdx, type: '4-way' }); allFltSplits.push({ rowIdx, colIdx, type: '4-way' }); }
+        }
+      }
+      const fPanelSummary = {};
+      for (const dp of depthPanels) {
+        fPanelSummary[dp.litedeckType] = (fPanelSummary[dp.litedeckType] || 0) + widthCols;
+        panelSummaryAll[dp.litedeckType] = (panelSummaryAll[dp.litedeckType] || 0) + widthCols;
+      }
+      flights.push({ type: 'flight', segIdx: flights.length, riseMm: seg.riseMm, goingMm: seg.goingMm, heightAtStart: seg.heightAtStart, heightAtEnd: seg.heightAtEnd, slopedRun: Math.round(slopedRun), anchorGuDepth: cumGuDepth, totalRows, widthCols, panels: fPanels, legs: fLegs, splitters: fSplits, panelSummary: fPanelSummary });
+      cumGuDepth     += localGu;
+      globalPanelRow += totalRows;
+
+    } else {
+      // Landing
+      totalLandingMm += LANDING_DEPTH_MM;
+      const LRG = 2;  // 4ft panel = 2 GU per landing row
+      const landPanels = []; const landLegs = [];
+      for (let pr = 0; pr < 2; pr++) {
+        for (let pc = 0; pc < widthCols; pc++) {
+          const aGu = cumGuDepth + pr * LRG;
+          let gx, gy, gw, gh;
+          switch (direction) {
+            case 'south': gx = anchorGx + pc*2;       gy = anchorGy + aGu;          gw = 2;   gh = LRG; break;
+            case 'north': gx = anchorGx + pc*2;       gy = anchorGy - aGu - LRG;   gw = 2;   gh = LRG; break;
+            case 'east':  gx = anchorGx + aGu;        gy = anchorGy + pc*2;         gw = LRG; gh = 2;   break;
+            case 'west':  gx = anchorGx - aGu - LRG;  gy = anchorGy + pc*2;         gw = LRG; gh = 2;   break;
+          }
+          landPanels.push({ panelRow: pr, panelCol: pc, gx, gy, gw, gh, lengthMm: LANDING_PANEL_DEPTH_MM, sizeFt: 4, litedeckType: '4x4' });
+        }
+      }
+      // Nodes: rowIdx 0 = entry (shared with previous flight — skip), rowIdx 1 = mid-joint, rowIdx 2 = exit face
+      const landNodeMm = [0, LANDING_PANEL_DEPTH_MM, LANDING_DEPTH_MM];
+      const landNodeGu = [0, LRG, LANDING_DEPTH_GU];
+      for (let rowIdx = 1; rowIdx <= 2; rowIdx++) {
+        const cumDepthMm   = landNodeMm[rowIdx];
+        const guDepthAtRow = landNodeGu[rowIdx];
+        for (let colIdx = 0; colIdx <= widthCols; colIdx++) {
+          const aGu = cumGuDepth + guDepthAtRow;
+          let nGx, nGy;
+          switch (direction) {
+            case 'south': nGx = anchorGx + colIdx*2; nGy = anchorGy + aGu; break;
+            case 'north': nGx = anchorGx + colIdx*2; nGy = anchorGy - aGu; break;
+            case 'east':  nGx = anchorGx + aGu;      nGy = anchorGy + colIdx*2; break;
+            case 'west':  nGx = anchorGx - aGu;      nGy = anchorGy + colIdx*2; break;
+          }
+          const rakeOffset = getRakeOffsetMm(nGx, nGy, tierPanels);
+          const effectiveH = Math.max(0, seg.heightMm - rakeOffset);
+          const panelCount = countPanelsAtRampNode(rowIdx, colIdx, 2, widthCols);
+          const nodeType   = panelCount >= 3 ? 'internal' : panelCount >= 2 ? 'edge' : 'corner';
+          const splCount   = nodeType === 'corner' ? 0 : 1;
+          const legResult  = calcLeg(effectiveH, splCount, nodeType);
+          landLegs.push({ rowIdx, colIdx, heightAtNode: Math.round(seg.heightMm), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: 4, nodeType, splitterCount: splCount, legResult, isLanding: true });
+        }
+      }
+      flights.push({ type: 'landing', segIdx: flights.length, depthMm: LANDING_DEPTH_MM, depthGu: LANDING_DEPTH_GU, heightMm: seg.heightMm, anchorGuDepth: cumGuDepth, widthCols, panels: landPanels, legs: landLegs, panelSummary: { '4x4': widthCols * 2 } });
+      cumGuDepth += LANDING_DEPTH_GU;
+    }
+  }
+  return { flights, allFltPanels, allFltLegs, allFltSplits, panelSummaryAll, totalSlopedRun, totalLandingMm, totalBodyGu: cumGuDepth };
+}
+
+// ── addRamp ───────────────────────────────────────────────────────────────────
+// Core calculation. Reuses getRakeOffsetMm() and calcLeg() unmodified.
+// Returns a complete ramp object ready to push onto ramps[].
+// anchorGx/anchorGy: top-left grid corner of the hinge row (stage edge).
+// direction: which way the ramp descends away from the stage.
+// gradient: ratio denominator (e.g. 12 → 1:12).
+// widthFt: ramp width in ft, must be a multiple of 4.
+function addRamp(anchorGx, anchorGy, direction, gradient, widthFt, tierId) {
+  const tier = tiers.find(t => t.id === tierId);
+  if (!tier) return null;
+
+  const stageHeight = tier.finishedHeight;
+  const widthCols   = widthFt / 4;
+  const tierPanels  = panels.filter(p => p.category === 'panel' && p.tier === tierId);
+
+  if (!USE_LANDING_SPLITS) {
+    // ── Legacy single-flight path — kept intact for rollback ──────────────────
+    const theoreticalRun   = stageHeight * gradient;
+    const depthPanels      = rampPanelFill(theoreticalRun);
+    const totalRows        = depthPanels.length;
+    const slopedRun        = depthPanels.reduce((s, p) => s + p.lengthMm, 0);
+    const totalFootprintMm = slopedRun + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+    const rampPanels = []; let cumGu = 0;
+    for (let pr = 0; pr < totalRows; pr++) {
+      const dp = depthPanels[pr];
+      for (let pc = 0; pc < widthCols; pc++) {
+        let gx, gy, gw, gh;
+        switch (direction) {
+          case 'south': gx = anchorGx + pc*2;       gy = anchorGy + cumGu;            gw = 2;          gh = dp.guDepth; break;
+          case 'north': gx = anchorGx + pc*2;       gy = anchorGy - cumGu - dp.guDepth; gw = 2;        gh = dp.guDepth; break;
+          case 'east':  gx = anchorGx + cumGu;      gy = anchorGy + pc*2;             gw = dp.guDepth; gh = 2;          break;
+          case 'west':  gx = anchorGx - cumGu - dp.guDepth; gy = anchorGy + pc*2;     gw = dp.guDepth; gh = 2;          break;
+        }
+        rampPanels.push({ panelRow: pr, panelCol: pc, gx, gy, gw, gh, lengthMm: dp.lengthMm, sizeFt: dp.sizeFt, litedeckType: dp.litedeckType });
+      }
+      cumGu += dp.guDepth;
+    }
+    const nodeGuDepths = [0]; const nodeMmDepths = [0];
+    let cgd = 0, cmd = 0;
+    for (const dp of depthPanels) { cgd += dp.guDepth; nodeGuDepths.push(cgd); cmd += dp.lengthMm; nodeMmDepths.push(cmd); }
+    const legs = []; const splitters = [];
+    for (let rowIdx = 1; rowIdx <= totalRows; rowIdx++) {
+      const cumDepthMm = nodeMmDepths[rowIdx]; const guDepthAtRow = nodeGuDepths[rowIdx];
+      const heightAtNode = stageHeight - (cumDepthMm / slopedRun) * stageHeight;
+      for (let colIdx = 0; colIdx <= widthCols; colIdx++) {
+        let nGx, nGy;
+        switch (direction) {
+          case 'south': nGx = anchorGx + colIdx*2; nGy = anchorGy + guDepthAtRow; break;
+          case 'north': nGx = anchorGx + colIdx*2; nGy = anchorGy - guDepthAtRow; break;
+          case 'east':  nGx = anchorGx + guDepthAtRow; nGy = anchorGy + colIdx*2; break;
+          case 'west':  nGx = anchorGx - guDepthAtRow; nGy = anchorGy + colIdx*2; break;
+        }
+        const rakeOffset = getRakeOffsetMm(nGx, nGy, tierPanels);
+        const effectiveH = Math.max(0, heightAtNode - rakeOffset);
+        const panelCount = countPanelsAtRampNode(rowIdx, colIdx, totalRows, widthCols);
+        const nodeType   = panelCount >= 3 ? 'internal' : panelCount >= 2 ? 'edge' : 'corner';
+        const splCount   = nodeType === 'corner' ? 0 : 1;
+        if (effectiveH < PANEL_BODY_MM) {
+          // Ground-level node — profile boundary only; lowNode suppresses schedule entry.
+          legs.push({ rowIdx, colIdx, heightAtNode: Math.round(heightAtNode), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: depthPanels[rowIdx-1].sizeFt, nodeType, splitterCount: splCount, legResult: null, lowNode: true });
+          continue;
+        }
+        const legResult  = calcLeg(effectiveH, splCount, nodeType);
+        legs.push({ rowIdx, colIdx, heightAtNode: Math.round(heightAtNode), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: depthPanels[rowIdx-1].sizeFt, nodeType, splitterCount: splCount, legResult });
+        if (nodeType === 'edge')     splitters.push({ rowIdx, colIdx, type: '2-way' });
+        if (nodeType === 'internal') splitters.push({ rowIdx, colIdx, type: '4-way' });
+      }
+    }
+    const panelSummary = {};
+    for (const dp of depthPanels) panelSummary[dp.litedeckType] = (panelSummary[dp.litedeckType] || 0) + widthCols;
+    return {
+      id: 'ramp-' + (nextRampId++), tierId, anchorGx, anchorGy, direction, gradient, widthFt, widthCols, totalRows, stageHeight,
+      theoreticalRun: Math.round(theoreticalRun), slopedRun: Math.round(slopedRun),
+      hingeDepthMm: RAMP_HINGE_DEPTH_MM, rampBottomMm: RAMP_BOTTOM_MM, totalFootprintMm: Math.round(totalFootprintMm),
+      panels: rampPanels, panelSummary, legs, splitters, hingeQty: widthCols, rampBottomQty: widthCols,
+    };
+  }
+
+  // ── Multi-flight path (USE_LANDING_SPLITS = true) ──────────────────────────
+  const { flights, allFltPanels, allFltLegs, allFltSplits, panelSummaryAll, totalSlopedRun, totalLandingMm, totalBodyGu } =
+    computeRampFlights(anchorGx, anchorGy, direction, gradient, widthCols, stageHeight, tierPanels);
+
+  const numLandings      = flights.filter(s => s.type === 'landing').length;
+  const totalFootprintMm = totalSlopedRun + totalLandingMm + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+
+  return {
+    id: 'ramp-' + (nextRampId++),
+    tierId, anchorGx, anchorGy, direction, gradient, widthFt, widthCols, stageHeight,
+    theoreticalRun:   Math.round(stageHeight * gradient),
+    slopedRun:        Math.round(totalSlopedRun),
+    hingeDepthMm:     RAMP_HINGE_DEPTH_MM,
+    rampBottomMm:     RAMP_BOTTOM_MM,
+    totalFootprintMm: Math.round(totalFootprintMm),
+    numLandings,
+    totalBodyGu,
+    // Legacy flat arrays — flight data only, for backwards-compatible code paths
+    totalRows:    allFltPanels.length > 0 ? allFltPanels.reduce((m, p) => Math.max(m, p.panelRow + 1), 0) : 0,
+    panels:       allFltPanels,
+    panelSummary: panelSummaryAll,
+    legs:         allFltLegs,
+    splitters:    allFltSplits,
+    hingeQty:     widthCols,
+    rampBottomQty: widthCols,
+    // Structured per-segment breakdown
+    flights,
+  };
+}
+
+// ── Ramp UI / modal ───────────────────────────────────────────────────────────
+function selectRamp() {
+  rampConfigured  = false;
+  pendingCategory = 'ramp';
+  activeTool      = 'place';
+  selectedId      = null;
+  selectedRampId  = null;
+  canvas.style.cursor = 'crosshair';
+  document.getElementById('btn-tool-place') ?.classList.toggle('active', true);
+  document.getElementById('btn-tool-delete')?.classList.toggle('active', false);
+  document.getElementById('btn-tool-move')  ?.classList.toggle('active', false);
+  syncAllPendingButtons();
+  updatePendingInfo();
+  updateRampIndicator();
+  openRampConfigModal();
+}
+
+function openRampConfigModal() {
+  rampPending = null;
+  document.getElementById('ramp-modal').classList.add('active');
+  document.getElementById('ramp-validate-error').textContent = '';
+  rampSetWidth(rampCfg.widthFt);
+  [12, 15, 20].forEach(p =>
+    document.getElementById('rgrad-' + p).classList.toggle('active', p === rampCfg.gradient));
+  if (![12, 15, 20].includes(rampCfg.gradient))
+    document.getElementById('rgrad-custom').value = rampCfg.gradient;
+  updateRampModalInfo();
+}
+
+function closeRampModal() {
+  document.getElementById('ramp-modal').classList.remove('active');
+  rampPending = null;
+}
+
+function rampSetGradient(g) {
+  rampCfg.gradient = g;
+  [12, 15, 20].forEach(p =>
+    document.getElementById('rgrad-' + p).classList.toggle('active', p === g));
+  document.getElementById('rgrad-custom').value = '';
+  updateRampModalInfo();
+}
+
+function rampSetGradientCustom(val) {
+  const g = parseFloat(val);
+  if (isNaN(g) || g <= 0) return;
+  rampCfg.gradient = g;
+  [12, 15, 20].forEach(p => document.getElementById('rgrad-' + p).classList.remove('active'));
+  updateRampModalInfo();
+}
+
+function rampSetWidth(w) {
+  rampCfg.widthFt = w;
+  [4, 8, 12, 16].forEach(p =>
+    document.getElementById('rwid-' + p).classList.toggle('active', p === w));
+  updateRampModalInfo();
+}
+
+function updateRampModalInfo() {
+  const tierId      = rampPending ? rampPending.tierId : activeTierId;
+  const tier        = tiers.find(t => t.id === tierId);
+  const stageHeight = tier ? tier.finishedHeight : 0;
+
+  let warns = '';
+  if (rampCfg.gradient < 12) {
+    warns += `<div>⚠ Steeper than 1:12 — not suitable for public or accessible use</div>`;
+  }
+  warns += `<div style="color:var(--muted)">ℹ Handrails required on both sides at this stage height</div>`;
+
+  if (stageHeight && USE_LANDING_SPLITS) {
+    const rawSegs    = splitRampIntoFlights(stageHeight, rampCfg.gradient);
+    const numLandings = rawSegs.filter(s => s.type === 'landing').length;
+    const totalLandMm = numLandings * LANDING_DEPTH_MM;
+    const slopedTotal = rawSegs.filter(s => s.type === 'flight').reduce((sum, s) => {
+      const dp = rampPanelFill(s.goingMm);
+      return sum + dp.reduce((ss, p) => ss + p.lengthMm, 0);
+    }, 0);
+    const totalFp = slopedTotal + totalLandMm + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+    if (numLandings === 1) {
+      warns += `<div style="color:#c9a84c;margin-top:4px">⚠ This ramp requires 1 intermediate landing at ${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm. Total footprint including landing: ${Math.round(totalFp).toLocaleString()}mm.</div>`;
+    } else if (numLandings >= 2) {
+      warns += `<div style="color:var(--danger);margin-top:4px;font-weight:600">⚠ This ramp requires ${numLandings} intermediate landings. Consider a lower stage height or shallower gradient. Total footprint: ${Math.round(totalFp).toLocaleString()}mm.</div>`;
+    }
+  }
+
+  document.getElementById('ramp-warnings').innerHTML = warns;
+
+  if (!stageHeight) { document.getElementById('ramp-info').innerHTML = ''; return; }
+
+  const theoreticalRun = stageHeight * rampCfg.gradient;
+  const depthPanels    = rampPanelFill(theoreticalRun);
+  const slopedRun      = depthPanels.reduce((s, p) => s + p.lengthMm, 0);
+  const widthCols      = rampCfg.widthFt / 4;
+
+  // With landing splits, compute the true total footprint across all flights + landings
+  let totalFootprint;
+  if (USE_LANDING_SPLITS) {
+    const rawSegs    = splitRampIntoFlights(stageHeight, rampCfg.gradient);
+    const numLandings = rawSegs.filter(s => s.type === 'landing').length;
+    const slopedTotal = rawSegs.filter(s => s.type === 'flight').reduce((sum, s) => {
+      const dp = rampPanelFill(s.goingMm); return sum + dp.reduce((ss, p) => ss + p.lengthMm, 0);
+    }, 0);
+    totalFootprint = slopedTotal + numLandings * LANDING_DEPTH_MM + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+  } else {
+    totalFootprint = slopedRun + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+  }
+
+  // Count panel depth slots by size, multiply by widthCols for full ramp qty
+  const cnt = {};
+  for (const dp of depthPanels) cnt[dp.sizeFt] = (cnt[dp.sizeFt] || 0) + widthCols;
+  const panelDesc = [8, 4, 2]
+    .filter(s => cnt[s])
+    .map(s => `${cnt[s]}&times; ${s}'&times;4'`)
+    .join(', ');
+
+  document.getElementById('ramp-info').innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:11px;line-height:1.9;color:var(--muted)">
+      Sloped run: <strong style="color:var(--text)">${Math.round(slopedRun).toLocaleString()}mm</strong>
+        &nbsp;(${panelDesc})<br>
+      Hinge depth: <strong style="color:var(--text)">50mm</strong>
+        &nbsp;&bull;&nbsp;
+      Ramp bottom: <strong style="color:var(--text)">1,219mm</strong><br>
+      <span style="border-top:1px solid var(--border);display:block;padding-top:3px;margin-top:1px">
+        Total footprint: <strong style="color:var(--text)">${Math.round(totalFootprint).toLocaleString()}mm</strong>
+      </span>
+    </div>`;
+}
+
+// Config modal "Done" — arms the tool, no placement yet
+function confirmRamp() {
+  rampConfigured = true;
+  closeRampModal();
+  updateRampIndicator();
+  updatePendingInfo();
+  redraw();
+}
+
+// Cancel modal — if not yet configured, deactivate the ramp tool entirely
+function cancelRampModal() {
+  closeRampModal();
+  if (!rampConfigured) {
+    rampConfigured  = false;
+    pendingCategory = 'panel';
+    pendingType     = '8x4';
+    syncAllPendingButtons();
+    updatePendingInfo();
+    updateRampIndicator();
+    redraw();
+  }
+}
+
+// Re-open config modal mid-session without deactivating tool
+function editRampConfig() {
+  openRampConfigModal();
+}
+
+// Show/hide the sidebar config indicator badge
+function updateRampIndicator() {
+  const el = document.getElementById('ramp-config-indicator');
+  if (!el) return;
+  if (pendingCategory === 'ramp' && rampConfigured) {
+    document.getElementById('ramp-config-label').textContent =
+      `${rampCfg.widthFt}ft · 1:${rampCfg.gradient}`;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ── Dogleg ramp UI / modal ────────────────────────────────────────────────────
+function selectDoglegRamp() {
+  doglegConfigured = false;
+  pendingCategory  = 'dogleg-ramp';
+  activeTool       = 'place';
+  selectedId       = null;
+  selectedRampId   = null;
+  canvas.style.cursor = 'crosshair';
+  syncAllPendingButtons();
+  updatePendingInfo();
+  updateDoglegIndicator();
+  openDoglegModal();
+}
+
+function openDoglegModal() {
+  document.getElementById('dogleg-modal').classList.add('active');
+  document.getElementById('dl-validate-error').textContent = '';
+  // Type tiles
+  ['straight','90left','90right','stagehugging'].forEach(t =>
+    document.getElementById('dlt-' + t).classList.toggle('active', t === doglegCfg.type));
+  // Gradient
+  [12, 15, 20].forEach(p =>
+    document.getElementById('dlgrad-' + p).classList.toggle('active', p === doglegCfg.gradient));
+  document.getElementById('dlgrad-custom').value =
+    [12, 15, 20].includes(doglegCfg.gradient) ? '' : doglegCfg.gradient;
+  // Width
+  [4, 8, 12, 16].forEach(p =>
+    document.getElementById('dlwid-' + p).classList.toggle('active', p === doglegCfg.widthFt));
+  // Space fields — re-populate if previously set
+  document.getElementById('dls-width').value = doglegCfg.spaceWidth > 0 ? doglegCfg.spaceWidth : '';
+  document.getElementById('dls-depth').value = doglegCfg.spaceDepth > 0 ? doglegCfg.spaceDepth : '';
+}
+
+function closeDoglegModal() {
+  document.getElementById('dogleg-modal').classList.remove('active');
+}
+
+function doglegSetType(type) {
+  doglegCfg.type = type;
+  ['straight','90left','90right','stagehugging'].forEach(t =>
+    document.getElementById('dlt-' + t).classList.toggle('active', t === type));
+}
+
+function doglegSetGradient(g) {
+  doglegCfg.gradient = g;
+  [12, 15, 20].forEach(p =>
+    document.getElementById('dlgrad-' + p).classList.toggle('active', p === g));
+  document.getElementById('dlgrad-custom').value = '';
+}
+
+function doglegSetGradientCustom(val) {
+  const g = parseFloat(val);
+  if (isNaN(g) || g <= 0) return;
+  doglegCfg.gradient = g;
+  [12, 15, 20].forEach(p => document.getElementById('dlgrad-' + p).classList.remove('active'));
+}
+
+function doglegSetWidth(w) {
+  doglegCfg.widthFt = w;
+  [4, 8, 12, 16].forEach(p =>
+    document.getElementById('dlwid-' + p).classList.toggle('active', p === w));
+}
+
+function doglegSnapSpace(field) {
+  const inp = document.getElementById('dls-' + field);
+  const raw = parseFloat(inp.value);
+  if (isNaN(raw) || raw <= 0) { inp.value = ''; return; }
+  const snapped = Math.round(raw / 609.6) * 609.6;
+  inp.value = snapped;
+  if (field === 'width') doglegCfg.spaceWidth = snapped;
+  else                   doglegCfg.spaceDepth = snapped;
+}
+
+function confirmDoglegRamp() {
+  const errEl = document.getElementById('dl-validate-error');
+  const w = parseFloat(document.getElementById('dls-width').value);
+  const d = parseFloat(document.getElementById('dls-depth').value);
+  if (!(w > 0) || !(d > 0)) {
+    errEl.textContent = 'Enter a width and depth greater than zero.';
+    return;
+  }
+  doglegCfg.spaceWidth = w;
+  doglegCfg.spaceDepth = d;
+  doglegConfigured = true;
+  doglegState      = 'positioning';
+  doglegFixedPos   = null;
+  closeDoglegModal();
+  updateDoglegIndicator();
+  updatePendingInfo();
+  showDoglegOverlay('Drag to position available space — click to fix', false);
+  canvas.style.cursor = 'crosshair';
+}
+
+function cancelDoglegModal() {
+  closeDoglegModal();
+  if (!doglegConfigured) {
+    resetDoglegTool();
+    pendingCategory = 'panel';
+    pendingType     = '8x4';
+    syncAllPendingButtons();
+    updatePendingInfo();
+    updateDoglegIndicator();
+    redraw();
+  }
+}
+
+function editDoglegConfig() {
+  openDoglegModal();
+}
+
+function updateDoglegIndicator() {
+  const el = document.getElementById('dogleg-config-indicator');
+  if (!el) return;
+  if (pendingCategory === 'dogleg-ramp' && doglegConfigured) {
+    const typeLabels = {
+      straight: 'Straight',
+      '90left': '90° L', '90right': '90° R',
+      stagehugging: 'Stage-hug',
+    };
+    document.getElementById('dogleg-config-label').textContent =
+      `${doglegCfg.widthFt}ft · 1:${doglegCfg.gradient} · ${typeLabels[doglegCfg.type] || doglegCfg.type}`;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function showDoglegOverlay(text, showReposition, showConfirm = false, showPlace = false) {
+  const el = document.getElementById('dogleg-overlay');
+  if (!el) return;
+  el.style.display = 'flex';
+  _doglegNormalOverlayText = text;
+  document.getElementById('dogleg-overlay-text').textContent = text;
+  document.getElementById('dogleg-reposition-btn').style.display = showReposition ? 'inline-block' : 'none';
+  document.getElementById('dogleg-confirm-btn').style.display    = showConfirm    ? 'inline-block' : 'none';
+  document.getElementById('dogleg-place-btn').style.display      = showPlace      ? 'inline-block' : 'none';
+}
+
+let _doglegBriefTimer = null;
+function showDoglegOverlayBrief(errorText, ms = 2200) {
+  // Temporarily replace overlay text, restore to the last normal text after ms
+  const textEl = document.getElementById('dogleg-overlay-text');
+  if (!textEl) return;
+  const savedText = _doglegNormalOverlayText;
+  textEl.textContent = errorText;
+  if (_doglegBriefTimer) clearTimeout(_doglegBriefTimer);
+  _doglegBriefTimer = setTimeout(() => {
+    _doglegBriefTimer = null;
+    textEl.textContent = savedText;
+  }, ms);
+}
+
+function hideDoglegOverlay() {
+  const el = document.getElementById('dogleg-overlay');
+  if (el) el.style.display = 'none';
+}
+
+function doglegReposition() {
+  doglegState      = 'positioning';
+  doglegAttachment = null;
+  showDoglegOverlay('Drag to position available space — click to fix', false, false, false);
+  canvas.style.cursor = 'crosshair';
+  redraw();
+}
+
+function resetDoglegTool() {
+  doglegConfigured         = false;
+  doglegState              = null;
+  doglegFixedPos           = null;
+  doglegAttachment         = null;
+  _doglegNormalOverlayText = '';
+  hideDoglegOverlay();
+}
+
+function doglegConfirmAttachment() {
+  if (!doglegAttachment) return;
+  if (doglegCfg.type === 'straight')    { doglegPhase4Straight();    return; }
+  showDoglegOverlayBrief('This configuration is coming soon.', 2500);
+}
+
+function doglegPhase4Straight() {
+  const { anchorGx, anchorGy, direction } = doglegAttachment;
+  const wGu = Math.round(doglegCfg.spaceWidth / (FT2 / 2));
+  const hGu = Math.round(doglegCfg.spaceDepth / (FT2 / 2));
+  const { gx: rx, gy: ry } = doglegFixedPos;
+
+  // Step 1 — Deduct stage footprint from available space
+  // usableDepth = distance from attachment edge to the far edge of the rectangle in direction of travel
+  let usableDepthGu, stageDepthGu, totalAvailDepthMm;
+  switch (direction) {
+    case 'south': usableDepthGu = (ry + hGu) - anchorGy; stageDepthGu = anchorGy - ry;         totalAvailDepthMm = doglegCfg.spaceDepth; break;
+    case 'north': usableDepthGu = anchorGy - ry;          stageDepthGu = (ry + hGu) - anchorGy; totalAvailDepthMm = doglegCfg.spaceDepth; break;
+    case 'east':  usableDepthGu = (rx + wGu) - anchorGx;  stageDepthGu = anchorGx - rx;         totalAvailDepthMm = doglegCfg.spaceWidth; break;
+    case 'west':  usableDepthGu = anchorGx - rx;           stageDepthGu = (rx + wGu) - anchorGx; totalAvailDepthMm = doglegCfg.spaceWidth; break;
+  }
+  const usableDepthMm        = usableDepthGu  * (FT2 / 2);
+  const stageDepthWithinRect = stageDepthGu   * (FT2 / 2);
+
+  // Step 2 — Ramp calculation
+  const tier        = tiers.find(t => t.id === activeTierId);
+  const stageHeight = tier ? tier.finishedHeight : 0;
+  const segments    = USE_LANDING_SPLITS ? splitRampIntoFlights(stageHeight, doglegCfg.gradient) : [];
+  const totalSlopedMm = USE_LANDING_SPLITS
+    ? segments.filter(s => s.type === 'flight').reduce((sum, s) => sum + rampPanelFill(s.goingMm).reduce((ss, p) => ss + p.lengthMm, 0), 0)
+    : rampPanelFill(stageHeight * doglegCfg.gradient).reduce((s, p) => s + p.lengthMm, 0);
+  const totalLandingMm    = USE_LANDING_SPLITS ? segments.filter(s => s.type === 'landing').length * LANDING_DEPTH_MM : 0;
+  const totalFootprintMm  = totalSlopedMm + totalLandingMm + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+
+  // Step 3 — Validate against usable space (warn, don't block)
+  let overlayText;
+  if (totalFootprintMm > usableDepthMm) {
+    const excess = Math.round(totalFootprintMm - usableDepthMm);
+    overlayText = `⚠ Exceeds available space by ${excess.toLocaleString()}mm — try a shallower gradient or more depth.`;
+  } else {
+    overlayText = `Footprint: ${Math.round(totalFootprintMm).toLocaleString()}mm — fits within available space.`;
+  }
+
+  // Step 4 — Enter placing state and show ghost
+  doglegState = 'placing';
+  showDoglegOverlay(overlayText, true, false, true);
+  redraw();
+}
+
+function doglegPlaceRamp() {
+  if (!doglegAttachment) return;
+  const { anchorGx, anchorGy, direction } = doglegAttachment;
+
+  let ramp;
+  {
+    ramp = addRamp(anchorGx, anchorGy, direction, doglegCfg.gradient, doglegCfg.widthFt, activeTierId);
+    if (ramp) {
+      ramp.doglegMeta = {
+        configType: doglegCfg.type,
+        availableSpace: { widthMm: doglegCfg.spaceWidth, depthMm: doglegCfg.spaceDepth,
+                          canvasGx: doglegFixedPos.gx, canvasGy: doglegFixedPos.gy },
+        attachment: { ...doglegAttachment },
+      };
+    }
+  }
+
+  if (!ramp) {
+    showDoglegOverlayBrief('Could not place ramp — check stage configuration.');
+    return;
+  }
+
+  saveHistory();
+  ramps.push(ramp);
+  // Clear ghost state immediately so no further ghost renders can occur.
+  resetDoglegTool();
+
+  // Return to panel mode.
+  pendingCategory = 'panel';
+  pendingType     = '8x4';
+  syncAllPendingButtons();
+  updatePendingInfo();
+  updateDoglegIndicator();
+  recalcSchedule();
+  redraw();
+}
+
+// Place ramp immediately at a detected edge — called from canvas click handler
+function placeRamp(rawGx, rawGy, tierId, edge) {
+  // Direction is always derived from which edge side was clicked
+  const SIDE_DIR = { front: 'north', back: 'south', left: 'west', right: 'east' };
+  rampCfg.direction = SIDE_DIR[edge.side];
+
+  // Snap anchor to the outer face of the detected edge.
+  const snappedAlong = Math.round(Math.min(Math.max(edge.alongGu, edge.edgeStart), edge.edgeStart + edge.edgeLen));
+  let anchorGx, anchorGy;
+  if (edge.side === 'front' || edge.side === 'back') {
+    anchorGx = snappedAlong;
+    anchorGy = edge.edgeGu;
+  } else {
+    anchorGx = edge.edgeGu;
+    anchorGy = snappedAlong;
+  }
+
+  // Check — ramp width must fit within the edge span from the anchor position
+  const rampWidthGu = (rampCfg.widthFt / 4) * 2;
+  let anchorAlong = (edge.side === 'front' || edge.side === 'back') ? anchorGx : anchorGy;
+  const maxAlong = edge.edgeStart + edge.edgeLen - rampWidthGu;
+  anchorAlong = Math.min(anchorAlong, maxAlong);
+  if (anchorAlong < edge.edgeStart) {
+    alert('Ramp width exceeds available stage edge. Reduce ramp width or choose a wider stage edge.');
+    return;
+  }
+  if (edge.side === 'front' || edge.side === 'back') {
+    anchorGx = anchorAlong;
+  } else {
+    anchorGy = anchorAlong;
+  }
+
+  // Check — ramp path must not overlap existing stage panels
+  const tier = tiers.find(t => t.id === tierId);
+  if (!tier) {
+    alert('Could not find the target tier. Please try again.');
+    return;
+  }
+  {
+    const depthPanels = rampPanelFill(tier.finishedHeight * rampCfg.gradient);
+    const widthCols   = rampCfg.widthFt / 4;
+    const tierPanels  = panels.filter(p => p.category === 'panel' && p.tier === tierId);
+    let cumGuDepth = 0, hasOverlap = false;
+    outer: for (const dp of depthPanels) {
+      for (let pc = 0; pc < widthCols; pc++) {
+        let gx, gy, gw, gh;
+        switch (rampCfg.direction) {
+          case 'south': gx = anchorGx + pc*2;                    gy = anchorGy + cumGuDepth;              gw = 2;          gh = dp.guDepth; break;
+          case 'north': gx = anchorGx + pc*2;                    gy = anchorGy - cumGuDepth - dp.guDepth; gw = 2;          gh = dp.guDepth; break;
+          case 'east':  gx = anchorGx + cumGuDepth;              gy = anchorGy + pc*2;                    gw = dp.guDepth; gh = 2;          break;
+          case 'west':  gx = anchorGx - cumGuDepth - dp.guDepth; gy = anchorGy + pc*2;                    gw = dp.guDepth; gh = 2;          break;
+        }
+        for (const p of tierPanels) {
+          if (gx < p.gx+p.gw && gx+gw > p.gx && gy < p.gy+p.gh && gy+gh > p.gy) {
+            hasOverlap = true; break outer;
+          }
+        }
+      }
+      cumGuDepth += dp.guDepth;
+    }
+    if (hasOverlap) {
+      alert('Ramp path overlaps existing stage panels. Choose a different edge or direction.');
+      return;
+    }
+  }
+
+  const ramp = addRamp(anchorGx, anchorGy, rampCfg.direction, rampCfg.gradient, rampCfg.widthFt, tierId);
+  if (!ramp) { alert('Could not place ramp.'); return; }
+  saveHistory();
+  ramps.push(ramp);
+  recalcSchedule();
+  redraw();
+
+  // Long ramp advisory check
+  const bbox = getStageBoundingBox(ramp.tierId);
+  if (bbox) {
+    const axisGu = (ramp.direction === 'north' || ramp.direction === 'south')
+      ? bbox.hGu
+      : bbox.wGu;
+    const rampDepthGu = ramp.panels.reduce((max, p) => {
+      const d = (ramp.direction === 'north' || ramp.direction === 'south')
+        ? p.gy + p.gh
+        : p.gx + p.gw;
+      return Math.max(max, d);
+    }, 0) - (ramp.direction === 'north' || ramp.direction === 'south'
+      ? Math.min(...ramp.panels.map(p => p.gy))
+      : Math.min(...ramp.panels.map(p => p.gx)));
+    if (rampDepthGu > axisGu * 2.5) {
+      ramp._longRampWarning = true;
+      showLongRampWarning(ramp);
+    }
+  }
+}
+
+function deleteRamp(id) {
+  saveHistory();
+  ramps = ramps.filter(r => r.id !== id);
+  if (rampSvWindows[id]) {
+    rampSvWindows[id].remove();
+    delete rampSvWindows[id];
+  }
+  recalcSchedule();
+  redraw();
+}
+
+// ── Ramp recalculation on stage height change ─────────────────────────────────
+// Re-runs addRamp() for every placed ramp using its stored config (anchor,
+// direction, width, gradient) but with the current tier height, replacing all
+// computed data (flights, legs, landings) in-place.  Ramp ID and user config
+// fields are preserved.  Populates rampRecalcWarnings[] for appendRampSchedule().
+function recalcRamps() {
+  rampRecalcWarnings = [];
+  for (let i = 0; i < ramps.length; i++) {
+    const r    = ramps[i];
+    const tier = tiers.find(t => t.id === r.tierId);
+    // Skip if the tier is gone or height not yet meaningful
+    if (!tier || tier.finishedHeight < 1) continue;
+
+    const prevLandings = r.numLandings ?? 0;
+
+    // addRamp() always bumps nextRampId; save and restore so gaps don't accumulate
+    const savedId = nextRampId;
+    const newRamp = addRamp(r.anchorGx, r.anchorGy, r.direction, r.gradient, r.widthFt, r.tierId);
+    nextRampId    = savedId;
+    if (!newRamp) continue;
+
+    // Restore identity and any user-facing config fields
+    newRamp.id = r.id;
+    if (r.notes !== undefined) newRamp.notes = r.notes;
+
+    ramps[i] = newRamp;
+
+    // Warn when the height change causes new intermediate landings
+    const newLandings = newRamp.numLandings ?? 0;
+    if (newLandings > prevLandings) {
+      rampRecalcWarnings.push({
+        rampId: r.id,
+        message: newLandings === 1
+          ? `${r.id}: height change now requires 1 intermediate landing.`
+          : `${r.id}: height change now requires ${newLandings} intermediate landings.`,
+        severity: newLandings >= 2 ? 'error' : 'warn',
+      });
+    }
+  }
+}
+
+// ── Ramp schedule (sidebar live view) ────────────────────────────────────────
+function appendRampSchedule() {
+  if (!ramps.length) return;
+
+  const BADGE     = { corner: 'badge-corner', edge: 'badge-edge', internal: 'badge-internal' };
+  const BADGE_LBL = { corner: 'Corner', edge: '2-way', internal: '4-way' };
+  const DIR_LABEL = { north: '↑ North', south: '↓ South', east: '→ East', west: '← West' };
+  const PANEL_NAME = { '8x4': "8'×4'", '4x4': "4'×4'", '4x2': "4'×2'" };
+
+  let html = '';
+  for (const ramp of ramps) {
+    const tier      = tiers.find(t => t.id === ramp.tierId);
+    const tierLabel = tier ? tier.label : '?';
+
+    // Panel mix description — include landing panels when present
+    const fullSummary = { ...ramp.panelSummary };
+    if (ramp.flights) {
+      for (const seg of ramp.flights) {
+        if (seg.type === 'landing') {
+          for (const [k, v] of Object.entries(seg.panelSummary)) fullSummary[k] = (fullSummary[k] || 0) + v;
+        }
+      }
+    }
+    const panelMixDesc = ['8x4','4x4','4x2']
+      .filter(k => fullSummary[k])
+      .map(k => `${fullSummary[k]}&times; ${PANEL_NAME[k]}`)
+      .join(', ');
+    const landingNote  = ramp.numLandings
+      ? ` &bull; <span style="color:#3b5bdb">${ramp.numLandings} landing${ramp.numLandings > 1 ? 's' : ''}</span>` : '';
+
+
+    html += `<div class="tier-schedule-block" style="margin-top:14px">
+      <div class="tier-schedule-label" style="border-color:#e83e8c;color:#e83e8c;display:flex;align-items:center;gap:8px">
+        <span>${ramp.id} — ${tierLabel} &bull; ${ramp.widthFt}ft wide &bull; 1:${ramp.gradient} &bull; ${DIR_LABEL[ramp.direction]}${landingNote}</span>
+        <button onclick="deleteRamp('${ramp.id}')"
+          style="font-size:10px;padding:2px 7px;cursor:pointer;margin-left:auto;
+                 background:transparent;border:1px solid var(--danger);color:var(--danger);
+                 border-radius:3px;font-family:inherit">
+          Remove
+        </button>
+      </div>
+
+      <!-- Mandatory warning — non-dismissible -->
+      <div style="font-size:11px;color:var(--danger);padding:5px 0 3px;line-height:1.5">
+        ⚠ All ramps must include a ramp bottom and hinge fitting.
+        Fixed footprint addition: 1,269.2mm (1,219.2mm ramp bottom + 50mm hinge).
+      </div>
+
+      ${(() => {
+        const warns = rampRecalcWarnings.filter(w => w.rampId === ramp.id);
+        return warns.map(w =>
+          `<div style="font-size:11px;padding:3px 0 1px;line-height:1.5;color:${w.severity === 'error' ? 'var(--danger)' : '#c9a84c'}">⚠ ${w.message}</div>`
+        ).join('');
+      })()}
+
+      ${ramp._longRampWarning ? `<div class="ramp-long-warning" style="
+        background:#7c3a00;
+        border:1px solid #e07000;
+        border-radius:4px;
+        padding:8px 10px;
+        margin:6px 0 10px;
+        font-size:11px;
+        line-height:1.5;
+        color:#ffd099;
+      ">⚠ Ramp length significantly exceeds stage footprint in this axis. Dog leg configuration required — contact client to confirm available site space before quoting.</div>` : ''}
+
+      <!-- Footprint breakdown -->
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
+                  padding:4px 0 6px;line-height:1.8;border-bottom:1px solid var(--border);margin-bottom:6px">
+        Sloped run:&nbsp;&nbsp;&nbsp; <strong style="color:var(--text)">${ramp.slopedRun.toLocaleString()}mm</strong>
+          &nbsp;(${panelMixDesc})<br>
+        Hinge depth:&nbsp;&nbsp; <strong style="color:var(--text)">50mm</strong><br>
+        Ramp bottom:&nbsp;&nbsp; <strong style="color:var(--text)">1,219mm</strong><br>
+        <span style="border-top:1px solid var(--border);display:block;padding-top:2px;margin-top:2px">
+          Total:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong style="color:var(--text)">${ramp.totalFootprintMm.toLocaleString()}mm</strong>
+          &bull; ${ramp.hingeQty} hinge${ramp.hingeQty !== 1 ? 's' : ''}
+          &bull; ${ramp.rampBottomQty} ramp bottom${ramp.rampBottomQty !== 1 ? 's' : ''}
+        </span>
+      </div>`;
+
+    if (ramp.flights) {
+      // ── Multi-flight sidebar: per-segment tables ──────────────────────────
+      let segNum = 0;
+      for (const seg of ramp.flights) {
+        if (seg.type === 'flight') {
+          segNum++;
+          const flightLegs = seg.legs || [];
+          const rowIdxs = [...new Set(flightLegs.map(l => l.rowIdx))].sort((a, b) => a - b);
+          html += `<div style="font-size:11px;font-weight:600;color:#e83e8c;margin:6px 0 2px">Flight ${segNum}</div>`;
+          if (rowIdxs.length) {
+            html += `<table class="schedule-table">
+              <thead><tr><th>Node row</th><th>Eff. height</th><th>Leg kit</th><th>Splitter</th></tr></thead><tbody>`;
+            for (const rowIdx of rowIdxs) {
+              const rowLegs  = flightLegs.filter(l => l.rowIdx === rowIdx).sort((a, b) => a.colIdx - b.colIdx);
+              const firstLeg = rowLegs[0];
+              const rowPanel = seg.panels.find(p => p.panelRow === rowIdx - 1 && p.panelCol === 0);
+              const rowLabel = `R${rowIdx} @${firstLeg.cumDepthMm}mm (${rowPanel ? rowPanel.sizeFt : firstLeg.panelSizeFt}'×4' far edge)`;
+              const lr = firstLeg.legResult;
+              const legKitHtml = firstLeg.lowNode
+                ? `<span style="color:var(--muted)">— (at ground level)</span>`
+                : (lr.warn ? `<span style="color:var(--danger)">${lr.label}</span>` : lr.label);
+              html += `<tr>
+                <td style="font-size:10px">${rowLabel}</td>
+                <td>${firstLeg.effectiveH}mm</td>
+                <td>${legKitHtml}</td>
+                <td><span class="type-badge ${BADGE[firstLeg.nodeType]}">${BADGE_LBL[firstLeg.nodeType]}</span></td>
+              </tr>`;
+            }
+            html += `</tbody></table>`;
+          }
+        } else {
+          // Landing segment
+          const landLegs = (seg.legs || []).filter(l => !l.lowNode);
+          const landQty  = seg.widthCols * 2;
+          html += `<div style="font-size:11px;font-weight:600;color:#3b5bdb;margin:6px 0 2px">
+            Landing — ${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm depth &bull; at ${Math.round(seg.heightMm)}mm height &bull; ${landQty}× 4'×4' panels</div>`;
+          const rowIdxs = [...new Set(landLegs.map(l => l.rowIdx))].sort((a, b) => a - b);
+          if (rowIdxs.length) {
+            html += `<table class="schedule-table">
+              <thead><tr><th>Node row</th><th>Eff. height</th><th>Leg kit</th><th>Splitter</th></tr></thead><tbody>`;
+            for (const rowIdx of rowIdxs) {
+              const rowLegs  = landLegs.filter(l => l.rowIdx === rowIdx).sort((a, b) => a.colIdx - b.colIdx);
+              const firstLeg = rowLegs[0];
+              const rowLabel = `L-R${rowIdx} @${firstLeg.cumDepthMm}mm (landing panel far edge)`;
+              const warn = firstLeg.legResult.warn;
+              html += `<tr>
+                <td style="font-size:10px;color:#3b5bdb">${rowLabel}</td>
+                <td>${firstLeg.effectiveH}mm</td>
+                <td>${warn ? `<span style="color:var(--danger)">${firstLeg.legResult.label}</span>` : firstLeg.legResult.label}</td>
+                <td><span class="type-badge ${BADGE[firstLeg.nodeType]}">${BADGE_LBL[firstLeg.nodeType]}</span></td>
+              </tr>`;
+            }
+            html += `</tbody></table>`;
+          }
+        }
+      }
+    } else {
+      // ── Legacy single-flight sidebar ──────────────────────────────────────
+      const rowIdxs = [...new Set(ramp.legs.map(l => l.rowIdx))].sort((a, b) => a - b);
+      if (rowIdxs.length) {
+        html += `<table class="schedule-table">
+          <thead><tr><th>Node row</th><th>Eff. height</th><th>Leg kit</th><th>Splitter</th></tr></thead>
+          <tbody>`;
+        for (const rowIdx of rowIdxs) {
+          const rowLegs  = ramp.legs.filter(l => l.rowIdx === rowIdx).sort((a, b) => a.colIdx - b.colIdx);
+          const firstLeg = rowLegs[0];
+          const rowPanel = ramp.panels.find(p => p.panelRow === rowIdx - 1 && p.panelCol === 0);
+          const rowLabel = `R${rowIdx} @${firstLeg.cumDepthMm}mm (${rowPanel ? rowPanel.sizeFt : firstLeg.panelSizeFt}'×4' far edge)`;
+          const lr = firstLeg.legResult;
+          const legKitHtml = firstLeg.lowNode
+            ? `<span style="color:var(--muted)">— (at ground level)</span>`
+            : (lr.warn ? `<span style="color:var(--danger)">${lr.label}</span>` : lr.label);
+          html += `<tr>
+            <td style="font-size:10px">${rowLabel}</td>
+            <td>${firstLeg.effectiveH}mm</td>
+            <td>${legKitHtml}</td>
+            <td><span class="type-badge ${BADGE[firstLeg.nodeType]}">${BADGE_LBL[firstLeg.nodeType]}</span></td>
+          </tr>`;
+        }
+        html += `</tbody></table>`;
+      }
+    }
+
+    html += `</div>`;
+  }
+
+  document.getElementById('schedule-body').innerHTML += html;
+}
+
+// ── Ramp print schedule data ──────────────────────────────────────────────────
+// Returns an object with totals for all ramps, for use in printSchedule().
+function buildRampScheduleData() {
+  const panelCounts = {};
+  let totalHinges = 0, totalRampBottoms = 0;
+  let total2way = 0, total4way = 0, totalScrewjacks = 0, totalSmallScrewjacks = 0;
+  const legCounts = {}, plateCounts = {};
+  const rampBuildRows = [];
+
+  // Helper: process one leg into the totals and build-row array.
+  // isLanding flag drives the row label in the schedule.
+  function accumulateLeg(leg, ramp, tierLabel, isLanding) {
+    if (leg.lowNode) return;  // ground-level profile point — no leg component, skip schedule
+    if (leg.nodeType === 'edge')     total2way++;
+    if (leg.nodeType === 'internal') total4way++;
+    if (leg.legResult.jackNeeded)      totalScrewjacks++;
+    if (leg.legResult.smallJackNeeded) totalSmallScrewjacks++;
+    if (leg.legResult.range !== 'bespoke' && leg.legResult.range !== 'bp-only') {
+      const lbl = rampLegLabel(leg.legResult.legMm);
+      legCounts[lbl] = (legCounts[lbl] || 0) + 1;
+    }
+    for (const mm of leg.legResult.baseplates) plateCounts[mm] = (plateCounts[mm] || 0) + 1;
+    const splDesc = leg.nodeType === 'corner' ? '—' : leg.nodeType === 'edge' ? '2-way' : '4-way';
+    let legLabel_;
+    if      (leg.legResult.range === 'bespoke') legLabel_ = `BESPOKE (${leg.effectiveH}mm)`;
+    else if (leg.legResult.range === 'bp-only') legLabel_ = '— (baseplate only)';
+    else                                        legLabel_ = rampLegLabel(leg.legResult.legMm);
+    rampBuildRows.push({
+      rampId: ramp.id, tierLabel,
+      gradient: ramp.gradient, widthFt: ramp.widthFt, direction: ramp.direction,
+      rowIdx: leg.rowIdx, colIdx: leg.colIdx,
+      cumDepthMm: leg.cumDepthMm, panelSizeFt: leg.panelSizeFt,
+      effectiveH: leg.effectiveH, heightAtNode: leg.heightAtNode,
+      nodeType: leg.nodeType, splitterDesc: splDesc, legLabel: legLabel_,
+      platesDesc:    leg.legResult.baseplates.length ? leg.legResult.baseplates.join('+') + 'mm' : '—',
+      jackDesc:      leg.legResult.jackNeeded      ? 'Yes' : '—',
+      smallJackDesc: leg.legResult.smallJackNeeded ? 'Yes' : '—',
+      warn: leg.legResult.warn,
+      isLanding: !!isLanding,
+    });
+  }
+
+  for (const ramp of ramps) {
+    const tier = tiers.find(t => t.id === ramp.tierId);
+    const tierLabel = tier ? tier.label : '?';
+
+    // Panel counts — include ALL panels (flights + landings)
+    const allPanelSummary = { ...ramp.panelSummary };
+    if (ramp.flights) {
+      for (const seg of ramp.flights) {
+        if (seg.type === 'landing') {
+          for (const [type, qty] of Object.entries(seg.panelSummary)) {
+            allPanelSummary[type] = (allPanelSummary[type] || 0) + qty;
+          }
+        }
+      }
+    }
+    for (const [type, qty] of Object.entries(allPanelSummary)) {
+      panelCounts[type] = (panelCounts[type] || 0) + qty;
+    }
+
+    totalHinges      += ramp.hingeQty;
+    totalRampBottoms += ramp.rampBottomQty;
+
+    if (ramp.flights) {
+      // Multi-flight: process flight legs and landing legs separately
+      for (const seg of ramp.flights) {
+        const isLanding = seg.type === 'landing';
+        for (const leg of (seg.legs || [])) {
+          accumulateLeg(leg, ramp, tierLabel, isLanding);
+        }
+      }
+    } else {
+      // Legacy: use flat legs array
+      for (const leg of ramp.legs) accumulateLeg(leg, ramp, tierLabel, false);
+    }
+  }
+
+  return {
+    panelCounts, totalHinges, totalRampBottoms,
+    total2way, total4way, totalScrewjacks, totalSmallScrewjacks,
+    legCounts, plateCounts, rampBuildRows,
+  };
 }
 
 // ── Schedule generation ───────────────────────────────────────────────────────
@@ -3134,6 +5446,8 @@ for (const [, node] of nodes) {
   appendStepsHrSchedule();
   // ── Bracing schedule ──
   appendBracingSchedule();
+  // ── Ramp schedule ──
+  appendRampSchedule();
   updateFootprint();
 
   redraw();
@@ -3164,6 +5478,26 @@ function updateFootprint() {
   const wM  = (wFt * 0.3048).toFixed(2);
   const dM  = (dFt * 0.3048).toFixed(2);
   el.textContent = `Litedeck platform — ${wFt}' × ${dFt}' (${wM}m × ${dM}m)`;
+}
+
+function getStageBoundingBox(tierId) {
+  const tp = panels.filter(p => p.category === 'panel' && p.tier === tierId);
+  if (!tp.length) return null;
+  const minX = Math.min(...tp.map(p => p.gx));
+  const maxX = Math.max(...tp.map(p => p.gx + p.gw));
+  const minY = Math.min(...tp.map(p => p.gy));
+  const maxY = Math.max(...tp.map(p => p.gy + p.gh));
+  return { minX, maxX, minY, maxY, wGu: maxX - minX, hGu: maxY - minY };
+}
+
+function showLongRampWarning(ramp) {
+  const overlay = document.getElementById('long-ramp-modal');
+  overlay.classList.add('active');
+  overlay.addEventListener('click', function handler() {
+    overlay.classList.remove('active');
+    overlay.removeEventListener('click', handler);
+    openRampSideView(ramp);
+  }, { once: true });
 }
 
 // ── Steps & Handrail schedule append ─────────────────────────────────────────
@@ -3619,6 +5953,77 @@ function printSchedule() {
       }
     }
 
+    // ── Ramp totals ──
+    if (ramps.length) {
+      const rd = buildRampScheduleData();
+      const RAMP_PANEL_NAMES = { '8x4': "8'×4' ramp panel", '4x4': "4'×4' ramp panel", '4x2': "4'×2' ramp panel" };
+      const DIR_LABEL_PRINT  = { north: 'North', south: 'South', east: 'East', west: 'West' };
+
+      totalsRows += section('Ramps');
+
+      // Mandatory warning — appears in Equipment Totals
+      totalsRows += `<tr><td colspan="2" style="font-size:9pt;color:#c00;padding:6px 10px;
+        background:rgba(200,0,0,0.04);border-left:3px solid #c00;">
+        ⚠ All ramps must include a ramp bottom and hinge fitting.
+        Fixed footprint addition: 1,269.2mm (1,219.2mm ramp bottom + 50mm hinge).
+      </td></tr>`;
+
+      // Per-ramp panel rows with footprint breakdown
+      for (const ramp of ramps) {
+        // Full panel summary includes landing panels when flights are present
+        const fullSummary = { ...ramp.panelSummary };
+        if (ramp.flights) {
+          for (const seg of ramp.flights) {
+            if (seg.type === 'landing') {
+              for (const [t, q] of Object.entries(seg.panelSummary)) fullSummary[t] = (fullSummary[t] || 0) + q;
+            }
+          }
+        }
+        const mixDesc = ['8x4','4x4','4x2']
+          .filter(k => fullSummary[k])
+          .map(k => `${fullSummary[k]}× ${RAMP_PANEL_NAMES[k]}`)
+          .join(', ');
+        const landingNote = ramp.numLandings ? ` &bull; ${ramp.numLandings} landing${ramp.numLandings > 1 ? 's' : ''} (${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm ea.)` : '';
+        totalsRows += `<tr><td colspan="2" style="font-size:9.5pt;padding:5px 10px;
+          border-bottom:1px solid #ddd;color:#333;">
+          <strong>${ramp.id}</strong> — ${ramp.widthFt}ft wide, 1:${ramp.gradient},
+          ${DIR_LABEL_PRINT[ramp.direction]}${landingNote}<br>
+          <span style="font-size:9pt;color:#555;line-height:1.8">
+            ${mixDesc}<br>
+            Sloped run: ${ramp.slopedRun.toLocaleString()}mm &bull;
+            Hinge: 50mm &bull;
+            Ramp bottom: 1,219mm &bull;
+            <strong>Total footprint: ${ramp.totalFootprintMm.toLocaleString()}mm</strong>
+          </span>
+        </td></tr>`;
+      }
+      // Per-type panel totals
+      for (const [type, qty] of Object.entries(rd.panelCounts)) {
+        if (qty) totalsRows += row(qty, RAMP_PANEL_NAMES[type] || `${type} ramp panel`);
+      }
+      if (rd.totalHinges)      totalsRows += row(rd.totalHinges,      'Ramp hinge');
+      if (rd.totalRampBottoms) totalsRows += row(rd.totalRampBottoms, "4'×4' ramp bottom plate");
+      if (rd.total2way)        totalsRows += row(rd.total2way,        '2-way leg splitter (ramp)');
+      if (rd.total4way)        totalsRows += row(rd.total4way,        '4-way leg splitter (ramp)');
+      const sortedRampLegs = Object.entries(rd.legCounts).sort((a, b) => {
+        const mmA = parseFloat(a[0].match(/\((\d+)mm\)/)?.[1] || 0);
+        const mmB = parseFloat(b[0].match(/\((\d+)mm\)/)?.[1] || 0);
+        return mmB - mmA;
+      });
+      for (const [label, qty] of sortedRampLegs) {
+        if (qty) totalsRows += row(qty, `${label} (ramp)`);
+      }
+      if (rd.totalScrewjacks)      totalsRows += row(rd.totalScrewjacks,      'Screw jack (ramp)');
+      if (rd.totalSmallScrewjacks) totalsRows += row(rd.totalSmallScrewjacks, 'Small screwjack — 1.6ft/2ft legs (ramp)');
+      for (const mm of [18, 12, 9, 6]) {
+        const qty = rd.plateCounts[mm] || 0;
+        if (qty) totalsRows += row(qty, `${mm}mm base plate (ramp)`);
+      }
+      for (const [mm, qty] of Object.entries(rd.plateCounts)) {
+        if (![18,12,9,6].includes(Number(mm)) && qty) totalsRows += row(qty, `${mm}mm base plate (ramp)`);
+      }
+    }
+
     const bTotalDiagTubes    = d.bracingCalc.reduce((a,r) => a + r.totalDiagTubes, 0);
     const bTotalSwivelClamps = d.bracingCalc.reduce((a,r) => a + r.totalSwivelClamps, 0);
     const bTotalSleeveClamps = d.bracingCalc.reduce((a,r) => a + (r.totalSleeveClamps||0) + (r.totalPlanSleeveClamps||0), 0);
@@ -3702,6 +6107,68 @@ function printSchedule() {
           <td>${r.jackDesc}</td>
           <td>${r.smallJackDesc}</td>
         </tr>`;
+      }
+    }
+
+    // ── Ramp build rows ──────────────────────────────────────────────────────
+    let rampBuildHtml = '';
+    if (ramps.length) {
+      const rd = buildRampScheduleData();
+      const DIR_LABEL_P = { north: 'North', south: 'South', east: 'East', west: 'West' };
+      const rampIds = [...new Set(rd.rampBuildRows.map(r => r.rampId))];
+      for (const rampId of rampIds) {
+        const rows = rd.rampBuildRows.filter(r => r.rampId === rampId);
+        const first = rows[0];
+        const ramp  = ramps.find(r => r.id === rampId);
+        rampBuildHtml += `<tr><td colspan="7" style="background:#f0f0f0;font-weight:700;font-size:10pt;
+          letter-spacing:0.06em;text-transform:uppercase;padding:8px 10px;
+          border-bottom:2px solid #000;">${rampId} — ${first.widthFt}ft wide &bull; 1:${first.gradient} &bull; ${DIR_LABEL_P[first.direction]}</td></tr>`;
+        // Mandatory warning — appears per ramp in build reference
+        rampBuildHtml += `<tr><td colspan="7" style="font-size:9pt;color:#c00;padding:5px 10px 6px;
+          background:rgba(200,0,0,0.03);border-left:3px solid #c00;">
+          ⚠ All ramps must include a ramp bottom and hinge fitting.
+          Fixed footprint addition: 1,269.2mm (1,219.2mm ramp bottom + 50mm hinge).
+        </td></tr>`;
+        // Footprint breakdown
+        if (ramp) {
+          rampBuildHtml += `<tr><td colspan="7" style="font-size:9pt;color:#555;padding:4px 10px 6px;">
+            Sloped run: ${ramp.slopedRun.toLocaleString()}mm &bull;
+            Hinge: 50mm &bull;
+            Ramp bottom: 1,219mm &bull;
+            <strong>Total footprint: ${ramp.totalFootprintMm.toLocaleString()}mm</strong>
+          </td></tr>`;
+          // Hinge row note
+          rampBuildHtml += `<tr>
+            <td class="qty">${ramp.hingeQty} no.</td>
+            <td colspan="6" style="color:#888;font-style:italic">
+              Hinge row (stage edge, 50mm depth) — hinge hardware, no legs
+            </td></tr>`;
+        }
+        for (const r of rows.sort((a, b) => a.rowIdx - b.rowIdx || a.colIdx - b.colIdx)) {
+          const isLandRow = !!r.isLanding;
+          const rowPanel  = !isLandRow && ramp && ramp.panels.find(p => p.panelRow === r.rowIdx - 1 && p.panelCol === 0);
+          const nodePrefix = isLandRow ? 'L-R' : 'R';
+          const sizeHint   = isLandRow ? `4'×4' landing panel far edge` : `${rowPanel ? rowPanel.sizeFt : r.panelSizeFt}'×4' far edge`;
+          const nodeLabel  = `${nodePrefix}${r.rowIdx} @${r.cumDepthMm}mm (${sizeHint}), col ${r.colIdx}`;
+          const rowStyle   = isLandRow ? 'background:rgba(59,91,219,0.05);' : '';
+          rampBuildHtml += `<tr style="${rowStyle}">
+            <td style="font-size:9pt${isLandRow ? ';color:#3b5bdb' : ''}">${nodeLabel}</td>
+            <td>${r.nodeType === 'corner' ? 'Corner' : r.nodeType === 'edge' ? 'Edge' : 'Internal'}</td>
+            <td>${r.warn ? `<strong style="color:#c00">${r.legLabel}</strong>` : r.legLabel}
+                <br><span style="color:#888;font-size:9pt">${r.effectiveH}mm eff. height</span></td>
+            <td>${r.splitterDesc}</td>
+            <td>${r.platesDesc}</td>
+            <td>${r.jackDesc}</td>
+            <td>${r.smallJackDesc}</td>
+          </tr>`;
+        }
+        if (ramp) {
+          rampBuildHtml += `<tr>
+            <td class="qty">${ramp.rampBottomQty} no.</td>
+            <td colspan="6" style="color:#888;font-style:italic">
+              Ramp bottom leading edge (1,219mm depth) — 4'×4' ramp bottom plate, no legs
+            </td></tr>`;
+        }
       }
     }
 
@@ -3824,6 +6291,22 @@ function printSchedule() {
           <tbody>${buildHtml}</tbody>
         </table>
       </div>
+      ${rampBuildHtml ? `
+      <div class="build-section">
+        <h2>Ramp Build Reference</h2>
+        <p style="font-size:9pt;color:#555;margin-bottom:12px;">
+          Leg heights calculated for each intermediate node row.
+          Hinge row (stage edge) and ramp bottom are hardware-only — no legs.
+          Handrails required on both sides of ramp.
+        </p>
+        <table>
+          <thead><tr>
+            <th>Row / Col</th><th>Node</th><th>Leg</th><th>Splitter</th>
+            <th>Baseplate(s)</th><th>Screw jack</th><th>Small screwjack</th>
+          </tr></thead>
+          <tbody>${rampBuildHtml}</tbody>
+        </table>
+      </div>` : ''}
       ${bracingHtml ? `
       <div class="build-section">
         <h2>Bracing Schedule</h2>
@@ -5273,6 +7756,22 @@ updatePendingInfo();
 redraw();
 setView('plan');
 setWatermark('bird');
+
+// Initialise zoom wrapper sizing and centre on the working quarter of the grid
+(function initZoom() {
+  canvasWrap.style.transform = `scale(${viewZoom})`;
+  canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
+  canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
+  updateZoomDisplay();
+  // Scroll so the original 56×44 working area is centred in the viewport on load
+  requestAnimationFrame(() => {
+    const pad = 24;
+    const workCX = (56 * CELL) / 2;
+    const workCY = (44 * CELL) / 2;
+    scrollEl.scrollLeft = Math.max(0, pad + workCX - scrollEl.clientWidth  / 2);
+    scrollEl.scrollTop  = Math.max(0, pad + workCY - scrollEl.clientHeight / 2);
+  });
+})();
 toggleSimpleMode(); // start in simple view
 
 // Wire up modal checkboxes for live preview
@@ -5314,6 +7813,8 @@ function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName,
     tiers,
     panels,
     nextId,
+    ramps,
+    nextRampId,
     config: {
       socket:    parseFloat(document.getElementById('cfg-socket').value),
       splitter:  parseFloat(document.getElementById('cfg-splitter').value),
@@ -5511,12 +8012,39 @@ function importLayoutJson(jsonString) {
   tiers        = data.tiers;
   panels       = data.panels;
   nextId       = data.nextId;
+  ramps        = data.ramps      || [];
+  nextRampId   = data.nextRampId || 1;
   activeTierId = tiers[0].id;
   if (data.config) {
     document.getElementById('cfg-socket').value    = data.config.socket;
     document.getElementById('cfg-splitter').value  = data.config.splitter;
     document.getElementById('cfg-baseplate').value = data.config.baseplate;
     document.getElementById('cfg-jack').value      = data.config.jack;
+  }
+  // Backwards compat: ramps saved before flights field was added.
+  // Regenerate flights from existing rise, gradient, and widthFt rather than failing.
+  if (USE_LANDING_SPLITS) {
+    for (const ramp of ramps) {
+      if (!ramp.flights) {
+        const sh = ramp.stageHeight || (tiers.find(t => t.id === ramp.tierId)?.finishedHeight ?? 0);
+        if (sh > 0) {
+          const tp = panels.filter(p => p.category === 'panel' && p.tier === ramp.tierId);
+          const res = computeRampFlights(ramp.anchorGx, ramp.anchorGy, ramp.direction, ramp.gradient, ramp.widthCols, sh, tp);
+          ramp.flights      = res.flights;
+          ramp.totalBodyGu  = res.totalBodyGu;
+          ramp.numLandings  = res.flights.filter(s => s.type === 'landing').length;
+          ramp.stageHeight  = sh;
+          // Patch flat arrays so legacy paths also work
+          ramp.panels       = res.allFltPanels;
+          ramp.legs         = res.allFltLegs;
+          ramp.splitters    = res.allFltSplits;
+          ramp.panelSummary = res.panelSummaryAll;
+          const totalFp     = res.totalSlopedRun + res.totalLandingMm + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
+          ramp.slopedRun        = Math.round(res.totalSlopedRun);
+          ramp.totalFootprintMm = Math.round(totalFp);
+        }
+      }
+    }
   }
   // Restore active tier UI
   const t = getActiveTier();
@@ -5539,6 +8067,407 @@ function handleImportJson(input) {
   };
   reader.readAsText(file);
   input.value = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── Ramp Side View Floating Windows ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+let   rampSvZIndex   = 500;
+const rampSvWindows  = {};   // rampId → DOM <div>
+
+// Open (or raise) the side-view floating window for a ramp object.
+// Each ramp gets its own independent window; clicking again brings it to front.
+function openRampSideView(ramp) {
+  if (rampSvWindows[ramp.id]) {
+    const w = rampSvWindows[ramp.id];
+    w.style.zIndex = ++rampSvZIndex;
+    const c = w.querySelector('.ramp-sv-canvas');
+    if (c) drawRampSideViewCanvas(ramp, c);
+    return;
+  }
+  const rampNum = ramp.id.replace('ramp-', '');
+  const offset  = Object.keys(rampSvWindows).length;
+  const win     = document.createElement('div');
+  win.className = 'ramp-sv-window';
+  win.style.zIndex = ++rampSvZIndex;
+  win.style.left   = (180 + offset * 32) + 'px';
+  win.style.top    = ( 90 + offset * 32) + 'px';
+  win.innerHTML = `
+    <div class="ramp-sv-titlebar">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;
+            letter-spacing:0.08em;text-transform:uppercase;color:var(--text);">
+        Ramp R${rampNum}
+        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:5px;">
+          Side Elevation&nbsp;&middot;&nbsp;1:${ramp.gradient}&nbsp;&middot;&nbsp;${ramp.widthFt}ft wide
+        </span>
+      </span>
+      <div class="ramp-sv-zoom-group">
+        <button class="ramp-sv-zoom-btn" data-action="out">−</button>
+        <button class="ramp-sv-zoom-btn" data-action="reset">1:1</button>
+        <button class="ramp-sv-zoom-btn" data-action="in">+</button>
+      </div>
+      <button class="ramp-sv-close" onclick="closeRampSideView('${ramp.id}')">&#x2715;</button>
+    </div>
+    <canvas class="ramp-sv-canvas" width="740" height="340"></canvas>
+  `;
+  win._zoom = 1.0;
+  win._panX = 0;
+  win._panY = 0;
+  document.getElementById('ramp-sv-container').appendChild(win);
+  rampSvWindows[ramp.id] = win;
+  const canvas = win.querySelector('.ramp-sv-canvas');
+  drawRampSideViewCanvas(ramp, canvas);
+  makeRampSvDraggable(win, win.querySelector('.ramp-sv-titlebar'));
+
+  win.querySelectorAll('.ramp-sv-zoom-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      if (action === 'in')    win._zoom = Math.min(win._zoom * 1.25, 10);
+      if (action === 'out')   win._zoom = Math.max(win._zoom / 1.25, 0.2);
+      if (action === 'reset') { win._zoom = 1.0; win._panX = 0; win._panY = 0; }
+      drawRampSideViewCanvas(ramp, win.querySelector('canvas'));
+    });
+  });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    win._zoom = Math.min(Math.max(win._zoom * factor, 0.2), 10);
+    drawRampSideViewCanvas(ramp, canvas);
+  }, { passive: false });
+
+  const cvs = canvas;
+  let _dragging = false, _dragStartX = 0, _dragStartY = 0, _panStartX = 0, _panStartY = 0;
+  cvs.addEventListener('mousedown', e => {
+    _dragging = true;
+    _dragStartX = e.clientX;
+    _dragStartY = e.clientY;
+    _panStartX = win._panX;
+    _panStartY = win._panY;
+    cvs.style.cursor = 'grabbing';
+  });
+  cvs.addEventListener('mousemove', e => {
+    if (!_dragging) return;
+    win._panX = _panStartX + (e.clientX - _dragStartX);
+    win._panY = _panStartY + (e.clientY - _dragStartY);
+    drawRampSideViewCanvas(ramp, cvs);
+  });
+  cvs.addEventListener('mouseup',    () => { _dragging = false; cvs.style.cursor = 'grab'; });
+  cvs.addEventListener('mouseleave', () => { _dragging = false; cvs.style.cursor = 'grab'; });
+  cvs.style.cursor = 'grab';
+}
+
+function closeRampSideView(rampId) {
+  if (rampSvWindows[rampId]) {
+    rampSvWindows[rampId].remove();
+    delete rampSvWindows[rampId];
+  }
+}
+
+function makeRampSvDraggable(win, handle) {
+  let dragging = false, ox = 0, oy = 0;
+  handle.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('ramp-sv-close') || e.target.classList.contains('ramp-sv-zoom-btn')) return;
+    dragging = true;
+    ox = e.clientX - win.offsetLeft;
+    oy = e.clientY - win.offsetTop;
+    win.style.zIndex = ++rampSvZIndex;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    win.style.left = Math.max(0, e.clientX - ox) + 'px';
+    win.style.top  = Math.max(0, e.clientY - oy) + 'px';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+// ── drawRampSideViewCanvas ────────────────────────────────────────────────────
+// Draws a side elevation of one column slice through the ramp body onto canvas.
+// Shows: sloped/flat panel deck (pink=ramp flight, teal=landing), vertical legs
+// at each panel joint (dark zone = baseplates/splitters, grey = tube), hinge
+// marker, deck-height label, horizontal run label, gradient ratio, ramp bottom.
+// Handles both single-flight legacy ramps and multi-flight ramps with landings.
+function drawRampSideViewCanvas(ramp, canvas) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const win  = canvas.closest('.ramp-sv-window');
+  const zoom = win ? win._zoom : 1.0;
+  const panX = win ? win._panX : 0;
+  const panY = win ? win._panY : 0;
+  if (!ramp || !ramp.stageHeight) {
+    ctx.fillStyle = '#0f1117'; ctx.fillRect(0, 0, W, H); return;
+  }
+
+  const LPAD = 60, RPAD = 22, TPAD = 38, BPAD = 46;
+  const drawW = W - LPAD - RPAD;
+  const drawH = H - TPAD - BPAD;
+
+  // ── Build profile points and leg node list (col = 0 only) ─────────────────
+  // profile[i]: { x: mm-from-hinge, h: deck-surface-height-mm, landing?, rampBot? }
+  // legNodes:   { x, h, legResult, nodeType, splitterCount }
+  const profile  = [{ x: 0, h: ramp.stageHeight }];   // hinge at origin
+  const legNodes = [];
+  let rbStartMm, totalHMm;
+
+  if (ramp.flights && ramp.flights.length) {
+    // ── Multi-flight path (USE_LANDING_SPLITS ramps) ─────────────────────────
+    // anchorGuDepth × FT2 gives the absolute mm offset from hinge for each segment.
+    for (const seg of ramp.flights) {
+      const anchorMm = seg.anchorGuDepth * FT2;
+      const col0     = seg.legs
+        .filter(l => l.colIdx === 0)
+        .sort((a, b) => a.rowIdx - b.rowIdx);
+      if (seg.type === 'landing') {
+        // Profile: exit leg only — renders the whole landing as one flat block, not panel-by-panel
+        const exitLeg = col0[col0.length - 1];
+        if (exitLeg) {
+          profile.push({ x: anchorMm + exitLeg.cumDepthMm, h: exitLeg.heightAtNode, landing: true });
+        }
+        // LegNodes: exit leg only — landing is one 8×4 panel; entry end is shared
+        // with the preceding flight's last leg, so only the far end needs adding.
+        if (exitLeg) {
+          legNodes.push({ x: anchorMm + exitLeg.cumDepthMm, h: exitLeg.heightAtNode,
+                          legResult: exitLeg.legResult, nodeType: exitLeg.nodeType,
+                          splitterCount: exitLeg.splitterCount });
+        }
+      } else {
+        for (const leg of col0) {
+          const absMm = anchorMm + leg.cumDepthMm;
+          profile.push({ x: absMm, h: leg.heightAtNode });
+          legNodes.push({ x: absMm, h: leg.heightAtNode, legResult: leg.legResult,
+                          nodeType: leg.nodeType, splitterCount: leg.splitterCount });
+        }
+      }
+    }
+    rbStartMm = (ramp.totalBodyGu || 0) * FT2;
+  } else {
+    // ── Legacy single-flight path (older saved data without flights[]) ────────
+    const col0 = ramp.legs
+      .filter(l => l.colIdx === 0)
+      .sort((a, b) => a.rowIdx - b.rowIdx);
+    for (const leg of col0) {
+      profile.push({ x: leg.cumDepthMm, h: leg.heightAtNode });
+      legNodes.push({ x: leg.cumDepthMm, h: leg.heightAtNode, legResult: leg.legResult,
+                      nodeType: leg.nodeType, splitterCount: leg.splitterCount });
+    }
+    rbStartMm = ramp.slopedRun || 0;
+  }
+  totalHMm = rbStartMm + RAMP_BOTTOM_MM;
+  profile.push({ x: totalHMm, h: 0, rampBot: true });
+
+  // ── Scale — uniform: same px/mm for both axes so gradient reads correctly ─────
+  const autoScale = drawW / Math.max(totalHMm, 1);
+  const scale     = autoScale * zoom;
+  const xPx       = mm => LPAD + mm * scale + panX;
+  const yPxRaw    = mm => TPAD + drawH - Math.max(0, mm) * scale + panY;
+  const groundY   = yPxRaw(0);
+
+  // ── Background ────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Ground hatch (diagonal lines below ground line)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(LPAD, groundY, drawW, H - groundY); ctx.clip();
+  ctx.strokeStyle = '#1c2030'; ctx.lineWidth = 1;
+  for (let i = LPAD - 40; i < LPAD + drawW + 40; i += 14) {
+    ctx.beginPath();
+    ctx.moveTo(i, groundY);
+    ctx.lineTo(i - 40, groundY + 40);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Ground line
+  ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(LPAD, groundY); ctx.lineTo(LPAD + drawW, groundY); ctx.stroke();
+
+  // Dashed gridline at deck height
+  ctx.strokeStyle = '#2a2f3e'; ctx.lineWidth = 0.5; ctx.setLineDash([2, 4]);
+  ctx.beginPath(); ctx.moveTo(LPAD, yPxRaw(ramp.stageHeight)); ctx.lineTo(LPAD + drawW, yPxRaw(ramp.stageHeight)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Stage wall at hinge (faint blue dashed vertical)
+  ctx.strokeStyle = '#3b82f638'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(xPx(0), groundY); ctx.lineTo(xPx(0), TPAD - 6); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Legs ──────────────────────────────────────────────────────────────────
+  for (const leg of legNodes) {
+    const pUnder = leg.h - PANEL_BODY_MM;
+    if (pUnder <= 1) continue;   // at/below floor — no visible leg to draw
+    const lx = xPx(leg.x);
+    const lr = leg.legResult;
+    // Base zone height: baseplates + splitters + screwjack
+    const bpH  = lr && lr.baseplates ? lr.baseplates.reduce((a, b) => a + b, 0) : 0;
+    const splH = (leg.splitterCount || 0) * 155;   // 155mm per splitter (getCfgMm('splitter'))
+    const jkH  = lr && lr.jackNeeded  ? 50  : 0;   // 50mm min screwjack
+    const zone = Math.min(bpH + splH + jkH, pUnder);
+    // Dark lower zone: baseplates / screwjacks / splitters
+    ctx.strokeStyle = '#3b4050'; ctx.lineWidth = 5; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(lx, groundY); ctx.lineTo(lx, yPxRaw(zone)); ctx.stroke();
+    // Brighter zone: scaffold tube leg
+    if (zone < pUnder && lr && lr.legMm > 0) {
+      ctx.strokeStyle = '#6b7080'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(lx, yPxRaw(zone)); ctx.lineTo(lx, yPxRaw(pUnder)); ctx.stroke();
+    }
+    // Node dot at panel underside — colour matches plan view node types
+    const dotCol = leg.nodeType === 'corner' ? '#ef4444'
+                 : leg.nodeType === 'edge'   ? '#f59e0b' : '#3b82f6';
+    ctx.beginPath(); ctx.arc(lx, yPxRaw(pUnder), 3, 0, Math.PI * 2);
+    ctx.fillStyle = dotCol; ctx.fill();
+    ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // ── Panel deck surface (clipped to above ground) ──────────────────────────
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, W, groundY + 0.5); ctx.clip();
+
+  for (let i = 0; i < profile.length - 1; i++) {
+    const p0 = profile[i], p1 = profile[i + 1];
+    if (p1.rampBot) break;                         // ramp bottom drawn separately
+    const isLand = !!p1.landing;
+    const x0 = xPx(p0.x), x1 = xPx(p1.x);
+    // Clamp surface to PANEL_BODY_MM minimum — panels always sit 175mm above ground level
+    const h0 = Math.max(PANEL_BODY_MM, p0.h);
+    const h1 = Math.max(PANEL_BODY_MM, p1.h);
+    const y0t = yPxRaw(h0), y1t = yPxRaw(h1);
+    const y0b = yPxRaw(h0 - PANEL_BODY_MM);   // always >= groundY since h0 >= PANEL_BODY_MM
+    const y1b = yPxRaw(h1 - PANEL_BODY_MM);
+
+    // Panel body fill — pink for sloped flight, teal for flat landing
+    ctx.fillStyle   = isLand ? 'rgba(6,182,212,0.13)'  : 'rgba(232,62,140,0.14)';
+    ctx.strokeStyle = isLand ? '#06b6d438'              : '#e83e8c38';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0t); ctx.lineTo(x1, y1t);
+    ctx.lineTo(x1, y1b); ctx.lineTo(x0, y0b);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Top surface line (brighter)
+    ctx.strokeStyle = isLand ? '#06b6d499' : '#e83e8c99';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, y0t); ctx.lineTo(x1, y1t); ctx.stroke();
+
+    // Landing label when there is room
+    if (isLand && (x1 - x0) > 24) {
+      ctx.fillStyle = '#06b6d444';
+      ctx.font = '8px Barlow Condensed,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('LANDING', (x0 + x1) / 2, (y0t + y0b) / 2 + 2);
+    }
+  }
+  ctx.restore();
+
+  // ── Ramp bottom unit — filled triangle ────────────────────────────────────
+  {
+    // lastH: effective surface height at the end of the sloped run (min PANEL_BODY_MM after Fix 2)
+    const lastPt  = profile[profile.length - 2]; // last profile point before rampBot
+    const lastH   = lastPt ? Math.max(PANEL_BODY_MM, lastPt.h) : PANEL_BODY_MM;
+    const rbX0    = xPx(rbStartMm);
+    const rbX1    = xPx(rbStartMm + RAMP_BOTTOM_MM);
+    // Three vertices: surface high-corner, underside low-corner (at ground), far ground contact
+    ctx.fillStyle   = 'rgba(232,62,140,0.18)';
+    ctx.strokeStyle = '#e83e8c';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(rbX0, yPxRaw(lastH));                  // top of last panel (surface, high corner)
+    ctx.lineTo(rbX0, yPxRaw(lastH - PANEL_BODY_MM));  // bottom of last panel (underside, low corner = 0mm)
+    ctx.lineTo(rbX1, groundY);                         // ground contact ~1219mm further along
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // ── Hinge marker ──────────────────────────────────────────────────────────
+  {
+    const hx = xPx(0), hy = yPxRaw(ramp.stageHeight);
+    ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#f5a623'; ctx.fill();
+    ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#f5a623bb';
+    ctx.font = 'bold 9px Barlow Condensed,sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('HINGE', hx + 7, hy);
+  }
+
+  // ── Gradient label centred on the first sloped flight section ─────────────
+  {
+    // Find first profile point that ends a flight (not a landing, not ramp bottom)
+    const firstFltEnd = profile.slice(1).find(p => !p.rampBot && !p.landing);
+    if (firstFltEnd && firstFltEnd.h < ramp.stageHeight) {
+      const gx  = xPx(firstFltEnd.x / 2);
+      const gHt = (ramp.stageHeight + firstFltEnd.h) / 2 + PANEL_BODY_MM / 2;
+      const gy  = yPxRaw(gHt);
+      const lbl = '1:' + ramp.gradient;
+      ctx.font = 'bold 11px Barlow Condensed,sans-serif';
+      const tw = ctx.measureText(lbl).width;
+      ctx.fillStyle = 'rgba(15,17,23,0.78)';
+      ctx.fillRect(gx - tw / 2 - 3, gy - 7, tw + 6, 14);
+      ctx.fillStyle = '#e83e8ccc';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(lbl, gx, gy);
+    }
+  }
+
+  // ── Y-axis tick labels ─────────────────────────────────────────────────────
+  ctx.fillStyle = '#6b7280'; ctx.font = '9px DM Mono,monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(Math.round(ramp.stageHeight) + 'mm', LPAD - 5, yPxRaw(ramp.stageHeight));
+  ctx.fillText('0', LPAD - 5, groundY);
+  ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(LPAD - 3, yPxRaw(ramp.stageHeight)); ctx.lineTo(LPAD, yPxRaw(ramp.stageHeight)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(LPAD - 3, groundY); ctx.lineTo(LPAD, groundY); ctx.stroke();
+
+  // ── Vertical dimension arrow ───────────────────────────────────────────────
+  {
+    const vax  = LPAD - 42;
+    const vaT  = yPxRaw(ramp.stageHeight);
+    const vaB  = groundY;
+    ctx.strokeStyle = '#3a4050'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(vax, vaB - 3); ctx.lineTo(vax, vaT + 3); ctx.stroke();
+    ctx.fillStyle = '#3a4050';
+    ctx.beginPath(); ctx.moveTo(vax, vaB); ctx.lineTo(vax-3, vaB-7); ctx.lineTo(vax+3, vaB-7); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(vax, vaT); ctx.lineTo(vax-3, vaT+7); ctx.lineTo(vax+3, vaT+7); ctx.closePath(); ctx.fill();
+    ctx.save();
+    ctx.translate(vax - 9, (vaT + vaB) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#5a6070'; ctx.font = '9px DM Mono,monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(ramp.stageHeight) + 'mm', 0, 0);
+    ctx.restore();
+  }
+
+  // ── Horizontal run label below X-axis ─────────────────────────────────────
+  {
+    const runMm = totalHMm;  // hinge → ground contact of ramp bottom (rbStartMm + RAMP_BOTTOM_MM)
+    const haY   = groundY + 26;
+    ctx.strokeStyle = '#3a4050'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(xPx(0) + 3, haY); ctx.lineTo(xPx(runMm) - 3, haY); ctx.stroke();
+    ctx.fillStyle = '#3a4050';
+    // Arrow heads
+    ctx.beginPath(); ctx.moveTo(xPx(0),    haY); ctx.lineTo(xPx(0)+6,    haY-3); ctx.lineTo(xPx(0)+6,    haY+3); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(xPx(runMm), haY); ctx.lineTo(xPx(runMm)-6, haY-3); ctx.lineTo(xPx(runMm)-6, haY+3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#6b7280'; ctx.font = '9px DM Mono,monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(
+      Math.round(runMm).toLocaleString() + 'mm horizontal run',
+      (xPx(0) + xPx(runMm)) / 2, haY + 3
+    );
+  }
+
+  // ── Title ─────────────────────────────────────────────────────────────────
+  {
+    const rn = ramp.id.replace('ramp-', '');
+    ctx.fillStyle = '#f5a623'; ctx.font = 'bold 11px Barlow Condensed,sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(
+      `R${rn}  ·  SIDE ELEVATION  ·  1:${ramp.gradient}  ·  ${ramp.widthFt}ft wide  ·  ${Math.round(ramp.stageHeight)}mm deck ht`,
+      LPAD, 6
+    );
+  }
 }
 </script>
 </body>

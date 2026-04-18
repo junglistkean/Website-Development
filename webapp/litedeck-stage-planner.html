@@ -758,19 +758,8 @@
     </div>
 
     <div class="sidebar-section" id="section-config">
-      <div class="sidebar-label">
-        Stage Config
-        <span style="margin-left:6px">
-          <button class="unit-toggle active" id="cfg-unit-mm" onclick="setCfgUnit('mm')">mm</button>
-          <button class="unit-toggle" id="cfg-unit-ft" onclick="setCfgUnit('ft')">ft</button>
-        </span>
-      </div>
-      <div class="config-grid">
-        <div class="config-row">
-          <label id="lbl-height">T1 finished height (mm)</label>
-          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="onHeightInput()">
-        </div>
-      </div>
+      <div class="sidebar-label">Stage Config</div>
+      <span id="lbl-height" style="display:none;"></span>
       <div class="tier-summary" id="tier-summary"></div>
 
       <!-- Read-only advanced config — visible in Advanced mode only -->
@@ -858,6 +847,14 @@
       </div>
 
       <div class="canvas-toolbar" id="plan-toolbar-content" style="display:flex; align-items:center; gap:8px;">
+        <span style="display:flex; align-items:center; gap:5px; border-left:1px solid var(--border); border-right:1px solid var(--border); padding:0 10px; margin:0 4px;">
+          <label for="cfg-height" style="font-size:11px; color:var(--muted); white-space:nowrap;">Height:</label>
+          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="onHeightInput()"
+            title="T1 finished height"
+            style="width:64px; font-size:12px; padding:2px 4px; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:3px;">
+          <button class="unit-toggle active" id="cfg-unit-mm" onclick="setCfgUnit('mm')">mm</button>
+          <button class="unit-toggle" id="cfg-unit-ft" onclick="setCfgUnit('ft')">ft</button>
+        </span>
         <span class="desktop-only" style="font-size:11px;">Grid: 2ft</span>
         <span class="desktop-only" id="cursor-pos">—</span>
         <!-- Mobile height control — replaces grid info on small screens -->
@@ -872,13 +869,19 @@
           <button class="unit-toggle"        id="mob-ht-unit-ft" onclick="setMobHtUnit('ft')">ft</button>
         </span>
         <span id="pending-info" style="color:var(--accent); font-size:11px;"></span>
-        <span id="footprint-info" style="margin-left:auto; font-size:12px; color:#ffffff; font-family:'Barlow Condensed',sans-serif; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;"></span>
+        <span class="desktop-only" style="margin-left:auto; display:flex; align-items:center; gap:4px;">
+          <button class="btn btn-ghost" onclick="zoomStep(-1)" title="Zoom out" style="padding:2px 7px; font-size:14px; line-height:1;">−</button>
+          <span id="zoom-display" style="font-size:11px; color:var(--muted); min-width:36px; text-align:center; font-family:'DM Mono',monospace;">100%</span>
+          <button class="btn btn-ghost" onclick="zoomStep(1)" title="Zoom in" style="padding:2px 7px; font-size:14px; line-height:1;">+</button>
+          <button class="btn btn-ghost" onclick="zoomReset()" title="Reset zoom" style="padding:2px 7px; font-size:11px;">1:1</button>
+        </span>
+        <span id="footprint-info" style="font-size:12px; color:#ffffff; font-family:'Barlow Condensed',sans-serif; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;"></span>
         <span id="mob-tool-hint"></span>
       </div>
     </div>
 
     <div class="canvas-scroll" id="canvas-scroll" style="position:relative">
-      <div style="position:relative; display:inline-block;">
+      <div id="canvas-wrap" style="position:relative; display:inline-block; transform-origin:0 0;">
         <canvas id="stageCanvas"></canvas>
       </div>
     </div>
@@ -1074,6 +1077,11 @@ let nextId         = 1;
 let activeView     = 'plan';
 let history        = [];
 let simpleMode     = true; // client starts in simple mode
+
+// ── Zoom state ────────────────────────────────────────────────────────────────
+let viewZoom = 1.0;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 4.0;
 
 // ── Ramp state ────────────────────────────────────────────────────────────
 let ramps               = [];
@@ -1803,7 +1811,27 @@ function placeRamp(rawGx, rawGy, tierId, edge) {
 
   const ramp = addRamp(anchorGx, anchorGy, rampCfg.direction, rampCfg.gradient, rampCfg.widthFt, tierId);
   if (!ramp) { alert('Could not place ramp.'); return; }
-  saveHistory();
+  {
+    const hingeAlongStart = (ramp.direction === 'south' || ramp.direction === 'north')
+      ? ramp.anchorGx : ramp.anchorGy;
+    const hingeSpan = [hingeAlongStart, hingeAlongStart + ramp.widthCols * 2];
+    const hrConflicts = panels.filter(p =>
+      p.category === 'handrail' && p.tier === activeTierId &&
+      p.side === edge.side && p.edgeGu === edge.edgeGu &&
+      spansOverlap(hingeSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
+    );
+    if (hrConflicts.length) {
+      const ok = confirm(
+        hrConflicts.length + ' handrail(s) are blocking this position.\n\nRemove them and place ramp here?'
+      );
+      if (!ok) return;
+      saveHistory();
+      const conflictIds = new Set(hrConflicts.map(p => p.id));
+      panels = panels.filter(p => !conflictIds.has(p.id));
+    } else {
+      saveHistory();
+    }
+  }
   ramps.push(ramp);
   recalcSchedule();
   redraw();
@@ -1985,6 +2013,17 @@ function placeSteps(edge) {
     p.side === edge.side && p.edgeGu === edge.edgeGu &&
     spansOverlap(sSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
   );
+  const rampHingeConflict = ramps.some(r => {
+    if (r.tierId !== activeTierId) return false;
+    const rEdgeGu = (r.direction === 'south' || r.direction === 'north') ? r.anchorGy : r.anchorGx;
+    if (DIR_SIDE[r.direction] !== edge.side || rEdgeGu !== edge.edgeGu) return false;
+    const hingeAlongStart = (r.direction === 'south' || r.direction === 'north') ? r.anchorGx : r.anchorGy;
+    return spansOverlap(sSpan, [hingeAlongStart, hingeAlongStart + r.widthCols * 2]);
+  });
+  if (rampHingeConflict) {
+    alert('Steps cannot be placed on a ramp hinge attachment edge.');
+    return;
+  }
   if (conflict) {
     if (!confirm('A handrail is blocking this position.\n\nRemove it and place steps here?')) return;
     saveHistory();
@@ -2172,10 +2211,24 @@ function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, force
   const stepsBlocked = stepItems
     .map(s => stepsSpan(s))
     .map(([a,b]) => [Math.max(a, spanStart), Math.min(b, spanEnd)])
-    .filter(([a,b]) => a < b)
-    .sort((a,b) => a[0] - b[0]);
+    .filter(([a,b]) => a < b);
+
+  const rampBlocked = ramps
+    .filter(r => {
+      if (r.tierId !== activeTierId) return false;
+      const rEdgeGu = (r.direction === 'south' || r.direction === 'north') ? r.anchorGy : r.anchorGx;
+      return DIR_SIDE[r.direction] === side && rEdgeGu === edgeGu;
+    })
+    .map(r => {
+      const start = (r.direction === 'south' || r.direction === 'north') ? r.anchorGx : r.anchorGy;
+      return [Math.max(start, spanStart), Math.min(start + r.widthCols * 2, spanEnd)];
+    })
+    .filter(([a,b]) => a < b);
+
+  const allBlocked = [...stepsBlocked, ...rampBlocked].sort((a,b) => a[0] - b[0]);
+
   const freeSegs = []; let cur = spanStart;
-  for (const [bs,be] of stepsBlocked) { if (cur < bs) freeSegs.push([cur, bs]); cur = Math.max(cur, be); }
+  for (const [bs,be] of allBlocked) { if (cur < bs) freeSegs.push([cur, bs]); cur = Math.max(cur, be); }
   if (cur < spanEnd) freeSegs.push([cur, spanEnd]);
   for (const [segStart, segEnd] of freeSegs) {
     const segGu = segEnd - segStart;
@@ -2343,8 +2396,9 @@ function setTool(tool) {
 }
 
 // ── Canvas setup ──────────────────────────────────────────────────────────────
-const canvas = document.getElementById('stageCanvas');
-const ctx    = canvas.getContext('2d');
+const canvas     = document.getElementById('stageCanvas');
+const ctx        = canvas.getContext('2d');
+const canvasWrap = document.getElementById('canvas-wrap');
 canvas.width  = GRID_W * CELL + 1;
 canvas.height = GRID_H * CELL + 1;
 
@@ -2649,16 +2703,60 @@ canvas.addEventListener('click', e => {
   handleCanvasClick(e.clientX, e.clientY);
 });
 
+// ── Zoom ──────────────────────────────────────────────────────────────────────
+function applyZoom(newZoom, pivotScreenX, pivotScreenY) {
+  newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+  const oldZoom = viewZoom;
+  if (newZoom === oldZoom) return;
+  const scrollR = canvasScroll.getBoundingClientRect();
+  const pad = 24; // .canvas-scroll padding
+  const canvasX = (pivotScreenX - scrollR.left + canvasScroll.scrollLeft - pad) / oldZoom;
+  const canvasY = (pivotScreenY - scrollR.top  + canvasScroll.scrollTop  - pad) / oldZoom;
+  viewZoom = newZoom;
+  canvasWrap.style.transform = `scale(${viewZoom})`;
+  canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
+  canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
+  canvasScroll.scrollLeft = pad + canvasX * viewZoom - (pivotScreenX - scrollR.left);
+  canvasScroll.scrollTop  = pad + canvasY * viewZoom - (pivotScreenY - scrollR.top);
+  updateZoomDisplay();
+}
+
+function zoomStep(dir) {
+  const factor = dir > 0 ? 1.2 : 1 / 1.2;
+  const scrollR = canvasScroll.getBoundingClientRect();
+  const cx = scrollR.left + scrollR.width  / 2;
+  const cy = scrollR.top  + scrollR.height / 2;
+  applyZoom(viewZoom * factor, cx, cy);
+}
+
+function zoomReset() {
+  const scrollR = canvasScroll.getBoundingClientRect();
+  const cx = scrollR.left + scrollR.width  / 2;
+  const cy = scrollR.top  + scrollR.height / 2;
+  applyZoom(1.0, cx, cy);
+  const pad = 24;
+  const workCX = (56 * CELL) / 2;
+  const workCY = (44 * CELL) / 2;
+  canvasScroll.scrollLeft = Math.max(0, pad + workCX - scrollR.width  / 2);
+  canvasScroll.scrollTop  = Math.max(0, pad + workCY - scrollR.height / 2);
+}
+
+function updateZoomDisplay() {
+  const el = document.getElementById('zoom-display');
+  if (el) el.textContent = Math.round(viewZoom * 100) + '%';
+}
+
+// Wheel zoom (toward cursor)
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  applyZoom(viewZoom * factor, e.clientX, e.clientY);
+}, { passive: false });
+
 // ── Touch / pinch-zoom ────────────────────────────────────────────────────────
-let canvasScale = 1.0;
 let touchState  = null; // { type, startX, startY, curX, curY, scrollX, scrollY, startTime }
                         // type: 'pending' | 'pan' | 'pinch'
 const canvasScroll = document.getElementById('canvas-scroll');
-
-function applyCanvasScale(scale) {
-  canvasScale = scale;
-  canvas.style.zoom = scale === 1 ? '' : scale;
-}
 
 function getTouchDist(touches) {
   const dx = touches[0].clientX - touches[1].clientX;
@@ -2713,7 +2811,7 @@ canvas.addEventListener('touchstart', e => {
     touchState = {
       type: 'pinch',
       startDist:  getTouchDist(e.touches),
-      startScale: canvasScale,
+      startScale: viewZoom,
       startScrollX: canvasScroll.scrollLeft,
       startScrollY: canvasScroll.scrollTop,
       startMidX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
@@ -2774,9 +2872,13 @@ canvas.addEventListener('touchmove', e => {
     const rect      = canvasScroll.getBoundingClientRect();
     const pinchDocX = midX - rect.left + canvasScroll.scrollLeft;
     const pinchDocY = midY - rect.top  + canvasScroll.scrollTop;
-    applyCanvasScale(newScale);
-    canvasScroll.scrollLeft = pinchDocX * (newScale / touchState.startScale) - (midX - rect.left);
-    canvasScroll.scrollTop  = pinchDocY * (newScale / touchState.startScale) - (midY - rect.top);
+    viewZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
+    canvasWrap.style.transform = `scale(${viewZoom})`;
+    canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
+    canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
+    canvasScroll.scrollLeft = pinchDocX * (viewZoom / touchState.startScale) - (midX - rect.left);
+    canvasScroll.scrollTop  = pinchDocY * (viewZoom / touchState.startScale) - (midY - rect.top);
+    updateZoomDisplay();
   }
 }, { passive: false });
 
@@ -2941,8 +3043,11 @@ function initMobileScale() {
   if (window.innerWidth > 768) return;
   const availW = window.innerWidth - 24; // 12px canvas-scroll padding each side
   // Scale so ~10 grid cells span the viewport width on first load.
-  const scale  = Math.max(0.25, Math.min(3.0, availW / (10 * CELL)));
-  applyCanvasScale(scale);
+  viewZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, availW / (10 * CELL)));
+  canvasWrap.style.transform = `scale(${viewZoom})`;
+  canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
+  canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
+  updateZoomDisplay();
 }
 function getGridPos(e) {
   return getGridPosXY(e.clientX, e.clientY);
@@ -5341,6 +5446,20 @@ updatePendingInfo();
 redraw();
 setWatermark('bird');
 setView('plan');
+// Initialise zoom wrapper sizing and centre on the working quarter of the grid
+(function initZoom() {
+  canvasWrap.style.transform = `scale(${viewZoom})`;
+  canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
+  canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
+  updateZoomDisplay();
+  requestAnimationFrame(() => {
+    const pad = 24;
+    const workCX = (56 * CELL) / 2;
+    const workCY = (44 * CELL) / 2;
+    canvasScroll.scrollLeft = Math.max(0, pad + workCX - canvasScroll.clientWidth  / 2);
+    canvasScroll.scrollTop  = Math.max(0, pad + workCY - canvasScroll.clientHeight / 2);
+  });
+})();
 initMobileScale();
 syncMobBar();
 syncMobHeight();

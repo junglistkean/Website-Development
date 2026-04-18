@@ -736,16 +736,9 @@
   <script>
     const WORKER_URL = 'https://tastebd-signup-receiver.e-kean.workers.dev/submit';
 
-    // Session card toggle
+    // Session card toggle — label handles checkbox natively; sync class on change
     document.querySelectorAll('.session-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const cb = card.querySelector('input[type="checkbox"]');
-        cb.checked = !cb.checked;
-        card.classList.toggle('selected', cb.checked);
-      });
-      // Prevent double-toggle when clicking the actual checkbox
-      card.querySelector('input[type="checkbox"]').addEventListener('click', e => {
-        e.stopPropagation();
+      card.querySelector('input[type="checkbox"]').addEventListener('change', e => {
         card.classList.toggle('selected', e.target.checked);
       });
     });

@@ -5377,10 +5377,10 @@ function setQuoteStatus(cls, msg) {
   el.className = 'qm-status' + (cls ? ' ' + cls : '');
   el.style.display = 'block'; el.innerHTML = msg;
 }
-function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, notes) {
+function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes) {
   return JSON.stringify({
     version: 1, exportedAt: new Date().toISOString(),
-    event: { eventName, venue, loadInDate, loadInTime, contactName, notes },
+    event: { eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes },
     tiers, panels, ramps, nextId, nextRampId,
     config: {
       socket:    parseFloat(document.getElementById('cfg-socket').value),
@@ -5408,7 +5408,7 @@ async function submitQuote() {
   document.getElementById('qm-submit').disabled = true;
   document.getElementById('qm-cancel').disabled = true;
   setQuoteStatus('sending','⏳ <b>Sending layout&hellip;</b>');
-  const layoutJson = exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, notes);
+  const layoutJson = exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes);
   try {
     const resp = await fetch(QUOTE_WORKER_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

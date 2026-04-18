@@ -2769,7 +2769,16 @@ function saveLayout(){
     panels:panels,
     ramps:ramps,
     nextRampId:nextRampId,
-    savedAt:new Date().toISOString()
+    savedAt:new Date().toISOString(),
+    event: {
+      eventName:    document.getElementById('qm-event-name')?.value || '',
+      venue:        document.getElementById('qm-venue')?.value || '',
+      loadInDate:   document.getElementById('qm-date')?.value || '',
+      loadInTime:   document.getElementById('qm-time')?.value || '',
+      contactName:  document.getElementById('qm-contact-name')?.value || '',
+      contactEmail: document.getElementById('qm-contact-email')?.value || '',
+      notes:        document.getElementById('qm-notes')?.value || '',
+    }
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -2792,6 +2801,7 @@ function loadLayout(e){
       ramps=data.ramps||[];
       nextRampId=data.nextRampId||1;
       selectedId=null; selectedRampId=null;
+      restoreEventFields(data);
       renderTierControls();
       renderTierSummary();
       updatePendingInfo();
@@ -7871,11 +7881,11 @@ function setQuoteStatus(cls, msg) {
   el.className = 'qm-status' + (cls ? ' ' + cls : '');
   el.style.display = 'block'; el.innerHTML = msg;
 }
-function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, notes) {
+function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes) {
   return JSON.stringify({
     version: 1,
     exportedAt: new Date().toISOString(),
-    event: { eventName, venue, loadInDate, loadInTime, contactName, notes },
+    event: { eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes },
     tiers,
     panels,
     nextId,
@@ -8112,6 +8122,7 @@ function importLayoutJson(jsonString) {
       }
     }
   }
+  restoreEventFields(data);
   // Restore active tier UI
   const t = getActiveTier();
   syncHeightInput(t);
@@ -8119,6 +8130,18 @@ function importLayoutJson(jsonString) {
   renderTierSummary();
   recalcSchedule();
   redraw();
+}
+function restoreEventFields(data) {
+  if (!data.event) return;
+  const e = data.event;
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  set('qm-event-name',    e.eventName);
+  set('qm-venue',         e.venue);
+  set('qm-date',          e.loadInDate);
+  set('qm-time',          e.loadInTime);
+  set('qm-contact-name',  e.contactName);
+  set('qm-contact-email', e.contactEmail);
+  set('qm-notes',         e.notes);
 }
 function handleImportJson(input) {
   const file = input.files[0];

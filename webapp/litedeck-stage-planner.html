@@ -2864,21 +2864,10 @@ canvas.addEventListener('touchmove', e => {
       }
     }
   } else if (e.touches.length === 2 && touchState?.type === 'pinch') {
-    const newDist   = getTouchDist(e.touches);
-    const newScale  = Math.max(0.25, Math.min(3.0, touchState.startScale * newDist / touchState.startDist));
-    const midX      = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY      = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    // Scroll so the pinch midpoint stays fixed
-    const rect      = canvasScroll.getBoundingClientRect();
-    const pinchDocX = midX - rect.left + canvasScroll.scrollLeft;
-    const pinchDocY = midY - rect.top  + canvasScroll.scrollTop;
-    viewZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
-    canvasWrap.style.transform = `scale(${viewZoom})`;
-    canvasWrap.style.width  = Math.ceil(canvas.width  * viewZoom) + 'px';
-    canvasWrap.style.height = Math.ceil(canvas.height * viewZoom) + 'px';
-    canvasScroll.scrollLeft = pinchDocX * (viewZoom / touchState.startScale) - (midX - rect.left);
-    canvasScroll.scrollTop  = pinchDocY * (viewZoom / touchState.startScale) - (midY - rect.top);
-    updateZoomDisplay();
+    const newDist = getTouchDist(e.touches);
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    applyZoom(touchState.startScale * newDist / touchState.startDist, midX, midY);
   }
 }, { passive: false });
 

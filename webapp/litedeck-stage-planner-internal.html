@@ -813,19 +813,8 @@
     </div>
 
     <div class="sidebar-section" id="section-config">
-      <div class="sidebar-label">
-        Stage Config
-        <span style="margin-left:6px">
-          <button class="unit-toggle active" id="cfg-unit-mm" onclick="setCfgUnit('mm')">mm</button>
-          <button class="unit-toggle" id="cfg-unit-ft" onclick="setCfgUnit('ft')">ft</button>
-        </span>
-      </div>
-      <div class="config-grid">
-        <div class="config-row">
-          <label id="lbl-height">T1 finished height (mm)</label>
-          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="onHeightInput()">
-        </div>
-      </div>
+      <div class="sidebar-label">Stage Config</div>
+      <span id="lbl-height" style="display:none;"></span>
       <!-- ── Floor Rake ─────────────────────────────────────────────────── -->
 <div class="cfg-section" id="rake-section">
   <label class="cfg-toggle-row">
@@ -959,6 +948,14 @@
 
       <!-- Status row — cursor pos, pending info, hints -->
       <div class="canvas-toolbar" id="plan-toolbar-content" style="display:flex; align-items:center; gap:8px;">
+        <span style="display:flex; align-items:center; gap:5px; border-left:1px solid var(--border); border-right:1px solid var(--border); padding:0 10px; margin:0 4px;">
+          <label for="cfg-height" style="font-size:11px; color:var(--muted); white-space:nowrap;">Height:</label>
+          <input type="number" id="cfg-height" value="600" min="1" step="1" oninput="onHeightInput()"
+            title="T1 finished height"
+            style="width:64px; font-size:12px; padding:2px 4px; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:3px;">
+          <button class="unit-toggle active" id="cfg-unit-mm" onclick="setCfgUnit('mm')">mm</button>
+          <button class="unit-toggle" id="cfg-unit-ft" onclick="setCfgUnit('ft')">ft</button>
+        </span>
         <span style="font-size:11px;">Grid: 2ft</span>
         <span id="cursor-pos">—</span>
         <span id="pending-info" style="color:var(--accent); font-size:11px;"></span>
@@ -1235,6 +1232,7 @@ let rampConfigured    = false; // true once user has confirmed the ramp config m
 let rampRecalcWarnings = [];   // [{rampId, message}] — populated by recalcRamps(), read by appendRampSchedule()
 let selectedRampId = null;  // currently selected ramp id (string like 'ramp-1')
 const rampCfg   = { direction: 'south', gradient: 12, widthFt: 8 };
+const DIR_SIDE  = { south: 'back', north: 'front', east: 'right', west: 'left' };
 
 // ── Dogleg ramp state ─────────────────────────────────────────────────────────
 let doglegConfigured = false;
@@ -1616,6 +1614,20 @@ function placeSteps(edge) {
     spansOverlap(sSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
   );
 
+  console.log('placeSteps edge:', JSON.stringify(edge));
+  console.log('ramps on this tier:', JSON.stringify(ramps.filter(r => r.tierId === activeTierId)));
+  const rampHingeConflict = ramps.some(r => {
+    if (r.tierId !== activeTierId) return false;
+    const rEdgeGu = (r.direction === 'south' || r.direction === 'north') ? r.anchorGy : r.anchorGx;
+    if (DIR_SIDE[r.direction] !== edge.side || rEdgeGu !== edge.edgeGu) return false;
+    const hingeAlongStart = (r.direction === 'south' || r.direction === 'north') ? r.anchorGx : r.anchorGy;
+    return spansOverlap(sSpan, [hingeAlongStart, hingeAlongStart + r.widthCols * 2]);
+  });
+  if (rampHingeConflict) {
+    alert('Steps cannot be placed on a ramp hinge attachment edge.');
+    return;
+  }
+
   if (conflict) {
     const ok = confirm(
       'A handrail is blocking this position.\n\nRemove it and place steps here?'
@@ -1662,9 +1674,7 @@ function spansOverlap(a, b) {
 // attachment on this edge.  The hinge occupies the full ramp width in GU at
 // the anchor position — handrails cannot be placed there.
 function isRampHingeEdge(edge, safeAlong, hrWidthGu) {
-  // Map ramp direction → which stage edge side it attaches to
-  const DIR_SIDE = { south: 'back', north: 'front', east: 'right', west: 'left' };
-  const hrSpan   = [safeAlong, safeAlong + hrWidthGu];
+  const hrSpan = [safeAlong, safeAlong + hrWidthGu];
 
   for (const ramp of ramps) {
     if (ramp.tierId !== activeTierId) continue;
@@ -1874,11 +1884,24 @@ function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, force
   const stepsBlocked = stepItems
     .map(s => stepsSpan(s))
     .map(([a,b]) => [Math.max(a, spanStart), Math.min(b, spanEnd)])
-    .filter(([a,b]) => a < b)
-    .sort((a,b) => a[0] - b[0]);
+    .filter(([a,b]) => a < b);
+
+  const rampBlocked = ramps
+    .filter(r => {
+      if (r.tierId !== activeTierId) return false;
+      const rEdgeGu = (r.direction === 'south' || r.direction === 'north') ? r.anchorGy : r.anchorGx;
+      return DIR_SIDE[r.direction] === side && rEdgeGu === edgeGu;
+    })
+    .map(r => {
+      const start = (r.direction === 'south' || r.direction === 'north') ? r.anchorGx : r.anchorGy;
+      return [Math.max(start, spanStart), Math.min(start + r.widthCols * 2, spanEnd)];
+    })
+    .filter(([a,b]) => a < b);
+
+  const allBlocked = [...stepsBlocked, ...rampBlocked].sort((a,b) => a[0] - b[0]);
 
   const freeSegs = []; let cur = spanStart;
-  for (const [bs,be] of stepsBlocked) { if (cur < bs) freeSegs.push([cur, bs]); cur = Math.max(cur, be); }
+  for (const [bs,be] of allBlocked) { if (cur < bs) freeSegs.push([cur, bs]); cur = Math.max(cur, be); }
   if (cur < spanEnd) freeSegs.push([cur, spanEnd]);
 
   for (const [segStart, segEnd] of freeSegs) {
@@ -4951,7 +4974,29 @@ function doglegPlaceRamp() {
     return;
   }
 
-  saveHistory();
+  {
+    const hingeAlongStart = (ramp.direction === 'south' || ramp.direction === 'north')
+      ? ramp.anchorGx : ramp.anchorGy;
+    const hingeEdgeGu = (ramp.direction === 'south' || ramp.direction === 'north')
+      ? ramp.anchorGy : ramp.anchorGx;
+    const hingeSpan = [hingeAlongStart, hingeAlongStart + ramp.widthCols * 2];
+    const hrConflicts = panels.filter(p =>
+      p.category === 'handrail' && p.tier === activeTierId &&
+      p.side === DIR_SIDE[ramp.direction] && p.edgeGu === hingeEdgeGu &&
+      spansOverlap(hingeSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
+    );
+    if (hrConflicts.length) {
+      const ok = confirm(
+        hrConflicts.length + ' handrail(s) are blocking this position.\n\nRemove them and place ramp here?'
+      );
+      if (!ok) return;
+      saveHistory();
+      const conflictIds = new Set(hrConflicts.map(p => p.id));
+      panels = panels.filter(p => !conflictIds.has(p.id));
+    } else {
+      saveHistory();
+    }
+  }
   ramps.push(ramp);
   // Clear ghost state immediately so no further ghost renders can occur.
   resetDoglegTool();
@@ -5034,7 +5079,28 @@ function placeRamp(rawGx, rawGy, tierId, edge) {
 
   const ramp = addRamp(anchorGx, anchorGy, rampCfg.direction, rampCfg.gradient, rampCfg.widthFt, tierId);
   if (!ramp) { alert('Could not place ramp.'); return; }
-  saveHistory();
+
+  {
+    const hingeAlongStart = (ramp.direction === 'south' || ramp.direction === 'north')
+      ? ramp.anchorGx : ramp.anchorGy;
+    const hingeSpan = [hingeAlongStart, hingeAlongStart + ramp.widthCols * 2];
+    const hrConflicts = panels.filter(p =>
+      p.category === 'handrail' && p.tier === activeTierId &&
+      p.side === edge.side && p.edgeGu === edge.edgeGu &&
+      spansOverlap(hingeSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
+    );
+    if (hrConflicts.length) {
+      const ok = confirm(
+        hrConflicts.length + ' handrail(s) are blocking this position.\n\nRemove them and place ramp here?'
+      );
+      if (!ok) return;
+      saveHistory();
+      const conflictIds = new Set(hrConflicts.map(p => p.id));
+      panels = panels.filter(p => !conflictIds.has(p.id));
+    } else {
+      saveHistory();
+    }
+  }
   ramps.push(ramp);
   recalcSchedule();
   redraw();

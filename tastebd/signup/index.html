@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exercise Sign-up — Taste BD 2026</title>
+  <meta name="description" content="Sign up for free exercise sessions at Taste BD 2026 — Bradford's food and culture festival.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: #2a2a2a;
+      --cyan: #00D4E8;
+      --yellow: #F5D63D;
+      --text: #e8e8e8;
+      --muted: #888;
+      --error: #ff5c5c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .site-header {
+      background: #0a0a0a;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* CSS-only Taste BD logo circle */
+    .logo-circle {
+      width: 52px;
+      height: 52px;
+      background: #000;
+      border-radius: 50%;
+      border: 2px solid #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      line-height: 1;
+      padding: 6px;
+    }
+
+    .logo-taste {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--cyan);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .logo-bd {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--yellow);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .header-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .header-delivered {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 300;
+      white-space: nowrap;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #0d1a1c 0%, #0d0d0d 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 52px 24px 44px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: clamp(36px, 8vw, 64px);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      line-height: 1;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .hero h1 span { color: var(--cyan); }
+
+    .hero-sub {
+      font-size: 16px;
+      font-weight: 300;
+      color: var(--muted);
+      margin-bottom: 24px;
+      letter-spacing: 0.04em;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .meta-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-pill .icon { font-size: 14px; }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    .section-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 16px;
+    }
+
+    /* ── SESSION CARDS ── */
+    .sessions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+
+    .session-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+      user-select: none;
+    }
+
+    .session-card:hover {
+      border-color: #444;
+    }
+
+    .session-card.selected {
+      border-color: var(--cyan);
+      background: #0d1e20;
+    }
+
+    .session-card input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .session-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .session-card-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .session-checkbox-indicator {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid var(--border);
+      background: var(--surface2);
+      flex-shrink: 0;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .session-card.selected .session-checkbox-indicator {
+      border-color: var(--cyan);
+      background: var(--cyan);
+    }
+
+    .session-checkbox-indicator::after {
+      content: '';
+      width: 6px;
+      height: 10px;
+      border: 2px solid #000;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translateY(-1px);
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .session-card.selected .session-checkbox-indicator::after {
+      opacity: 1;
+    }
+
+    .session-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.02em;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    .session-desc {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 300;
+      margin-top: 4px;
+    }
+
+    .free-badge {
+      background: var(--yellow);
+      color: #000;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .session-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .session-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 3px 11px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .session-pill.date { color: var(--cyan); border-color: rgba(0,212,232,0.2); background: rgba(0,212,232,0.06); }
+    .session-pill.time { color: var(--yellow); border-color: rgba(245,214,61,0.2); background: rgba(245,214,61,0.06); }
+
+    /* ── FORM ── */
+    .form-section {
+      margin-bottom: 32px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 480px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #bbb;
+      letter-spacing: 0.02em;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="tel"]:focus {
+      border-color: var(--cyan);
+    }
+
+    input[type="text"]::placeholder,
+    input[type="email"]::placeholder,
+    input[type="tel"]::placeholder {
+      color: #444;
+    }
+
+    /* ── DISCLAIMER ── */
+    .disclaimer-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--yellow);
+      border-radius: 0 8px 8px 0;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+
+    .disclaimer-box h3 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--yellow);
+      margin-bottom: 12px;
+    }
+
+    .disclaimer-text {
+      font-size: 13px;
+      font-weight: 300;
+      color: #aaa;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .disclaimer-text ul {
+      padding-left: 16px;
+      margin: 6px 0;
+    }
+
+    .disclaimer-text li {
+      margin-bottom: 4px;
+    }
+
+    .disclaimer-text p {
+      margin-top: 10px;
+    }
+
+    .disclaimer-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .disclaimer-check input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--cyan);
+      flex-shrink: 0;
+      margin-top: 1px;
+      cursor: pointer;
+    }
+
+    .disclaimer-check span {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    /* ── SUBMIT ── */
+    .submit-btn {
+      width: 100%;
+      background: var(--cyan);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 16px 24px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .submit-btn:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── ERROR MESSAGE ── */
+    .error-msg {
+      background: rgba(255, 92, 92, 0.1);
+      border: 1px solid rgba(255, 92, 92, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: var(--error);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* ── SUCCESS PANEL ── */
+    .success-panel {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .success-panel.visible { display: block; }
+
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(0,212,232,0.1);
+      border: 2px solid var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 32px;
+    }
+
+    .success-panel h2 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .success-panel .success-name {
+      color: var(--cyan);
+    }
+
+    .success-panel p {
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 300;
+      margin-bottom: 24px;
+    }
+
+    .success-sessions {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: left;
+      margin-bottom: 24px;
+    }
+
+    .success-sessions h3 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .success-session-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .success-session-item:last-child { margin-bottom: 0; }
+
+    .success-session-item::before {
+      content: '✓';
+      color: var(--cyan);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .success-see-you {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--yellow);
+    }
+
+    /* ── FOOTER ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .footer-socials {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .footer-credits {
+      font-size: 12px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-left">
+      <div class="logo-circle" aria-hidden="true">
+        <span class="logo-taste">Taste</span>
+        <span class="logo-bd">BD</span>
+      </div>
+      <span class="header-title">Exercise Sign-up</span>
+    </div>
+    <span class="header-delivered">Delivered by Raven Staging</span>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <h1>Move with <span>Taste BD</span></h1>
+    <p class="hero-sub">Free to attend &middot; Outdoor &middot; All welcome</p>
+    <div class="hero-meta">
+      <div class="meta-pill"><span class="icon">📍</span> The Mirrorpool, City Park, Bradford</div>
+      <div class="meta-pill"><span class="icon">📅</span> 2–3 May 2026</div>
+      <div class="meta-pill"><span class="icon">🎟</span> Free entry</div>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- FORM (hidden after success) -->
+    <form id="signup-form" novalidate>
+
+      <!-- Session selection -->
+      <div class="form-section">
+        <p class="section-label">Choose your session(s)</p>
+        <div class="sessions">
+
+          <label class="session-card" id="card-session1">
+            <input type="checkbox" id="session1" name="session1">
+            <div class="session-card-header">
+              <div class="session-card-left">
+                <div class="session-checkbox-indicator" aria-hidden="true"></div>
+                <div>
+                  <div class="session-name">Drum &amp; Bass Boxercise</div>
+                  <div class="session-desc">High-energy boxercise workout set to a drum &amp; bass soundtrack. All fitness levels welcome.</div>
+                </div>
+              </div>
+              <span class="free-badge">Free</span>
+            </div>
+            <div class="session-pills">
+              <span class="session-pill date">📅 Sat 2 May 2026</span>
+              <span class="session-pill time">🕐 13:00–14:00</span>
+              <span class="session-pill">📍 The Mirrorpool</span>
+            </div>
+          </label>
+
+          <label class="session-card" id="card-session2">
+            <input type="checkbox" id="session2" name="session2">
+            <div class="session-card-header">
+              <div class="session-card-left">
+                <div class="session-checkbox-indicator" aria-hidden="true"></div>
+                <div>
+                  <div class="session-name">Mindful Movement</div>
+                  <div class="session-desc">A gentle, accessible movement session combining breathwork and low-impact exercise.</div>
+                </div>
+              </div>
+              <span class="free-badge">Free</span>
+            </div>
+            <div class="session-pills">
+              <span class="session-pill date">📅 Sun 3 May 2026</span>
+              <span class="session-pill time">🕐 14:30–15:30</span>
+              <span class="session-pill">📍 The Mirrorpool</span>
+            </div>
+          </label>
+
+        </div>
+      </div>
+
+      <!-- Your details -->
+      <div class="form-section">
+        <p class="section-label">Your details</p>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="firstName">First name</label>
+            <input type="text" id="firstName" name="firstName" placeholder="e.g. Alex" autocomplete="given-name" required>
+          </div>
+          <div class="field">
+            <label for="lastName">Last name</label>
+            <input type="text" id="lastName" name="lastName" placeholder="e.g. Smith" autocomplete="family-name" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone number</label>
+          <input type="tel" id="phone" name="phone" placeholder="07700 000000" autocomplete="tel" required>
+        </div>
+      </div>
+
+      <!-- Disclaimer -->
+      <div class="disclaimer-box">
+        <h3>Health &amp; Safety Disclaimer</h3>
+        <div class="disclaimer-text">
+          <p>These sessions involve physical activity outdoors. By signing up you confirm that:</p>
+          <ul>
+            <li>You are in a suitable state of health to participate in physical exercise</li>
+            <li>You will inform the session lead of any relevant medical conditions or injuries on the day</li>
+            <li>You accept that Taste BD, Raven Staging, and Bradford Council accept no liability for injury, loss, or damage sustained during or travelling to/from sessions</li>
+            <li>Participants under 16 must be accompanied by a responsible adult at all times</li>
+            <li>Participation is entirely at your own risk</li>
+          </ul>
+          <p>If you have any concerns about your suitability to participate, please consult your GP before attending.</p>
+        </div>
+        <label class="disclaimer-check">
+          <input type="checkbox" id="disclaimer" name="disclaimer" required>
+          <span>I have read and accept the above disclaimer</span>
+        </label>
+      </div>
+
+      <!-- Error message -->
+      <div class="error-msg" id="error-msg" role="alert"></div>
+
+      <!-- Submit -->
+      <button type="submit" class="submit-btn" id="submit-btn">
+        Sign me up — it's free
+      </button>
+
+    </form>
+
+    <!-- SUCCESS PANEL -->
+    <div class="success-panel" id="success-panel" role="status" aria-live="polite">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <h2>You're signed up, <span class="success-name" id="success-name"></span>!</h2>
+      <p>Check your email — a confirmation is on its way.</p>
+      <div class="success-sessions">
+        <h3>Your sessions</h3>
+        <div id="success-session-list"></div>
+      </div>
+      <p class="success-see-you">See you at the Mirrorpool 👋</p>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <p class="footer-socials">@tasteBDbradford &nbsp;|&nbsp; @taste.bd &nbsp;|&nbsp; @taste_bd</p>
+    <p class="footer-credits">Raven Staging &nbsp;&middot;&nbsp; Bradford Council</p>
+  </footer>
+
+  <script>
+    const WORKER_URL = 'https://tastebd-signup-receiver.e-kean.workers.dev/submit';
+
+    // Session card toggle
+    document.querySelectorAll('.session-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const cb = card.querySelector('input[type="checkbox"]');
+        cb.checked = !cb.checked;
+        card.classList.toggle('selected', cb.checked);
+      });
+      // Prevent double-toggle when clicking the actual checkbox
+      card.querySelector('input[type="checkbox"]').addEventListener('click', e => {
+        e.stopPropagation();
+        card.classList.toggle('selected', e.target.checked);
+      });
+    });
+
+    // Form submit
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const errorEl = document.getElementById('error-msg');
+      const submitBtn = document.getElementById('submit-btn');
+
+      const session1 = document.getElementById('session1').checked;
+      const session2 = document.getElementById('session2').checked;
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const disclaimer = document.getElementById('disclaimer').checked;
+
+      // Client-side validation
+      const showError = (msg) => {
+        errorEl.textContent = msg;
+        errorEl.classList.add('visible');
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+
+      errorEl.classList.remove('visible');
+
+      if (!session1 && !session2) return showError('Please select at least one session.');
+      if (!firstName) return showError('Please enter your first name.');
+      if (!lastName) return showError('Please enter your last name.');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Please enter a valid email address.');
+      if (!phone) return showError('Please enter your phone number.');
+      if (!disclaimer) return showError('Please read and accept the disclaimer to continue.');
+
+      // Loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
+
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ firstName, lastName, email, phone, session1, session2, disclaimer })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Something went wrong. Please try again.');
+        }
+
+        // Show success
+        document.getElementById('signup-form').style.display = 'none';
+        document.getElementById('success-name').textContent = firstName;
+
+        const sessionList = document.getElementById('success-session-list');
+        const sessions = [];
+        if (session1) sessions.push('Drum &amp; Bass Boxercise — Sat 2 May, 13:00–14:00, The Mirrorpool');
+        if (session2) sessions.push('Mindful Movement — Sun 3 May, 14:30–15:30, The Mirrorpool');
+        sessionList.innerHTML = sessions.map(s => `<div class="success-session-item">${s}</div>`).join('');
+
+        const successPanel = document.getElementById('success-panel');
+        successPanel.classList.add('visible');
+        successPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      } catch (err) {
+        showError(err.message || 'An unexpected error occurred. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign me up — it's free";
+      }
+    });
+  </script>
+
+</body>
+</html>

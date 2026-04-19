@@ -425,7 +425,8 @@
     }
 
     input[type="text"],
-    input[type="email"] {
+    input[type="email"],
+    input[type="tel"] {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -440,12 +441,14 @@
     }
 
     input[type="text"]:focus,
-    input[type="email"]:focus {
+    input[type="email"]:focus,
+    input[type="tel"]:focus {
       border-color: var(--cyan);
     }
 
     input[type="text"]::placeholder,
-    input[type="email"]::placeholder {
+    input[type="email"]::placeholder,
+    input[type="tel"]::placeholder {
       color: #444;
     }
 
@@ -810,6 +813,11 @@
           <label class="field-label" for="email">Email address</label>
           <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required>
         </div>
+
+        <div class="field">
+          <label class="field-label" for="phone">Phone number</label>
+          <input type="tel" id="phone" name="phone" placeholder="07700 000000" autocomplete="tel" required>
+        </div>
       </div>
 
       <!-- Error message -->
@@ -910,6 +918,7 @@
       const firstName = document.getElementById('firstName').value.trim();
       const lastName = document.getElementById('lastName').value.trim();
       const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
 
       const showError = (msg) => {
         errorEl.textContent = msg;
@@ -923,6 +932,7 @@
       if (!firstName) return showError('Please enter your first name.');
       if (!lastName) return showError('Please enter your last name.');
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Please enter a valid email address.');
+      if (!phone) return showError('Please enter your phone number.');
 
       submitBtn.disabled = true;
       submitBtn.textContent = 'Reserving your place…';
@@ -939,6 +949,7 @@
             firstName,
             lastName,
             email,
+            phone,
             sessionId,
             sessionName: session.name,
             date: session.date,

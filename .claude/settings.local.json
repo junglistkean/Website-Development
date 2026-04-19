@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Edward Kean/tasks-workers/tastebd_signup_receiver/**)",
+      "Bash(wrangler deploy *)"
+    ]
+  }
+}

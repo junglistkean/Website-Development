@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Masterclass Tent Sign-up — Taste BD 2026</title>
+  <meta name="description" content="Sign up for free masterclass cooking sessions at Taste BD 2026 — Bradford's food and culture festival.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: #2a2a2a;
+      --cyan: #00D4E8;
+      --yellow: #F5D63D;
+      --text: #e8e8e8;
+      --muted: #888;
+      --error: #ff5c5c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .site-header {
+      background: #0a0a0a;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-circle {
+      width: 52px;
+      height: 52px;
+      background: #000;
+      border-radius: 50%;
+      border: 2px solid #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      line-height: 1;
+      padding: 6px;
+    }
+
+    .logo-taste {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--cyan);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .logo-bd {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--yellow);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .header-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .header-delivered {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 300;
+      white-space: nowrap;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #0d1a1c 0%, #0d0d0d 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 52px 24px 44px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: clamp(36px, 8vw, 64px);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      line-height: 1;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .hero h1 span { color: var(--cyan); }
+
+    .hero-sub {
+      font-size: 16px;
+      font-weight: 300;
+      color: var(--muted);
+      margin-bottom: 24px;
+      letter-spacing: 0.04em;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .meta-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-pill .icon { font-size: 14px; }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    .section-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 16px;
+    }
+
+    /* ── DAY DIVIDERS ── */
+    .day-group {
+      margin-bottom: 28px;
+    }
+
+    .day-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 6px 0;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sessions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── SESSION CARDS ── */
+    .session-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+      user-select: none;
+    }
+
+    .session-card:hover:not(.info-only) {
+      border-color: #444;
+    }
+
+    .session-card.selected {
+      border-color: var(--cyan);
+      background: #0d1e20;
+    }
+
+    .session-card.info-only {
+      cursor: default;
+      opacity: 0.7;
+    }
+
+    .session-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .session-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .session-card-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .session-radio-indicator {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface2);
+      flex-shrink: 0;
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .session-card.selected .session-radio-indicator {
+      border-color: var(--cyan);
+      background: var(--cyan);
+    }
+
+    .session-radio-indicator::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #000;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .session-card.selected .session-radio-indicator::after {
+      opacity: 1;
+    }
+
+    .session-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.02em;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    .session-desc {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 300;
+      margin-top: 4px;
+    }
+
+    /* ── AVAILABILITY BADGE ── */
+    .avail-badge {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .avail-badge.spaces-left {
+      background: rgba(0,212,232,0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(0,212,232,0.3);
+    }
+
+    .avail-badge.waitlist-only {
+      background: rgba(245,214,61,0.12);
+      color: var(--yellow);
+      border: 1px solid rgba(245,214,61,0.3);
+    }
+
+    .avail-badge.drop-in {
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .avail-badge.loading {
+      background: var(--surface2);
+      color: #555;
+      border: 1px solid var(--border);
+    }
+
+    .session-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .session-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 3px 11px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .session-pill.date { color: var(--cyan); border-color: rgba(0,212,232,0.2); background: rgba(0,212,232,0.06); }
+    .session-pill.time { color: var(--yellow); border-color: rgba(245,214,61,0.2); background: rgba(245,214,61,0.06); }
+
+    /* ── FORM ── */
+    .form-section {
+      margin-bottom: 32px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 480px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .field:last-child { margin-bottom: 0; }
+
+    label.field-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #bbb;
+      letter-spacing: 0.02em;
+    }
+
+    input[type="text"],
+    input[type="email"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus {
+      border-color: var(--cyan);
+    }
+
+    input[type="text"]::placeholder,
+    input[type="email"]::placeholder {
+      color: #444;
+    }
+
+    /* ── SUBMIT ── */
+    .submit-btn {
+      width: 100%;
+      background: var(--cyan);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 16px 24px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .submit-btn:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── ERROR MESSAGE ── */
+    .error-msg {
+      background: rgba(255, 92, 92, 0.1);
+      border: 1px solid rgba(255, 92, 92, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: var(--error);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* ── SUCCESS PANEL ── */
+    .success-panel {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .success-panel.visible { display: block; }
+
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 32px;
+    }
+
+    .success-icon.confirmed {
+      background: rgba(0,212,232,0.1);
+      border: 2px solid var(--cyan);
+    }
+
+    .success-icon.waitlist {
+      background: rgba(245,214,61,0.1);
+      border: 2px solid var(--yellow);
+    }
+
+    .success-panel h2 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .success-panel .success-name { color: var(--cyan); }
+
+    .success-panel > p {
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 300;
+      margin-bottom: 24px;
+    }
+
+    .success-session-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .success-session-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .success-session-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+
+    .success-session-meta {
+      font-size: 13px;
+      color: var(--cyan);
+      margin-top: 4px;
+    }
+
+    .waitlist-notice {
+      background: #1a1a0a;
+      border: 1px solid rgba(245,214,61,0.3);
+      border-left: 3px solid var(--yellow);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      font-size: 14px;
+      color: #ccc;
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .waitlist-notice strong {
+      color: var(--yellow);
+    }
+
+    .success-see-you {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--yellow);
+      margin-top: 8px;
+    }
+
+    /* ── FOOTER ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .footer-socials {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .footer-credits {
+      font-size: 12px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-left">
+      <div class="logo-circle" aria-hidden="true">
+        <span class="logo-taste">Taste</span>
+        <span class="logo-bd">BD</span>
+      </div>
+      <span class="header-title">Masterclass Tent</span>
+    </div>
+    <span class="header-delivered">Delivered by Raven Staging</span>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <h1><span>Masterclass</span> Tent</h1>
+    <p class="hero-sub">Free cooking demonstrations &amp; sessions &middot; All welcome</p>
+    <div class="hero-meta">
+      <div class="meta-pill"><span class="icon">📍</span> City Park, Bradford BD1 1HY</div>
+      <div class="meta-pill"><span class="icon">📅</span> 2–3 May 2026</div>
+      <div class="meta-pill"><span class="icon">🎟</span> Free entry</div>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- FORM (hidden after success) -->
+    <form id="signup-form" novalidate>
+
+      <!-- Session selection -->
+      <div class="form-section">
+        <p class="section-label">Choose a session</p>
+
+        <!-- Saturday -->
+        <div class="day-group">
+          <div class="day-label">Saturday 2 May</div>
+          <div class="sessions">
+
+            <label class="session-card" id="card-inn-churches-sat">
+              <input type="radio" name="session" value="inn-churches-sat">
+              <div class="session-card-header">
+                <div class="session-card-left">
+                  <div class="session-radio-indicator" aria-hidden="true"></div>
+                  <div>
+                    <div class="session-name">Inn Churches</div>
+                    <div class="session-desc">Kids cooking session. A hands-on session for younger visitors.</div>
+                  </div>
+                </div>
+                <span class="avail-badge loading" data-session="inn-churches-sat" data-cap="25">…</span>
+              </div>
+              <div class="session-pills">
+                <span class="session-pill date">📅 Saturday 2 May</span>
+                <span class="session-pill time">🕐 12:00 – 13:00</span>
+                <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+            </label>
+
+            <label class="session-card" id="card-living-well-sat">
+              <input type="radio" name="session" value="living-well-sat">
+              <div class="session-card-header">
+                <div class="session-card-left">
+                  <div class="session-radio-indicator" aria-hidden="true"></div>
+                  <div>
+                    <div class="session-name">Living Well</div>
+                    <div class="session-desc">Healthy eating cooking demonstration.</div>
+                  </div>
+                </div>
+                <span class="avail-badge loading" data-session="living-well-sat" data-cap="40">…</span>
+              </div>
+              <div class="session-pills">
+                <span class="session-pill date">📅 Saturday 2 May</span>
+                <span class="session-pill time">🕐 14:00 – 15:00</span>
+                <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+            </label>
+
+            <label class="session-card" id="card-my-lahore-sat">
+              <input type="radio" name="session" value="my-lahore-sat">
+              <div class="session-card-header">
+                <div class="session-card-left">
+                  <div class="session-radio-indicator" aria-hidden="true"></div>
+                  <div>
+                    <div class="session-name">My Lahore</div>
+                    <div class="session-desc">Saturday headline slot from My Lahore's Chef Khan — one of Bradford's most celebrated restaurants.</div>
+                  </div>
+                </div>
+                <span class="avail-badge loading" data-session="my-lahore-sat" data-cap="40">…</span>
+              </div>
+              <div class="session-pills">
+                <span class="session-pill date">📅 Saturday 2 May</span>
+                <span class="session-pill time">🕐 15:30 – 16:30</span>
+                <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- Sunday -->
+        <div class="day-group">
+          <div class="day-label">Sunday 3 May</div>
+          <div class="sessions">
+
+            <label class="session-card" id="card-living-well-sun">
+              <input type="radio" name="session" value="living-well-sun">
+              <div class="session-card-header">
+                <div class="session-card-left">
+                  <div class="session-radio-indicator" aria-hidden="true"></div>
+                  <div>
+                    <div class="session-name">Living Well</div>
+                    <div class="session-desc">Healthy eating cooking session.</div>
+                  </div>
+                </div>
+                <span class="avail-badge loading" data-session="living-well-sun" data-cap="40">…</span>
+              </div>
+              <div class="session-pills">
+                <span class="session-pill date">📅 Sunday 3 May</span>
+                <span class="session-pill time">🕐 12:00 – 12:45</span>
+                <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+            </label>
+
+            <label class="session-card" id="card-prashad-sun">
+              <input type="radio" name="session" value="prashad-sun">
+              <div class="session-card-header">
+                <div class="session-card-left">
+                  <div class="session-radio-indicator" aria-hidden="true"></div>
+                  <div>
+                    <div class="session-name">Prashad</div>
+                    <div class="session-desc">Sunday headline slot. Michelin-starred chef from one of Yorkshire's finest restaurants.</div>
+                  </div>
+                </div>
+                <span class="avail-badge loading" data-session="prashad-sun" data-cap="40">…</span>
+              </div>
+              <div class="session-pills">
+                <span class="session-pill date">📅 Sunday 3 May</span>
+                <span class="session-pill time">🕐 13:00 – 14:00</span>
+                <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+            </label>
+
+            <!-- Eden Pie — info only, no sign-up -->
+            <div class="session-card info-only" id="card-eden-pie-sun">
+              <div class="session-card-header">
+                <div class="session-card-left">
+                  <div>
+                    <div class="session-name">Eden Pie</div>
+                    <div class="session-desc">Cupcake decorating drop-in session. No sign-up needed — just turn up!</div>
+                  </div>
+                </div>
+                <span class="avail-badge drop-in">Drop-in — no sign-up needed</span>
+              </div>
+              <div class="session-pills">
+                <span class="session-pill date">📅 Sunday 3 May</span>
+                <span class="session-pill time">🕐 14:30 – 16:30</span>
+                <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Your details -->
+      <div class="form-section">
+        <p class="section-label">Your details</p>
+
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label" for="firstName">First name</label>
+            <input type="text" id="firstName" name="firstName" placeholder="e.g. Alex" autocomplete="given-name" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="lastName">Last name</label>
+            <input type="text" id="lastName" name="lastName" placeholder="e.g. Smith" autocomplete="family-name" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="email">Email address</label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div class="error-msg" id="error-msg" role="alert"></div>
+
+      <!-- Submit -->
+      <button type="submit" class="submit-btn" id="submit-btn">
+        Reserve my place — it's free
+      </button>
+
+    </form>
+
+    <!-- SUCCESS PANEL -->
+    <div class="success-panel" id="success-panel" role="status" aria-live="polite">
+      <div class="success-icon" id="success-icon" aria-hidden="true"></div>
+      <h2 id="success-heading"></h2>
+      <p id="success-subtext"></p>
+      <div class="success-session-card">
+        <div class="success-session-label">Your session</div>
+        <div class="success-session-name" id="success-session-name"></div>
+        <div class="success-session-meta" id="success-session-meta"></div>
+      </div>
+      <div class="waitlist-notice" id="waitlist-notice" style="display:none;"></div>
+      <p class="success-see-you" id="success-see-you"></p>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <p class="footer-socials">@tasteBDbradford &nbsp;|&nbsp; @taste.bd &nbsp;|&nbsp; @taste_bd</p>
+    <p class="footer-credits">Raven Staging &nbsp;&middot;&nbsp; Bradford Council</p>
+  </footer>
+
+  <script>
+    const WORKER_URL = 'https://tastebd-masterclass-worker.e-kean.workers.dev';
+
+    const SESSIONS = {
+      'inn-churches-sat':  { name: 'Inn Churches',  date: 'Saturday 2 May', time: '12:00 – 13:00', cap: 25 },
+      'living-well-sat':   { name: 'Living Well',   date: 'Saturday 2 May', time: '14:00 – 15:00', cap: 40 },
+      'my-lahore-sat':     { name: 'My Lahore',     date: 'Saturday 2 May', time: '15:30 – 16:30', cap: 40 },
+      'living-well-sun':   { name: 'Living Well',   date: 'Sunday 3 May',   time: '12:00 – 12:45', cap: 40 },
+      'prashad-sun':       { name: 'Prashad',       date: 'Sunday 3 May',   time: '13:00 – 14:00', cap: 40 }
+    };
+
+    // ── Availability badges ──
+    function updateBadges(counts) {
+      document.querySelectorAll('.avail-badge[data-session]').forEach(badge => {
+        const sessionId = badge.dataset.session;
+        const cap = parseInt(badge.dataset.cap, 10);
+        const taken = counts[sessionId] || 0;
+        const remaining = cap - taken;
+
+        if (remaining <= 0) {
+          badge.textContent = 'Waitlist only';
+          badge.className = 'avail-badge waitlist-only';
+        } else {
+          badge.textContent = `${remaining} space${remaining === 1 ? '' : 's'} left`;
+          badge.className = 'avail-badge spaces-left';
+        }
+      });
+    }
+
+    async function fetchAvailability() {
+      try {
+        const res = await fetch(`${WORKER_URL}/availability`);
+        const json = await res.json();
+        if (json.counts) updateBadges(json.counts);
+      } catch (_) {
+        // Silently degrade — badges stay in loading state
+        document.querySelectorAll('.avail-badge.loading').forEach(b => {
+          b.textContent = '—';
+        });
+      }
+    }
+
+    fetchAvailability();
+
+    // ── Radio card selection ──
+    document.querySelectorAll('.session-card:not(.info-only)').forEach(card => {
+      card.addEventListener('click', () => {
+        const radio = card.querySelector('input[type="radio"]');
+        if (!radio) return;
+        radio.checked = true;
+        document.querySelectorAll('.session-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+    });
+
+    // ── Form submit ──
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const errorEl = document.getElementById('error-msg');
+      const submitBtn = document.getElementById('submit-btn');
+
+      const selectedRadio = document.querySelector('input[name="session"]:checked');
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const email = document.getElementById('email').value.trim();
+
+      const showError = (msg) => {
+        errorEl.textContent = msg;
+        errorEl.classList.add('visible');
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+
+      errorEl.classList.remove('visible');
+
+      if (!selectedRadio) return showError('Please select a session.');
+      if (!firstName) return showError('Please enter your first name.');
+      if (!lastName) return showError('Please enter your last name.');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Please enter a valid email address.');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Reserving your place…';
+
+      const sessionId = selectedRadio.value;
+      const session = SESSIONS[sessionId];
+
+      try {
+        const response = await fetch(`${WORKER_URL}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'masterclass-register',
+            firstName,
+            lastName,
+            email,
+            sessionId,
+            sessionName: session.name,
+            date: session.date,
+            time: session.time
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Something went wrong. Please try again.');
+        }
+
+        // ── Show success ──
+        document.getElementById('signup-form').style.display = 'none';
+
+        const isWaitlist = result.status === 'waitlist';
+        const iconEl = document.getElementById('success-icon');
+        iconEl.textContent = isWaitlist ? '⏳' : '✓';
+        iconEl.className = `success-icon ${isWaitlist ? 'waitlist' : 'confirmed'}`;
+
+        document.getElementById('success-heading').innerHTML = isWaitlist
+          ? `On the waitlist, <span class="success-name">${firstName}</span>!`
+          : `You're in, <span class="success-name">${firstName}</span>!`;
+
+        document.getElementById('success-subtext').textContent = isWaitlist
+          ? "We'll email you if a space comes up — keep an eye on your inbox."
+          : 'Check your email — a confirmation is on its way.';
+
+        document.getElementById('success-session-name').textContent = session.name;
+        document.getElementById('success-session-meta').textContent = `${session.date} · ${session.time} · Masterclass Tent`;
+
+        if (isWaitlist) {
+          const notice = document.getElementById('waitlist-notice');
+          notice.innerHTML = `You're on the waitlist at <strong>position #${result.position}</strong>. We'll be in touch if a space becomes available.`;
+          notice.style.display = 'block';
+        }
+
+        document.getElementById('success-see-you').textContent = isWaitlist
+          ? 'Hope to see you there 👋'
+          : 'See you at the Masterclass Tent 👋';
+
+        const successPanel = document.getElementById('success-panel');
+        successPanel.classList.add('visible');
+        successPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Refresh badges so others see updated count
+        fetchAvailability();
+
+      } catch (err) {
+        showError(err.message || 'An unexpected error occurred. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Reserve my place — it's free";
+      }
+    });
+  </script>
+
+</body>
+</html>

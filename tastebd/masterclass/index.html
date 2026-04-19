@@ -102,7 +102,7 @@
 
     /* ── HERO ── */
     .hero {
-      background: linear-gradient(135deg, #0d1a1c 0%, #0d0d0d 60%);
+      background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('../../images/Masterclass/Hero1.jpg') center / cover no-repeat;
       border-bottom: 1px solid var(--border);
       padding: 52px 24px 44px;
       text-align: center;
@@ -123,8 +123,8 @@
 
     .hero-sub {
       font-size: 16px;
-      font-weight: 300;
-      color: var(--muted);
+      font-weight: 500;
+      color: #ffffff;
       margin-bottom: 24px;
       letter-spacing: 0.04em;
     }
@@ -202,7 +202,48 @@
       transition: border-color 0.15s, background 0.15s;
       position: relative;
       user-select: none;
+      overflow: hidden;
     }
+
+    .session-card-img {
+      margin: -18px -20px 16px;
+      height: 200px;
+      position: relative;
+      background: #111;
+    }
+
+    .session-card-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #card-prashad-sun .session-card-img,
+    #card-eden-pie-sun .session-card-img {
+      height: 320px;
+    }
+
+    #card-prashad-sun .session-card-img img,
+    #card-eden-pie-sun .session-card-img img {
+      object-fit: contain;
+    }
+
+    .session-card-img::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: linear-gradient(to bottom, transparent, var(--surface));
+      pointer-events: none;
+    }
+
+    .session-card.selected .session-card-img::after {
+      background: linear-gradient(to bottom, transparent, #0d1e20);
+    }
+
 
     .session-card:hover:not(.info-only) {
       border-color: #444;
@@ -617,6 +658,7 @@
 
             <label class="session-card" id="card-inn-churches-sat">
               <input type="radio" name="session" value="inn-churches-sat">
+              <div class="session-card-img"><img src="../../images/Masterclass/Inn_Churche.jpg" alt="Inn Churches"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>
@@ -636,6 +678,7 @@
 
             <label class="session-card" id="card-living-well-sat">
               <input type="radio" name="session" value="living-well-sat">
+              <div class="session-card-img"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>
@@ -655,6 +698,7 @@
 
             <label class="session-card" id="card-my-lahore-sat">
               <input type="radio" name="session" value="my-lahore-sat">
+              <div class="session-card-img"><img src="../../images/Masterclass/My_Lahore.jpg" alt="My Lahore"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>
@@ -682,6 +726,7 @@
 
             <label class="session-card" id="card-living-well-sun">
               <input type="radio" name="session" value="living-well-sun">
+              <div class="session-card-img"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>
@@ -701,6 +746,7 @@
 
             <label class="session-card" id="card-prashad-sun">
               <input type="radio" name="session" value="prashad-sun">
+              <div class="session-card-img"><img src="../../images/Masterclass/Prashad.jpg" alt="Prashad"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>
@@ -720,6 +766,7 @@
 
             <!-- Eden Pie — info only, no sign-up -->
             <div class="session-card info-only" id="card-eden-pie-sun">
+              <div class="session-card-img"><img src="../../images/Masterclass/Eden_Pie.png" alt="Eden Pie"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div>

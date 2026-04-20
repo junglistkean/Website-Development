@@ -186,6 +186,36 @@
       margin-bottom: 16px;
     }
 
+    /* ── SESSION CARD IMAGE ── */
+    .session-card-img {
+      margin: -18px -20px 16px;
+      height: 200px;
+      position: relative;
+      background: #111;
+    }
+
+    .session-card-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .session-card-img::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: linear-gradient(to bottom, transparent, var(--surface));
+      pointer-events: none;
+    }
+
+    .session-card.selected .session-card-img::after {
+      background: linear-gradient(to bottom, transparent, #0d1e20);
+    }
+
     /* ── SESSION CARDS ── */
     .sessions {
       display: flex;
@@ -631,6 +661,7 @@
 
           <label class="session-card" id="card-session1">
             <input type="checkbox" id="session1" name="session1">
+            <div class="session-card-img"><img src="../../images/Exercise/dnb_boxercise_card.jpg" alt="Drum &amp; Bass Boxercise"></div>
             <div class="session-card-header">
               <div class="session-card-left">
                 <div class="session-checkbox-indicator" aria-hidden="true"></div>
@@ -650,12 +681,13 @@
 
           <label class="session-card" id="card-session2">
             <input type="checkbox" id="session2" name="session2">
+            <div class="session-card-img"><img src="../../images/Exercise/stand_and_flow_card.jpg" alt="Stand &amp; Flow"></div>
             <div class="session-card-header">
               <div class="session-card-left">
                 <div class="session-checkbox-indicator" aria-hidden="true"></div>
                 <div>
-                  <div class="session-name">Mindful Movement</div>
-                  <div class="session-desc">A gentle, accessible movement session combining breathwork and low-impact exercise.</div>
+                  <div class="session-name">Stand &amp; Flow</div>
+                  <div class="session-desc">A yoga-inspired movement and breathwork session designed to energise and reset — no mat, no experience needed.</div>
                 </div>
               </div>
               <span class="free-badge">Free</span>
@@ -811,7 +843,7 @@
         const sessionList = document.getElementById('success-session-list');
         const sessions = [];
         if (session1) sessions.push('Drum &amp; Bass Boxercise — Sat 2 May, 13:00–14:00, The Mirrorpool');
-        if (session2) sessions.push('Mindful Movement — Sun 3 May, 14:30–15:30, The Mirrorpool');
+        if (session2) sessions.push('Stand &amp; Flow — Sun 3 May, 14:30–15:30, The Mirrorpool');
         sessionList.innerHTML = sessions.map(s => `<div class="success-session-item">${s}</div>`).join('');
 
         const successPanel = document.getElementById('success-panel');

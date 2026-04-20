@@ -103,26 +103,15 @@
 
     /* ── HERO ── */
     .hero {
-      background: linear-gradient(135deg, #0d1a1c 0%, #0d0d0d 60%);
+      background-image:
+        linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
+        url('../../images/Exercise/mirrorpool_hero.jpg');
+      background-size: cover;
+      background-position: center;
       border-bottom: 1px solid var(--border);
       padding: 52px 24px 44px;
       text-align: center;
       position: relative;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: url('../../images/TasteBD/patterns_no_bg-03.png') center / cover no-repeat;
-      opacity: 0.12;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .hero > * {
-      position: relative;
-      z-index: 1;
     }
 
     .hero h1 {

@@ -5060,10 +5060,11 @@ function placeRamp(rawGx, rawGy, tierId, edge) {
     return;
   }
   {
-    const depthPanels = rampPanelFill(tier.finishedHeight * rampCfg.gradient);
-    const widthCols   = rampCfg.widthFt / 4;
-    const tierPanels  = panels.filter(p => p.category === 'panel' && p.tier === tierId);
-    let cumGuDepth = 0, hasOverlap = false;
+    const depthPanels      = rampPanelFill(tier.finishedHeight * rampCfg.gradient);
+    const widthCols        = rampCfg.widthFt / 4;
+    const tierPanels       = panels.filter(p => p.category === 'panel' && p.tier === tierId);
+    const existingRampCells = ramps.flatMap(r => r.panels);
+    let cumGuDepth = 0, hasOverlap = false, overlapIsRamp = false;
     outer: for (const dp of depthPanels) {
       for (let pc = 0; pc < widthCols; pc++) {
         let gx, gy, gw, gh;
@@ -5078,11 +5079,18 @@ function placeRamp(rawGx, rawGy, tierId, edge) {
             hasOverlap = true; break outer;
           }
         }
+        for (const p of existingRampCells) {
+          if (gx < p.gx+p.gw && gx+gw > p.gx && gy < p.gy+p.gh && gy+gh > p.gy) {
+            hasOverlap = true; overlapIsRamp = true; break outer;
+          }
+        }
       }
       cumGuDepth += dp.guDepth;
     }
     if (hasOverlap) {
-      alert('Ramp path overlaps existing stage panels. Choose a different edge or direction.');
+      alert(overlapIsRamp
+        ? 'Ramp path overlaps an existing ramp. Choose a different position.'
+        : 'Ramp path overlaps existing stage panels. Choose a different edge or direction.');
       return;
     }
   }

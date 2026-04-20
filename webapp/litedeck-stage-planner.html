@@ -1782,10 +1782,11 @@ function placeRamp(rawGx, rawGy, tierId, edge) {
   if (!tier) { alert('Could not find the target tier. Please try again.'); return; }
 
   {
-    const depthPanels = rampPanelFill(tier.finishedHeight * rampCfg.gradient);
-    const widthCols   = rampCfg.widthFt / 4;
-    const tierPanels  = panels.filter(p => p.category === 'panel' && p.tier === tierId);
-    let cumGuDepth = 0, hasOverlap = false;
+    const depthPanels      = rampPanelFill(tier.finishedHeight * rampCfg.gradient);
+    const widthCols        = rampCfg.widthFt / 4;
+    const tierPanels       = panels.filter(p => p.category === 'panel' && p.tier === tierId);
+    const existingRampCells = ramps.flatMap(r => r.panels);
+    let cumGuDepth = 0, hasOverlap = false, overlapIsRamp = false;
     outer: for (const dp of depthPanels) {
       for (let pc = 0; pc < widthCols; pc++) {
         let gx, gy, gw, gh;
@@ -1800,11 +1801,18 @@ function placeRamp(rawGx, rawGy, tierId, edge) {
             hasOverlap = true; break outer;
           }
         }
+        for (const p of existingRampCells) {
+          if (gx < p.gx+p.gw && gx+gw > p.gx && gy < p.gy+p.gh && gy+gh > p.gy) {
+            hasOverlap = true; overlapIsRamp = true; break outer;
+          }
+        }
       }
       cumGuDepth += dp.guDepth;
     }
     if (hasOverlap) {
-      alert('Ramp path overlaps existing stage panels. Choose a different edge or direction.');
+      alert(overlapIsRamp
+        ? 'Ramp path overlaps an existing ramp. Choose a different position.'
+        : 'Ramp path overlaps existing stage panels. Choose a different edge or direction.');
       return;
     }
   }
@@ -1917,27 +1925,39 @@ function syncAllPendingButtons() {
 
 // ── Stage edge detection ──────────────────────────────────────────────────────
 function detectEdge(gx, gy) {
+  // Use actual exposed panel faces (handles L/T/U shapes correctly)
   const tp = panels.filter(p => p.category === 'panel' && p.tier === activeTierId);
   if (!tp.length) return null;
-  const THRESH = 3;
+
+  const THRESH = 2; // grid units — snap distance
   let bestDist = Infinity, bestResult = null;
+
   for (const side of ['front','back','left','right']) {
     const spans = getOuterEdgeSpans(side, tp);
     const isHoriz = side === 'front' || side === 'back';
     for (const span of spans) {
-      const dEdge = isHoriz ? Math.abs(gy - span.edgeGu) : Math.abs(gx - span.edgeGu);
+      // Distance from cursor to this edge line
+      const dEdge = isHoriz
+        ? Math.abs(gy - span.edgeGu)
+        : Math.abs(gx - span.edgeGu);
       if (dEdge > THRESH) continue;
+      // Check cursor is within the span's along-axis range (no corner tolerance)
       const along = isHoriz ? gx : gy;
-      if (along < span.start - THRESH || along > span.end + THRESH) continue;
-      const dist = dEdge * 10 + Math.max(0, Math.max(span.start - along, along - span.end));
+      if (along < span.start || along > span.end) continue;
+      const dist = dEdge;
       if (dist < bestDist) {
         bestDist = dist;
-        bestResult = { side, edgeGu: span.edgeGu,
-          alongGu: Math.min(Math.max(along, span.start), span.end),
-          edgeStart: span.start, edgeLen: span.end - span.start };
+        bestResult = {
+          side,
+          edgeGu:    span.edgeGu,
+          alongGu:   Math.min(Math.max(along, span.start), span.end),
+          edgeStart: span.start,
+          edgeLen:   span.end - span.start,
+        };
       }
     }
   }
+
   return bestResult;
 }
 function snapHandrailAlong(edge, size) {

@@ -782,8 +782,8 @@
               <div class="session-card-left">
                 <div class="session-checkbox-indicator" aria-hidden="true"></div>
                 <div>
-                  <div class="session-name">Stand &amp; Flow</div>
-                  <div class="session-desc">A yoga-inspired movement and breathwork session designed to energise and reset — no mat, no experience needed.</div>
+                  <div class="session-name">Flow State with Heather</div>
+                  <div class="session-desc">A feel good standing yoga session blending energising yoga poses, free movement, and dynamic breathwork to music — designed to uplift, reset, and leave you feeling recharged. No mat or experience needed — simply come as you are and join in.</div>
                 </div>
               </div>
               <span class="free-badge">Free</span>
@@ -899,24 +899,29 @@
     </div>
   </div>
 
-  <!-- WAIVER MODAL: Stand & Flow -->
+  <!-- WAIVER MODAL: Flow State with Heather -->
   <div class="modal-backdrop" id="modal-session2" role="dialog" aria-modal="true" aria-labelledby="modal-session2-title">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="modal-session2-title">Stand &amp; Flow</h2>
+        <h2 id="modal-session2-title">Flow State with Heather</h2>
         <button class="modal-close" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <h3>Health &amp; Safety Disclaimer</h3>
-        <p>This session involves physical activity outdoors. By signing up you confirm that:</p>
+        <h3>Health &amp; Safety Disclaimer &amp; Liability Waiver</h3>
+        <p>These sessions are delivered by Heather Yoga Studio and involve physical activity outdoors. By signing up and attending, you confirm that:</p>
         <ul>
-          <li>You are in a suitable state of health to participate in physical exercise.</li>
-          <li>You will inform the session lead of any relevant medical conditions or injuries on the day.</li>
-          <li>You accept that Taste BD, Raven Staging, and Bradford Council accept no liability for injury, loss, or damage sustained during or travelling to/from sessions.</li>
-          <li>Participants under 16 must be accompanied by a responsible adult at all times.</li>
-          <li>Participation is entirely at your own risk.</li>
+          <li>You are in a suitable state of health and physically capable of participating in exercise.</li>
+          <li>You will inform the session lead of any relevant medical conditions, injuries, or concerns prior to participation.</li>
+          <li>You understand that all exercise carries an inherent risk of injury, and you voluntarily accept and assume all such risks.</li>
         </ul>
-        <p>If you have any concerns about your suitability to participate, please consult your GP before attending.</p>
+        <h3>Liability Waiver</h3>
+        <p>To the fullest extent permitted by law, you agree that Heather Yoga Studio, Taste BD, Raven Staging, and Bradford Council, along with their staff, coaches, and representatives, shall not be held liable for any injury, illness, loss, or damage sustained during or as a result of participation in these sessions, including travel to and from the sessions.</p>
+        <ul>
+          <li>Participants under the age of 16 must be accompanied and supervised by a responsible adult at all times.</li>
+          <li>Participation is entirely at your own risk.</li>
+          <li>You agree to follow all safety instructions provided by the session leaders.</li>
+        </ul>
+        <p>If you have any concerns about your suitability to participate, you should consult your GP or a qualified healthcare professional before attending.</p>
       </div>
       <div class="modal-footer">
         <button class="modal-cancel">Cancel</button>
@@ -1048,7 +1053,7 @@
         const sessionList = document.getElementById('success-session-list');
         const sessions = [];
         if (session1) sessions.push('Drum &amp; Bass Boxing Workout — Sat 2 May, 13:00–14:00, The Mirrorpool');
-        if (session2) sessions.push('Stand &amp; Flow — Sun 3 May, 14:30–15:30, The Mirrorpool');
+        if (session2) sessions.push('Flow State with Heather — Sun 3 May, 14:30–15:30, The Mirrorpool');
         sessionList.innerHTML = sessions.map(s => `<div class="success-session-item">${s}</div>`).join('');
 
         const successPanel = document.getElementById('success-panel');

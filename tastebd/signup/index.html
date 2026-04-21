@@ -438,68 +438,137 @@
       color: #444;
     }
 
-    /* ── DISCLAIMER ── */
-    .disclaimer-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-left: 4px solid var(--yellow);
-      border-radius: 0 8px 8px 0;
+    /* ── WAIVER MODAL ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
       padding: 20px;
-      margin-bottom: 32px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
     }
 
-    .disclaimer-box h3 {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--yellow);
-      margin-bottom: 12px;
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
     }
 
-    .disclaimer-text {
-      font-size: 13px;
-      font-weight: 300;
-      color: #aaa;
-      line-height: 1.7;
-      margin-bottom: 16px;
+    .modal-card {
+      background: #fff;
+      border-radius: 12px;
+      max-width: 560px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #1a1a1a;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
     }
 
-    .disclaimer-text ul {
-      padding-left: 16px;
-      margin: 6px 0;
-    }
-
-    .disclaimer-text li {
-      margin-bottom: 4px;
-    }
-
-    .disclaimer-text p {
-      margin-top: 10px;
-    }
-
-    .disclaimer-check {
+    .modal-header {
       display: flex;
       align-items: flex-start;
+      justify-content: space-between;
       gap: 12px;
-      cursor: pointer;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #e8e8e8;
+      flex-shrink: 0;
     }
 
-    .disclaimer-check input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      accent-color: var(--cyan);
+    .modal-header h2 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #1a1a1a;
+      line-height: 1.2;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #999;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
       flex-shrink: 0;
       margin-top: 1px;
-      cursor: pointer;
     }
 
-    .disclaimer-check span {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
+    .modal-close:hover { color: #333; }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      font-size: 13px;
+      color: #333;
+      line-height: 1.75;
     }
+
+    .modal-body h3 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #888;
+      margin: 18px 0 8px;
+    }
+
+    .modal-body h3:first-child { margin-top: 0; }
+    .modal-body ul { padding-left: 18px; margin: 6px 0; }
+    .modal-body li { margin-bottom: 5px; }
+    .modal-body p { margin-top: 10px; }
+    .modal-body p:first-child { margin-top: 0; }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e8e8e8;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    .modal-cancel {
+      background: none;
+      color: #666;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 11px 20px;
+      font-family: 'Barlow', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .modal-cancel:hover { background: #f5f5f5; }
+
+    .modal-accept {
+      background: #C9A84C;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 24px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .modal-accept:hover { opacity: 0.85; }
 
     /* ── SUBMIT ── */
     .submit-btn {
@@ -686,8 +755,8 @@
         <p class="section-label">Choose your session(s)</p>
         <div class="sessions">
 
-          <label class="session-card" id="card-session1">
-            <input type="checkbox" id="session1" name="session1">
+          <div class="session-card" id="card-session1" role="button" tabindex="0" aria-pressed="false">
+            <input type="checkbox" id="session1" name="session1" style="position:absolute;opacity:0;pointer-events:none;">
             <div class="session-card-img"><img src="../../images/Exercise/dnb_boxercise_card.jpg" alt="Drum &amp; Bass Boxercise"></div>
             <div class="session-card-header">
               <div class="session-card-left">
@@ -704,10 +773,10 @@
               <span class="session-pill time">🕐 13:00–14:00</span>
               <span class="session-pill">📍 The Mirrorpool</span>
             </div>
-          </label>
+          </div>
 
-          <label class="session-card" id="card-session2">
-            <input type="checkbox" id="session2" name="session2">
+          <div class="session-card" id="card-session2" role="button" tabindex="0" aria-pressed="false">
+            <input type="checkbox" id="session2" name="session2" style="position:absolute;opacity:0;pointer-events:none;">
             <div class="session-card-img"><img src="../../images/Exercise/stand_and_flow_card.jpg" alt="Stand &amp; Flow"></div>
             <div class="session-card-header">
               <div class="session-card-left">
@@ -724,7 +793,7 @@
               <span class="session-pill time">🕐 14:30–15:30</span>
               <span class="session-pill">📍 The Mirrorpool</span>
             </div>
-          </label>
+          </div>
 
         </div>
       </div>
@@ -769,26 +838,6 @@
         </div>
       </div>
 
-      <!-- Disclaimer -->
-      <div class="disclaimer-box">
-        <h3>Health &amp; Safety Disclaimer</h3>
-        <div class="disclaimer-text">
-          <p>These sessions involve physical activity outdoors. By signing up you confirm that:</p>
-          <ul>
-            <li>You are in a suitable state of health to participate in physical exercise</li>
-            <li>You will inform the session lead of any relevant medical conditions or injuries on the day</li>
-            <li>You accept that Taste BD, Raven Staging, and Bradford Council accept no liability for injury, loss, or damage sustained during or travelling to/from sessions</li>
-            <li>Participants under 16 must be accompanied by a responsible adult at all times</li>
-            <li>Participation is entirely at your own risk</li>
-          </ul>
-          <p>If you have any concerns about your suitability to participate, please consult your GP before attending.</p>
-        </div>
-        <label class="disclaimer-check">
-          <input type="checkbox" id="disclaimer" name="disclaimer" required>
-          <span>I have read and accept the above disclaimer</span>
-        </label>
-      </div>
-
       <!-- Error message -->
       <div class="error-msg" id="error-msg" role="alert"></div>
 
@@ -819,32 +868,145 @@
     <p class="footer-credits">Raven Staging &nbsp;&middot;&nbsp; Bradford Council</p>
   </footer>
 
+  <!-- WAIVER MODAL: D&B Boxing Workout -->
+  <div class="modal-backdrop" id="modal-session1" role="dialog" aria-modal="true" aria-labelledby="modal-session1-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-session1-title">Drum &amp; Bass Boxing Workout</h2>
+        <button class="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h3>Health &amp; Safety Disclaimer &amp; Liability Waiver</h3>
+        <p>These sessions are delivered by Baylis Bootcamps and involve physical activity outdoors. By signing up and attending, you confirm that:</p>
+        <ul>
+          <li>You are in a suitable state of health and physically capable of participating in exercise.</li>
+          <li>You will inform the session lead of any relevant medical conditions, injuries, or concerns prior to participation.</li>
+          <li>You understand that all exercise carries an inherent risk of injury, and you voluntarily accept and assume all such risks.</li>
+        </ul>
+        <h3>Liability Waiver</h3>
+        <p>To the fullest extent permitted by law, you agree that Baylis Bootcamps, Taste BD, Raven Staging, and Bradford Council, along with their staff, coaches, and representatives, shall not be held liable for any injury, illness, loss, or damage sustained during or as a result of participation in these sessions, including travel to and from the sessions.</p>
+        <ul>
+          <li>Participants under the age of 16 must be accompanied and supervised by a responsible adult at all times.</li>
+          <li>Participation is entirely at your own risk.</li>
+          <li>You agree to follow all safety instructions provided by the session leaders.</li>
+        </ul>
+        <p>If you have any concerns about your suitability to participate, you should consult your GP or a qualified healthcare professional before attending.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-cancel">Cancel</button>
+        <button class="modal-accept">I accept</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WAIVER MODAL: Stand & Flow -->
+  <div class="modal-backdrop" id="modal-session2" role="dialog" aria-modal="true" aria-labelledby="modal-session2-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-session2-title">Stand &amp; Flow</h2>
+        <button class="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h3>Health &amp; Safety Disclaimer</h3>
+        <p>This session involves physical activity outdoors. By signing up you confirm that:</p>
+        <ul>
+          <li>You are in a suitable state of health to participate in physical exercise.</li>
+          <li>You will inform the session lead of any relevant medical conditions or injuries on the day.</li>
+          <li>You accept that Taste BD, Raven Staging, and Bradford Council accept no liability for injury, loss, or damage sustained during or travelling to/from sessions.</li>
+          <li>Participants under 16 must be accompanied by a responsible adult at all times.</li>
+          <li>Participation is entirely at your own risk.</li>
+        </ul>
+        <p>If you have any concerns about your suitability to participate, please consult your GP before attending.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-cancel">Cancel</button>
+        <button class="modal-accept">I accept</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const WORKER_URL = 'https://tastebd-signup-receiver.e-kean.workers.dev/';
 
-    // Session card toggle — label handles checkbox natively; sync class on change
-    document.querySelectorAll('.session-card').forEach(card => {
-      card.querySelector('input[type="checkbox"]').addEventListener('change', e => {
-        card.classList.toggle('selected', e.target.checked);
+    // ── Waiver modal helpers ────────────────────────────────────────────────
+    function openModal(id) {
+      const modal = document.getElementById('modal-' + id);
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      modal.querySelector('.modal-accept').focus();
+    }
+
+    function closeModal(id) {
+      document.getElementById('modal-' + id).classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    // ── Session cards ───────────────────────────────────────────────────────
+    // Clicking an unselected card opens its waiver modal.
+    // Clicking an already-selected card deselects it and clears waiver state.
+    ['session1', 'session2'].forEach(id => {
+      const card     = document.getElementById('card-' + id);
+      const checkbox = document.getElementById(id);
+      const modal    = document.getElementById('modal-' + id);
+
+      function selectCard() {
+        checkbox.checked = true;
+        card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
+      }
+
+      function deselectCard() {
+        checkbox.checked = false;
+        card.classList.remove('selected');
+        card.setAttribute('aria-pressed', 'false');
+      }
+
+      // Card click / keyboard activation
+      function handleCardActivate() {
+        if (checkbox.checked) {
+          deselectCard();
+        } else {
+          openModal(id);
+        }
+      }
+
+      card.addEventListener('click', handleCardActivate);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardActivate(); }
       });
+
+      // Modal: accept
+      modal.querySelector('.modal-accept').addEventListener('click', () => {
+        selectCard();
+        closeModal(id);
+        card.focus();
+      });
+
+      // Modal: cancel / close / backdrop
+      modal.querySelector('.modal-cancel').addEventListener('click', () => { closeModal(id); card.focus(); });
+      modal.querySelector('.modal-close').addEventListener('click',  () => { closeModal(id); card.focus(); });
+      modal.addEventListener('click', e => { if (e.target === modal) { closeModal(id); card.focus(); } });
     });
 
-    // Form submit
+    // Escape closes any open modal
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') ['session1', 'session2'].forEach(closeModal);
+    });
+
+    // ── Form submit ─────────────────────────────────────────────────────────
     document.getElementById('signup-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const errorEl = document.getElementById('error-msg');
+      const errorEl  = document.getElementById('error-msg');
       const submitBtn = document.getElementById('submit-btn');
 
-      const session1 = document.getElementById('session1').checked;
-      const session2 = document.getElementById('session2').checked;
+      const session1  = document.getElementById('session1').checked;
+      const session2  = document.getElementById('session2').checked;
       const firstName = document.getElementById('firstName').value.trim();
-      const lastName = document.getElementById('lastName').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const disclaimer = document.getElementById('disclaimer').checked;
+      const lastName  = document.getElementById('lastName').value.trim();
+      const email     = document.getElementById('email').value.trim();
+      const phone     = document.getElementById('phone').value.trim();
 
-      // Client-side validation
       const showError = (msg) => {
         errorEl.textContent = msg;
         errorEl.classList.add('visible');
@@ -855,12 +1017,14 @@
 
       if (!session1 && !session2) return showError('Please select at least one session.');
       if (!firstName) return showError('Please enter your first name.');
-      if (!lastName) return showError('Please enter your last name.');
+      if (!lastName)  return showError('Please enter your last name.');
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showError('Please enter a valid email address.');
-      if (!phone) return showError('Please enter your phone number.');
-      if (!disclaimer) return showError('Please read and accept the disclaimer to continue.');
+      if (!phone)     return showError('Please enter your phone number.');
 
-      // Loading state
+      const waiversAccepted = [];
+      if (session1) waiversAccepted.push('dnb-boxing');
+      if (session2) waiversAccepted.push('stand-flow');
+
       submitBtn.disabled = true;
       submitBtn.textContent = 'Submitting…';
 
@@ -868,7 +1032,7 @@
         const response = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ firstName, lastName, email, phone, session1, session2, disclaimer })
+          body: JSON.stringify({ firstName, lastName, email, phone, session1, session2, waiversAccepted })
         });
 
         const result = await response.json();

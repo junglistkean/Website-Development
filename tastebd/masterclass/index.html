@@ -647,17 +647,20 @@
 
     #card-my-lahore-sat {
       overflow: hidden;
+      position: relative;
     }
 
     #card-my-lahore-sat .announcing-overlay {
       position: absolute;
-      inset: 0;
-      background: rgba(40, 40, 40, 0.82);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(40, 40, 40, 0.93);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10;
-      border-radius: inherit;
+      z-index: 100;
       pointer-events: none;
     }
 
@@ -750,7 +753,7 @@
 
             <label class="session-card" id="card-my-lahore-sat">
               <input type="radio" name="session" value="my-lahore-sat" disabled>
-              <div class="session-card-img"><img src="../../images/Masterclass/My_Lahore.jpg" alt="My Lahore" style="filter: grayscale(100%) brightness(0.35);"></div>
+              <div class="session-card-img"><img src="../../images/Masterclass/My_Lahore.jpg" alt="My Lahore"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>

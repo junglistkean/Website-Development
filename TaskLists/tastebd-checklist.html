@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taste BD 2026 — Task Checklist</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap');
+
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C96A;
+    --black: #0A0A0A;
+    --surface: #141414;
+    --surface2: #1E1E1E;
+    --surface3: #282828;
+    --text: #F0EDE8;
+    --text-muted: #888;
+    --done-text: #555;
+    --high: #E05A4A;
+    --med: #C9A84C;
+    --low: #5A8A6A;
+    --border: #2A2A2A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 80px;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--gold);
+    padding: 28px 32px 22px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .event-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .event-meta {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .progress-bar-wrap {
+    margin-top: 14px;
+    background: var(--border);
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .progress-label {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .controls {
+    padding: 18px 32px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .filter-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .filter-btn.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+
+  .add-task-btn {
+    margin-left: auto;
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    color: var(--black);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .add-task-btn:hover { background: var(--gold-light); border-color: var(--gold-light); }
+
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .reset-btn:hover { border-color: var(--high); color: var(--high); }
+
+  main { padding: 24px 32px; max-width: 900px; }
+
+  .section { margin-bottom: 32px; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .section-count {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .task-item:hover { border-color: var(--gold); background: var(--surface2); }
+  .task-item.done { opacity: 0.45; border-color: var(--border); background: var(--surface); }
+  .task-item.done:hover { opacity: 0.6; }
+  .task-item.hidden { display: none; }
+
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border: 2px solid var(--border);
+    border-radius: 3px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .task-item:hover .checkbox { border-color: var(--gold); }
+  .task-item.done .checkbox { background: var(--gold); border-color: var(--gold); }
+
+  .checkbox-tick {
+    display: none;
+    color: var(--black);
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .task-item.done .checkbox-tick { display: block; }
+
+  .task-body { flex: 1; min-width: 0; }
+
+  .task-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    cursor: pointer;
+  }
+
+  .task-item.done .task-name { color: var(--done-text); text-decoration: line-through; }
+
+  .task-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .task-item.done .task-desc { color: #444; }
+
+  .task-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .priority-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+  }
+
+  .priority-badge.high   { background: rgba(224,90,74,0.15);  color: var(--high); border: 1px solid rgba(224,90,74,0.3); }
+  .priority-badge.medium { background: rgba(201,168,76,0.15); color: var(--med);  border: 1px solid rgba(201,168,76,0.3); }
+  .priority-badge.low    { background: rgba(90,138,106,0.15); color: var(--low);  border: 1px solid rgba(90,138,106,0.3); }
+
+  .assignee {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .user-added-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555;
+    border: 1px solid #333;
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .dependency {
+    font-size: 0.75rem;
+    color: #7A6A3A;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: rgba(201,168,76,0.06);
+    border-left: 2px solid #7A6A3A;
+    border-radius: 0 2px 2px 0;
+  }
+
+  .task-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    align-items: center;
+  }
+
+  .notes-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: color 0.15s;
+  }
+
+  .notes-toggle:hover { color: var(--gold); }
+  .notes-toggle.has-note { color: var(--gold); }
+
+  .notes-toggle .toggle-icon {
+    font-size: 0.65rem;
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+
+  .notes-toggle.open .toggle-icon { transform: rotate(90deg); }
+
+  .delete-task-btn {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #444;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: color 0.15s;
+  }
+
+  .delete-task-btn:hover { color: var(--high); }
+
+  .notes-area { display: none; margin-top: 8px; }
+  .notes-area.open { display: block; }
+
+  .notes-textarea {
+    width: 100%;
+    min-height: 70px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    padding: 8px 10px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .notes-textarea:focus { border-color: var(--gold); }
+  .notes-textarea::placeholder { color: #555; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--gold);
+    border-radius: 4px;
+    width: 100%;
+    max-width: 480px;
+    padding: 28px;
+  }
+
+  .modal-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+  }
+
+  .form-field { margin-bottom: 16px; }
+
+  .form-label {
+    display: block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 0.88rem;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--gold); }
+  .form-select option { background: var(--surface2); }
+  .form-textarea { min-height: 70px; resize: vertical; line-height: 1.5; }
+
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-field { flex: 1; }
+
+  .custom-section-field { display: none; margin-top: 10px; }
+  .custom-section-field.visible { display: block; }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 22px;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    color: var(--black);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary:hover { background: var(--gold-light); }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+
+  .form-error {
+    font-size: 0.75rem;
+    color: var(--high);
+    margin-top: 4px;
+    display: none;
+  }
+
+  .form-error.visible { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="event-title">Taste BD 2026</div>
+    <div class="event-meta">2nd–3rd May · Centenary Square, Bradford</div>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+  </div>
+  <div class="progress-label" id="progressLabel">0 of 0 tasks complete</div>
+</header>
+
+<div class="controls">
+  <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('todo', this)">To Do</button>
+  <button class="filter-btn" onclick="setFilter('done', this)">Done</button>
+  <button class="filter-btn" onclick="setFilter('high', this)">High Priority</button>
+  <button class="filter-btn" onclick="setFilter('medium', this)">Medium</button>
+  <button class="filter-btn" onclick="setFilter('low', this)">Low</button>
+  <button class="add-task-btn" onclick="openModal()">+ Add Task</button>
+  <button class="reset-btn" onclick="resetAll()">Reset All</button>
+</div>
+
+<main id="taskList"></main>
+
+<!-- Add Task Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-title">Add Task</div>
+
+    <div class="form-field">
+      <label class="form-label">Task name *</label>
+      <input class="form-input" id="inputName" type="text" placeholder="e.g. Confirm stage dimensions">
+      <div class="form-error" id="errorName">Task name is required.</div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Description</label>
+      <textarea class="form-textarea" id="inputDesc" placeholder="Optional detail…"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="inputPriority">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Section</label>
+        <select class="form-select" id="inputSection" onchange="handleSectionChange()"></select>
+      </div>
+    </div>
+
+    <div class="custom-section-field" id="customSectionField">
+      <label class="form-label">New section name *</label>
+      <input class="form-input" id="inputCustomSection" type="text" placeholder="e.g. Comms &amp; Marketing">
+      <div class="form-error" id="errorSection">Section name is required.</div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Assignee</label>
+      <input class="form-input" id="inputAssignee" type="text" placeholder="e.g. Aston">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Seed tasks ────────────────────────────────────────────────────────────────
+const SEED_SECTIONS = [
+  {
+    section: "Infrastructure",
+    tasks: [
+      { id:"inf-1", name:"Collate festival equipment", desc:"Cross-check all requested items (gazebos, trestle tables, fridges, freezers, bain maries) against current stock. Book any missing inventory.", priority:"high", assignee:"Event Manager" },
+      { id:"inf-2", name:"Water bowser booking", desc:"Secure a water bowser for trader use. No on-site drinking water available.", priority:"low", assignee:"Event Manager" },
+      { id:"inf-3", name:"Radio procurement", desc:"Coordinate with security, first aid, and event teams to calculate total requirements. Finalise booking.", priority:"medium", assignee:"Event Manager" },
+      { id:"inf-4", name:"Heras scrim purchase", desc:"Buy 100m roll. Branded if in budget; plain black or sky blue if not.", priority:"low", assignee:"Event Manager" },
+      { id:"inf-5", name:"Hand wash station booking", desc:"Determine number of units required based on site scale and complete booking.", priority:"low", assignee:"Event Manager" }
+    ]
+  },
+  {
+    section: "Signage",
+    tasks: [
+      { id:"sig-1", name:"Bar area big board refresh", desc:"Design and map updated bar listing using projector. Clean and repaint border. Arrange confirmed bar names within board dimensions.", priority:"high", assignee:"Event Manager / Production" },
+      { id:"sig-2", name:"Operational signage — print & laminate", desc:"Toilets, First Aid, Event Control, No Access (event staff only), Event photography/video notice, Face painter, Henna tattoo. Pending finalised designs and programme info.", priority:"low", assignee:"Event Manager" },
+      { id:"sig-3", name:"Exercise class waivers", desc:"Adapt signup page into information-only format for on-site display.", priority:"low", assignee:"Event Manager" },
+      { id:"sig-4", name:"BD Skate signage & fencing", desc:"If participation confirmed: provide fencing, signage, and assess waiver requirement.", priority:"low", assignee:"Event Manager", dependency:"Contingent on BD Skate confirming attendance." }
+    ]
+  },
+  {
+    section: "Crew",
+    tasks: [
+      { id:"crew-1", name:"Master crew sheet organisation", desc:"Collate all core crew bookings into a central master sheet. Organise staff allocations for load-in, live dates, and load-out phases.", priority:"high", assignee:"Event Manager" }
+    ]
+  },
+  {
+    section: "Health & Safety",
+    tasks: [
+      { id:"hs-1", name:"Update EMP", desc:"Revise Event Management Plan with all recent changes — specifically emergency evacuation route updates following site plan revisions. Submit to SAG committee.", priority:"high", assignee:"Event Manager" },
+      { id:"hs-2", name:"Food hygiene coordination", desc:"Submit confirmed catering list to Food Standards Agency and Bradford Council. Verify food hygiene certificates against their records.", priority:"medium", assignee:"Event Manager" }
+    ]
+  },
+  {
+    section: "Traders & Subcontractors",
+    tasks: [
+      { id:"trd-1", name:"Trader payment info sheets", desc:"Issue payment information sheets to all confirmed traders.", priority:"low", assignee:"Aston" },
+      { id:"trd-2", name:"Trader vehicle registrations", desc:"Collate all trader vehicle registrations and update security sheets. Submit to Council security at least 48 hours before each vehicle arrives on site.", priority:"low", assignee:"Aston", dependency:"Deadline: 48hrs before each vehicle's arrival." },
+      { id:"trd-3", name:"Sub-contractor vehicle registrations", desc:"Collect and document all sub-contractor vehicle registrations for site access.", priority:"low", assignee:"Event Manager", dependency:"Deadline: 48hrs before each vehicle's arrival." },
+      { id:"trd-4", name:"Bollard access clarification", desc:"Confirm with Emily Spencer (Council) whether automated bollards are operational. Liaise with Highways re: temporary bollard provision if not.", priority:"medium", assignee:"Emily Spencer (Council)", dependency:"If automated system fails: produce manual 'How-to' guide for staff." }
+    ]
+  },
+  {
+    section: "Event Prep",
+    tasks: [
+      { id:"prep-1", name:"Warehouse progress reports", desc:"Obtain status updates on current tasks and timelines. Assess whether staffing levels need increasing and whether finished pieces need storing in a separate lockup.", priority:"medium", assignee:"Warehouse Staff" }
+    ]
+  }
+];
+
+const SEED_SECTION_NAMES = SEED_SECTIONS.map(s => s.section);
+
+// ── Storage keys ──────────────────────────────────────────────────────────────
+const STORAGE_KEY  = 'tastebd2026-checklist';
+const NOTES_KEY    = 'tastebd2026-notes';
+const TASKS_KEY    = 'tastebd2026-user-tasks';
+const SECTIONS_KEY = 'tastebd2026-user-sections';
+
+let currentFilter = 'all';
+
+// ── Loaders ───────────────────────────────────────────────────────────────────
+const loadDone        = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY))  || {}; } catch { return {}; } };
+const saveDone        = d  => localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+const loadNotes       = () => { try { return JSON.parse(localStorage.getItem(NOTES_KEY))    || {}; } catch { return {}; } };
+const loadUserTasks   = () => { try { return JSON.parse(localStorage.getItem(TASKS_KEY))    || []; } catch { return []; } };
+const saveUserTasks   = t  => localStorage.setItem(TASKS_KEY, JSON.stringify(t));
+const loadUserSections= () => { try { return JSON.parse(localStorage.getItem(SECTIONS_KEY)) || []; } catch { return []; } };
+const saveUserSections= s  => localStorage.setItem(SECTIONS_KEY, JSON.stringify(s));
+
+function saveNote(id, text) {
+  const n = loadNotes();
+  text.trim() === '' ? delete n[id] : (n[id] = text);
+  localStorage.setItem(NOTES_KEY, JSON.stringify(n));
+}
+
+// ── Build merged section list ─────────────────────────────────────────────────
+function getMergedSections() {
+  const sections = SEED_SECTIONS.map(s => ({ section: s.section, tasks: [...s.tasks], userSection: false }));
+  const userSections = loadUserSections();
+  const userTasks = loadUserTasks();
+
+  // Add any custom sections (even if no tasks yet — but we'll hide empty ones on render)
+  userSections.forEach(name => {
+    if (!sections.find(s => s.section === name))
+      sections.push({ section: name, tasks: [], userSection: true });
+  });
+
+  // Slot user tasks into their sections
+  userTasks.forEach(task => {
+    let sec = sections.find(s => s.section === task.section);
+    if (!sec) {
+      sec = { section: task.section, tasks: [], userSection: true };
+      sections.push(sec);
+    }
+    sec.tasks.push(task);
+  });
+
+  return sections;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function toggleTask(id) {
+  const done = loadDone();
+  done[id] = !done[id];
+  saveDone(done);
+  render();
+}
+
+function deleteUserTask(id) {
+  saveUserTasks(loadUserTasks().filter(t => t.id !== id));
+  const done = loadDone(); delete done[id]; saveDone(done);
+  const notes = loadNotes(); delete notes[id]; localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  render();
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+
+function applyFilter() {
+  const done = loadDone();
+  document.querySelectorAll('.task-item').forEach(el => {
+    const isDone = !!done[el.dataset.id];
+    const p = el.dataset.priority;
+    let show = true;
+    if (currentFilter === 'todo')   show = !isDone;
+    else if (currentFilter === 'done')   show = isDone;
+    else if (currentFilter === 'high')   show = p === 'high';
+    else if (currentFilter === 'medium') show = p === 'medium';
+    else if (currentFilter === 'low')    show = p === 'low';
+    el.classList.toggle('hidden', !show);
+  });
+}
+
+// ── Progress ──────────────────────────────────────────────────────────────────
+function updateProgress() {
+  const done = loadDone();
+  const allIds = getMergedSections().flatMap(s => s.tasks.map(t => t.id));
+  const completed = allIds.filter(id => done[id]).length;
+  const pct = allIds.length ? Math.round((completed / allIds.length) * 100) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `${completed} of ${allIds.length} tasks complete`;
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetAll() {
+  if (!confirm('Reset all tasks, notes, and user-added content?')) return;
+  [STORAGE_KEY, NOTES_KEY, TASKS_KEY, SECTIONS_KEY].forEach(k => localStorage.removeItem(k));
+  render();
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal() {
+  ['inputName','inputDesc','inputAssignee','inputCustomSection'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('inputPriority').value = 'medium';
+  document.getElementById('customSectionField').classList.remove('visible');
+  document.getElementById('errorName').classList.remove('visible');
+  document.getElementById('errorSection').classList.remove('visible');
+  rebuildSectionDropdown();
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('inputName').focus(), 50);
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function handleOverlayClick(e) { if (e.target.id === 'modalOverlay') closeModal(); }
+
+function rebuildSectionDropdown() {
+  const sel = document.getElementById('inputSection');
+  const prev = sel.value;
+  const userSections = loadUserSections();
+  const all = [...SEED_SECTION_NAMES, ...userSections];
+  sel.innerHTML = all.map(s => `<option value="${s}">${s}</option>`).join('')
+    + `<option value="__custom__">+ New section…</option>`;
+  if ([...sel.options].find(o => o.value === prev)) sel.value = prev;
+}
+
+function handleSectionChange() {
+  const isCustom = document.getElementById('inputSection').value === '__custom__';
+  document.getElementById('customSectionField').classList.toggle('visible', isCustom);
+  if (isCustom) document.getElementById('inputCustomSection').focus();
+}
+
+function submitTask() {
+  const name = document.getElementById('inputName').value.trim();
+  const desc = document.getElementById('inputDesc').value.trim();
+  const priority = document.getElementById('inputPriority').value;
+  const sectionVal = document.getElementById('inputSection').value;
+  const customSection = document.getElementById('inputCustomSection').value.trim();
+  const assignee = document.getElementById('inputAssignee').value.trim();
+
+  let valid = true;
+  if (!name) { document.getElementById('errorName').classList.add('visible'); valid = false; }
+  else document.getElementById('errorName').classList.remove('visible');
+  if (sectionVal === '__custom__' && !customSection) {
+    document.getElementById('errorSection').classList.add('visible'); valid = false;
+  } else document.getElementById('errorSection').classList.remove('visible');
+  if (!valid) return;
+
+  let section = sectionVal;
+  if (sectionVal === '__custom__') {
+    section = customSection;
+    const userSections = loadUserSections();
+    if (!userSections.includes(section)) { userSections.push(section); saveUserSections(userSections); }
+  }
+
+  const task = { id: 'user-' + Date.now(), name, desc, priority, assignee, section, userAdded: true };
+  const tasks = loadUserTasks();
+  tasks.push(task);
+  saveUserTasks(tasks);
+
+  closeModal();
+  render();
+}
+
+// ── Build task DOM element ────────────────────────────────────────────────────
+function buildTaskEl(task, done, notes) {
+  const isDone = !!done[task.id];
+  const noteText = notes[task.id] || '';
+  const hasNote = noteText.trim() !== '';
+
+  const el = document.createElement('div');
+  el.className = 'task-item' + (isDone ? ' done' : '');
+  el.dataset.id = task.id;
+  el.dataset.priority = task.priority;
+
+  el.innerHTML = `
+    <div class="checkbox"><span class="checkbox-tick">✓</span></div>
+    <div class="task-body">
+      <div class="task-name">${task.name}</div>
+      ${task.desc ? `<div class="task-desc">${task.desc}</div>` : ''}
+      <div class="task-meta">
+        <span class="priority-badge ${task.priority}">${task.priority}</span>
+        ${task.assignee ? `<span class="assignee">${task.assignee}</span>` : ''}
+        ${task.userAdded ? `<span class="user-added-badge">Added</span>` : ''}
+      </div>
+      ${task.dependency ? `<div class="dependency">⚠ ${task.dependency}</div>` : ''}
+      <div class="task-actions">
+        <button class="notes-toggle ${hasNote ? 'has-note' : ''}">
+          <span class="toggle-icon">▶</span> ${hasNote ? 'Notes' : 'Add note'}
+        </button>
+        ${task.userAdded ? `<button class="delete-task-btn">✕ Remove</button>` : ''}
+      </div>
+      <div class="notes-area" id="notes-area-${task.id}">
+        <textarea class="notes-textarea" placeholder="Add notes…">${noteText}</textarea>
+      </div>
+    </div>`;
+
+  el.querySelector('.checkbox').addEventListener('click', e => { e.stopPropagation(); toggleTask(task.id); });
+  el.querySelector('.task-name').addEventListener('click', () => toggleTask(task.id));
+
+  const notesBtn = el.querySelector('.notes-toggle');
+  const notesArea = el.querySelector('.notes-area');
+  const textarea = el.querySelector('.notes-textarea');
+
+  notesBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notesBtn.classList.toggle('open');
+    notesArea.classList.toggle('open');
+    if (notesArea.classList.contains('open')) textarea.focus();
+  });
+
+  textarea.addEventListener('input', e => {
+    e.stopPropagation();
+    const val = e.target.value;
+    saveNote(task.id, val);
+    const hasContent = val.trim() !== '';
+    const isOpen = notesBtn.classList.contains('open');
+    notesBtn.className = `notes-toggle${hasContent ? ' has-note' : ''}${isOpen ? ' open' : ''}`;
+    notesBtn.innerHTML = `<span class="toggle-icon">▶</span> ${hasContent ? 'Notes' : 'Add note'}`;
+  });
+
+  textarea.addEventListener('click', e => e.stopPropagation());
+
+  if (task.userAdded) {
+    el.querySelector('.delete-task-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm(`Remove "${task.name}"?`)) deleteUserTask(task.id);
+    });
+  }
+
+  return el;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const done = loadDone();
+  const notes = loadNotes();
+  const container = document.getElementById('taskList');
+  container.innerHTML = '';
+
+  getMergedSections().forEach(sec => {
+    if (!sec.tasks.length) return;
+    const secEl = document.createElement('div');
+    secEl.className = 'section';
+    const completed = sec.tasks.filter(t => done[t.id]).length;
+    secEl.innerHTML = `
+      <div class="section-header">
+        <span class="section-title">${sec.section}</span>
+        <span class="section-count">${completed}/${sec.tasks.length}</span>
+      </div>`;
+    sec.tasks.forEach(task => secEl.appendChild(buildTaskEl(task, done, notes)));
+    container.appendChild(secEl);
+  });
+
+  updateProgress();
+  applyFilter();
+}
+
+render();
+</script>
+</body>
+</html>

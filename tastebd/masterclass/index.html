@@ -644,6 +644,31 @@
       font-size: 12px;
       color: #555;
     }
+
+    #card-my-lahore-sat {
+      overflow: hidden;
+    }
+
+    #card-my-lahore-sat .announcing-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(40, 40, 40, 0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+
+    #card-my-lahore-sat .announcing-label {
+      color: #ffffff;
+      font-family: 'Barlow Condensed', 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
@@ -724,8 +749,8 @@
             </label>
 
             <label class="session-card" id="card-my-lahore-sat">
-              <input type="radio" name="session" value="my-lahore-sat">
-              <div class="session-card-img"><img src="../../images/Masterclass/My_Lahore.jpg" alt="My Lahore"></div>
+              <input type="radio" name="session" value="my-lahore-sat" disabled>
+              <div class="session-card-img"><img src="../../images/Masterclass/My_Lahore.jpg" alt="My Lahore" style="filter: grayscale(100%) brightness(0.35);"></div>
               <div class="session-card-header">
                 <div class="session-card-left">
                   <div class="session-radio-indicator" aria-hidden="true"></div>
@@ -740,6 +765,9 @@
                 <span class="session-pill date">📅 Saturday 2 May</span>
                 <span class="session-pill time">🕐 15:30 – 16:30</span>
                 <span class="session-pill">🍳 Masterclass Tent</span>
+              </div>
+              <div class="announcing-overlay">
+                <span class="announcing-label">Announcing Soon</span>
               </div>
             </label>
 

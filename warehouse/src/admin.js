@@ -172,6 +172,7 @@ input[type=file]:hover { border-color: #c9a84c; }
 .note-author { color: #c9a84c; font-weight: 700; }
 .note-body { font-size: 0.9rem; color: #ddd; line-height: 1.5; }
 .note-ref { font-size: 0.75rem; color: #666; margin-top: 4px; }
+.note-ref-header { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8a7540; margin-bottom: 5px; }
 .notes-group-label {
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
   color: #444; padding: 16px 0 8px;
@@ -227,6 +228,7 @@ input[type=file]:hover { border-color: #c9a84c; }
     <button class="sec-tab" data-sec="tasks">Tasks</button>
     <button class="sec-tab" data-sec="crew">Crew</button>
     <button class="sec-tab" data-sec="config">Config</button>
+    <button class="sec-tab" data-sec="completed">Completed</button>
     <button class="sec-tab" data-sec="notes">Notes <span id="notes-badge" style="display:none;background:#c9a84c;color:#000;font-size:0.7rem;padding:1px 6px;border-radius:999px;margin-left:4px;font-weight:800;vertical-align:middle"></span></button>
   </div>
 
@@ -405,6 +407,14 @@ input[type=file]:hover { border-color: #c9a84c; }
       </div>
     </div>
 
+    <!-- ── Completed ── -->
+    <div class="sec-panel" id="sec-completed">
+      <table class="data-table" id="completed-table">
+        <thead><tr><th>Date</th><th>Time</th><th>Title</th><th>Description</th><th>Colour</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <!-- ── Notes ── -->
     <div class="sec-panel" id="sec-notes">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -491,6 +501,7 @@ input[type=file]:hover { border-color: #c9a84c; }
         p.classList.toggle('active', p.id === 'sec-' + btn.dataset.sec);
       });
       if (btn.dataset.sec === 'notes') renderNotes();
+      if (btn.dataset.sec === 'completed') renderCompletedJobs();
     });
   });
 
@@ -1119,6 +1130,28 @@ input[type=file]:hover { border-color: #c9a84c; }
 
   setInterval(updateNotesBadge, 60000);
 
+  function renderCompletedJobs() {
+    var tbody = document.querySelector('#completed-table tbody');
+    var completed = (appData.jobs || []).filter(function(j) {
+      return (j.assigned_staff || []).length > 0 &&
+        (j.completions || []).length === (j.assigned_staff || []).length;
+    }).slice().sort(function(a, b) { return (a.startDate||a.date||'').localeCompare(b.startDate||b.date||''); });
+    if (!completed.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:#333;text-align:center;padding:24px">No completed jobs yet</td></tr>'; return; }
+    var html = '';
+    completed.forEach(function(j) {
+      var start = j.startDate || j.date || '';
+      var dateDisplay = start + (j.endDate && j.endDate !== start ? ' – ' + j.endDate : '');
+      html += '<tr>' +
+        '<td>' + esc(dateDisplay) + '</td>' +
+        '<td>' + esc(j.time || '—') + '</td>' +
+        '<td><strong>' + esc(j.title) + '</strong></td>' +
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(j.description || '') + '</td>' +
+        '<td><span class="c-preview" style="background:' + esc(j.colorHex||'#444') + '"></span>' + esc(j.colorHex||'') + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
   async function renderNotes() {
     var listEl = document.getElementById('notes-list');
     listEl.innerHTML = '<div style="color:#555;padding:16px">Loading...</div>';
@@ -1139,23 +1172,29 @@ input[type=file]:hover { border-color: #c9a84c; }
       document.getElementById('notes-panel-count').textContent = topLevel.length + ' note' + (topLevel.length !== 1 ? 's' : '');
       if (!topLevel.length) { listEl.innerHTML = '<div style="color:#333;font-style:italic;padding:24px;text-align:center">No notes yet</div>'; return; }
 
+      var titleMap = {};
+      (appData.jobs || []).forEach(function(j) { titleMap[j.id] = j.title; });
+      (appData.tasks || []).forEach(function(t) { titleMap[t.id] = t.title; });
+
+      function refTitle(n) { return n.ref_id ? (titleMap[n.ref_id] || null) : null; }
+
       var unread  = topLevel.filter(function(n) { return !n.read_by_admin; });
       var byJob   = topLevel.filter(function(n) { return n.type === 'job'     && n.read_by_admin; });
       var byTask  = topLevel.filter(function(n) { return n.type === 'task'    && n.read_by_admin; });
       var general = topLevel.filter(function(n) { return n.type === 'general' && n.read_by_admin; });
 
       var html = '';
-      if (unread.length)  { html += '<div class="notes-group-label">Unread (' + unread.length + ')</div>';  unread.forEach(function(n)  { html += noteItemHtml(n, replyMap[n.id] || []); }); }
-      if (byJob.length)   { html += '<div class="notes-group-label">Job Notes</div>';    byJob.forEach(function(n)   { html += noteItemHtml(n, replyMap[n.id] || []); }); }
-      if (byTask.length)  { html += '<div class="notes-group-label">Task Notes</div>';   byTask.forEach(function(n)  { html += noteItemHtml(n, replyMap[n.id] || []); }); }
-      if (general.length) { html += '<div class="notes-group-label">General</div>';      general.forEach(function(n) { html += noteItemHtml(n, replyMap[n.id] || []); }); }
+      if (unread.length)  { html += '<div class="notes-group-label">Unread (' + unread.length + ')</div>';  unread.forEach(function(n)  { html += noteItemHtml(n, replyMap[n.id] || [], refTitle(n)); }); }
+      if (byJob.length)   { html += '<div class="notes-group-label">Job Notes</div>';    byJob.forEach(function(n)   { html += noteItemHtml(n, replyMap[n.id] || [], refTitle(n)); }); }
+      if (byTask.length)  { html += '<div class="notes-group-label">Task Notes</div>';   byTask.forEach(function(n)  { html += noteItemHtml(n, replyMap[n.id] || [], refTitle(n)); }); }
+      if (general.length) { html += '<div class="notes-group-label">General</div>';      general.forEach(function(n) { html += noteItemHtml(n, replyMap[n.id] || [], refTitle(n)); }); }
       listEl.innerHTML = html;
     } catch (e) {
       listEl.innerHTML = '<div style="color:#e74c3c;padding:16px">Failed to load notes</div>';
     }
   }
 
-  function noteItemHtml(n, replies) {
+  function noteItemHtml(n, replies, refTitle) {
     var date = new Date(n.created_at);
     var dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' +
       date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -1185,9 +1224,9 @@ input[type=file]:hover { border-color: #c9a84c; }
     var unreadClick = n.read_by_admin ? '' : ' onclick="markNoteRead(\\'' + esc(n.id) + '\\')"';
     return '<div class="note-item' + (n.read_by_admin ? '' : ' unread') + '"' + unreadClick + '>' +
       deleteBtn +
+      (refTitle ? '<div class="note-ref-header">' + esc(refTitle) + '</div>' : '') +
       '<div class="note-meta"><span class="note-author">' + esc(n.author) + '</span> &mdash; ' + esc(dateStr) + '</div>' +
       '<div class="note-body">' + esc(n.body) + '</div>' +
-      (n.ref_id ? '<div class="note-ref">' + esc(n.type) + ': ' + esc(n.ref_id) + '</div>' : '') +
       repliesHtml +
       replyForm +
       '</div>';

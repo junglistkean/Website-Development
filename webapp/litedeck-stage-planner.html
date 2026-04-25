@@ -1979,15 +1979,12 @@ function snapHandrailAlong(edge, size) {
     if (d < bestDist) { bestDist = d; bestPanel = { start, end }; }
   }
   const panelStart = bestPanel ? bestPanel.start : edge.edgeStart;
-  const panelEnd   = bestPanel ? bestPanel.end   : edge.edgeStart + edge.edgeLen;
   const edgeEnd    = edge.edgeStart + edge.edgeLen;
   const snapped    = Math.round(edge.alongGu);
-  // Clamp to the nearest panel first (for panel-aligned snapping), then clamp
-  // again to the overall edge span so the handrail can never overshoot the
-  // stage boundary — e.g. an 8ft handrail near a 4ft-wide panel would
-  // otherwise produce a negative offset extending off the edge.
-  const withinPanel = Math.min(Math.max(snapped, panelStart), panelEnd - hrWidthGu);
-  return Math.min(Math.max(withinPanel, edge.edgeStart), edgeEnd - hrWidthGu);
+  // Clamp only to the full edge span — per-panel clamping (panelEnd - hrWidthGu)
+  // produced non-integer safeAlong values that caused false overlap conflicts
+  // when placing a handrail adjacent to one already on the same edge.
+  return Math.min(Math.max(snapped, panelStart), edgeEnd - hrWidthGu);
 }
 
 // ── Steps placement ───────────────────────────────────────────────────────────
@@ -2306,7 +2303,7 @@ function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, force
     const pushHr = (size) => {
       panels.push({ id: nextId++, category: 'handrail', tier: activeTierId, side,
         edgeGu, edgeStart: spanStart, edgeLen: spanEnd - spanStart,
-        alongGu: pos, size, hrType: 'handrail' });
+        alongGu: Math.round(pos), size, hrType: 'handrail' });
       pos += HR_WIDTHS[size] / FT2;
     };
     const pushInfill = (gu) => {

@@ -2028,6 +2028,13 @@ function placeSteps(edge) {
   // here too so nothing off-stage can ever be stored.
   const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart), edgeEnd - STEPS_WIDTH_GU);
   const sSpan = [safeAlong, safeAlong + STEPS_WIDTH_GU];
+  const stepsConflict = panels.find(p =>
+    p.category === 'steps' && p.tier === activeTierId &&
+    p.side === edge.side && p.edgeGu === edge.edgeGu &&
+    spansOverlap(stepsSpan(p), sSpan)
+  );
+  if (stepsConflict) { alert('Steps already exist at this position.'); return; }
+
   const conflict = panels.find(p =>
     p.category === 'handrail' && p.tier === activeTierId &&
     p.side === edge.side && p.edgeGu === edge.edgeGu &&

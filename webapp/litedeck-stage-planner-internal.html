@@ -1559,13 +1559,12 @@ function snapHandrailAlong(edge, size) {
   }
 
   const panelStart = bestPanel ? bestPanel.start : edge.edgeStart;
-  const panelEnd   = bestPanel ? bestPanel.end   : edge.edgeStart + edge.edgeLen;
   const edgeEnd    = edge.edgeStart + edge.edgeLen;
   const snapped    = Math.round(edge.alongGu);
-  // Clamp to the nearest panel first (panel-aligned snap), then clamp to the
-  // full edge span so the handrail never overshoots the stage boundary.
-  const withinPanel = Math.min(Math.max(snapped, panelStart), panelEnd - hrWidthGu);
-  return Math.min(Math.max(withinPanel, edge.edgeStart), edgeEnd - hrWidthGu);
+  // Clamp only to the full edge span — per-panel clamping (panelEnd - hrWidthGu)
+  // produced non-integer safeAlong values that caused false overlap conflicts
+  // when placing a handrail adjacent to one already on the same edge.
+  return Math.min(Math.max(snapped, panelStart), edgeEnd - hrWidthGu);
 }
 
 // ── Place steps on edge ───────────────────────────────────────────────────────
@@ -1607,6 +1606,13 @@ function placeSteps(edge) {
   // here too so nothing off-stage can ever be stored.
   const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
   const sSpan = [safeAlong - halfW, safeAlong + halfW];
+
+  const stepsConflict = panels.find(p =>
+    p.category === 'steps' && p.tier === activeTierId &&
+    p.side === edge.side && p.edgeGu === edge.edgeGu &&
+    spansOverlap(stepsSpan(p), sSpan)
+  );
+  if (stepsConflict) { alert('Steps already exist at this position.'); return; }
 
   const conflict = panels.find(p =>
     p.category === 'handrail' && p.tier === activeTierId &&
@@ -1976,7 +1982,7 @@ function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, force
     const pushHr = (size) => {
       panels.push({ id: nextId++, category: 'handrail', tier: activeTierId, side,
         edgeGu, edgeStart: spanStart, edgeLen: spanEnd - spanStart,
-        alongGu: pos, size, hrType: 'handrail' });
+        alongGu: Math.round(pos), size, hrType: 'handrail' });
       pos += HR_WIDTHS[size] / FT2;
     };
     const pushInfill = (gu) => {
@@ -5373,6 +5379,7 @@ function buildRampScheduleData() {
   let total2way = 0, total4way = 0, totalScrewjacks = 0, totalSmallScrewjacks = 0;
   const legCounts = {}, plateCounts = {};
   const rampBuildRows = [];
+  let totalRampHandrails8ft = 0, totalRampHandrails4ft = 0;
 
   // Helper: process one leg into the totals and build-row array.
   // isLanding flag drives the row label in the schedule.
@@ -5429,6 +5436,16 @@ function buildRampScheduleData() {
     totalHinges      += ramp.hingeQty;
     totalRampBottoms += ramp.rampBottomQty;
 
+    // Handrails along both long sides of the ramp sloped run
+    {
+      const HR8 = 2438, HR4 = 1219;
+      const n8 = Math.floor(ramp.slopedRun / HR8);
+      const rem = ramp.slopedRun - n8 * HR8;
+      const n4 = rem > 0 ? Math.ceil(rem / HR4) : 0;
+      totalRampHandrails8ft += n8 * 2;
+      totalRampHandrails4ft += n4 * 2;
+    }
+
     if (ramp.flights) {
       // Multi-flight: process flight legs and landing legs separately
       for (const seg of ramp.flights) {
@@ -5447,6 +5464,7 @@ function buildRampScheduleData() {
     panelCounts, totalHinges, totalRampBottoms,
     total2way, total4way, totalScrewjacks, totalSmallScrewjacks,
     legCounts, plateCounts, rampBuildRows,
+    totalRampHandrails8ft, totalRampHandrails4ft,
   };
 }
 
@@ -7918,6 +7936,31 @@ function buildQuoteItems() {
     '4x2': { name: "4' × 2' Litedeck panel", price: 12.60 },
   };
 
+  // ── Merge ramp counts into main accumulators ──
+  let totalHinges = 0, totalRampBottoms = 0;
+  let totalRampHandrails8ft = 0, totalRampHandrails4ft = 0;
+  const rampLegCounts = {};
+  if (ramps.length) {
+    const rd = buildRampScheduleData();
+    for (const [type, qty] of Object.entries(rd.panelCounts)) {
+      d.panelCounts[type] = (d.panelCounts[type] || 0) + qty;
+    }
+    d.splitter2way    += rd.total2way;
+    d.splitter4way    += rd.total4way;
+    d.screwjacks      += rd.totalScrewjacks;
+    d.smallScrewjacks += rd.totalSmallScrewjacks;
+    for (const [mm, qty] of Object.entries(rd.plateCounts)) {
+      d.plateCounts[mm] = (d.plateCounts[mm] || 0) + qty;
+    }
+    totalHinges            = rd.totalHinges;
+    totalRampBottoms       = rd.totalRampBottoms;
+    totalRampHandrails8ft  = rd.totalRampHandrails8ft;
+    totalRampHandrails4ft  = rd.totalRampHandrails4ft;
+    for (const [label, qty] of Object.entries(rd.legCounts)) {
+      rampLegCounts[label] = (rampLegCounts[label] || 0) + qty;
+    }
+  }
+
   for (const [type, qty] of Object.entries(d.panelCounts)) {
     if (!qty) continue;
     const p = PANEL_PRICES[type];
@@ -7934,6 +7977,25 @@ function buildQuoteItems() {
     if (qty) items.push({ category: 'equipment', description: `${mm}mm base plate`, qty, unitPrice: 0.00 });
   }
 
+  if (totalHinges)      items.push({ category: 'equipment', description: 'Ramp hinge',  qty: totalHinges,      unitPrice: 16.50 });
+  if (totalRampBottoms) items.push({ category: 'equipment', description: 'Ramp bottom', qty: totalRampBottoms, unitPrice: 16.50 });
+
+  const LEG_TUBE_PRICES = {
+    '1ft': 0.33, "1'6\"": 0.33,
+    '2ft': 0.33, "2'6\"": 0.33,
+    '3ft': 0.33, "3'6\"": 0.33,
+    '4ft': 0.66, "4'6\"": 0.66,
+    '5ft': 0.66, "5'6\"": 0.66,
+    '6ft': 0.90, "6'6\"": 1.15,
+    '7ft': 1.40, '8ft': 1.65, '10ft': 2.20,
+  };
+  for (const [label, qty] of Object.entries(rampLegCounts)) {
+    if (!qty) continue;
+    const lenPrefix = label.split(' leg ')[0];
+    const price = LEG_TUBE_PRICES[lenPrefix] ?? 0.00;
+    items.push({ category: 'equipment', description: label, qty, unitPrice: price });
+  }
+
   if (d.stepsItemsPrint?.length) {
     const stepCounts = {};
     for (const s of d.stepsItemsPrint) stepCounts[s.heightKey] = (stepCounts[s.heightKey] || 0) + 1;
@@ -7943,10 +8005,10 @@ function buildQuoteItems() {
     }
   }
 
-  if (d.handrailItemsPrint?.length) {
-    let qty4ft = 0, qty8ft = 0;
+  {
+    let qty4ft = totalRampHandrails4ft, qty8ft = totalRampHandrails8ft;
     const infillGroups = {};
-    for (const h of d.handrailItemsPrint) {
+    for (const h of (d.handrailItemsPrint || [])) {
       if (h.hrType === 'handrail') {
         if (h.size === '4ft') qty4ft++; else qty8ft++;
       } else {

@@ -1,6 +1,6 @@
 {
   "planTitle": "TasteBD-2026",
-  "exportedAt": "2026-04-17T16:22:21.681Z",
+  "exportedAt": "2026-04-27T18:38:00.391Z",
   "layers": [
     {
       "id": "base",
@@ -272,21 +272,6 @@
       "note": "Candy Emporium - 16A"
     },
     {
-      "id": "el-20",
-      "type": "symbol",
-      "symId": "bar",
-      "catId": "traders",
-      "label": "Bar",
-      "lat": 53.792829037208094,
-      "lng": -1.7537965145111012,
-      "wM": 3,
-      "dM": 3,
-      "rotation": 0.951665814062892,
-      "layerId": "base",
-      "customLabel": "",
-      "note": "Wandering Spirit - 16A"
-    },
-    {
       "id": "el-21",
       "type": "symbol",
       "symId": "bar",
@@ -307,11 +292,11 @@
       "symId": "bar",
       "catId": "traders",
       "label": "Bar",
-      "lat": 53.792919347838314,
-      "lng": -1.7538005378246235,
+      "lat": 53.79292014003596,
+      "lng": -1.7538012083768773,
       "wM": 3,
       "dM": 3,
-      "rotation": 12.947186045989156,
+      "rotation": 5.913263262403632,
       "layerId": "base",
       "customLabel": "",
       "note": "Northern Monk - 16A"
@@ -322,11 +307,11 @@
       "symId": "bar",
       "catId": "traders",
       "label": "Bar",
-      "lat": 53.79294390595848,
-      "lng": -1.7531997230052876,
+      "lat": 53.792993022155784,
+      "lng": -1.7532620843648838,
       "wM": 3,
       "dM": 3,
-      "rotation": 43.883995260233405,
+      "rotation": 48.22134968584021,
       "layerId": "base",
       "customLabel": "",
       "note": "Amity - 16A"
@@ -337,8 +322,8 @@
       "symId": "bar",
       "catId": "traders",
       "label": "Bar",
-      "lat": 53.79275853140542,
-      "lng": -1.7537710335254597,
+      "lat": 53.79275813530507,
+      "lng": -1.7537770684957432,
       "wM": 3,
       "dM": 3,
       "rotation": 342.80145877993414,
@@ -367,11 +352,11 @@
       "symId": "hot-food",
       "catId": "traders",
       "label": "Hot Food",
-      "lat": 53.79270149291654,
-      "lng": -1.753719401001923,
+      "lat": 53.79282230351293,
+      "lng": -1.7538012083768773,
       "wM": 4,
       "dM": 3,
-      "rotation": 34.0452024677773,
+      "rotation": 87.72864752626305,
       "layerId": "base",
       "customLabel": "",
       "note": "Fries the Limit - \"Electric fryers so need 9k of power\""
@@ -840,8 +825,8 @@
       "symId": "layher-sq",
       "catId": "structures",
       "label": "Layher 2.5×2.5",
-      "lat": 53.79277278218003,
-      "lng": -1.7540291961431431,
+      "lat": 53.79284487235687,
+      "lng": -1.754090216398232,
       "wM": 2.5,
       "dM": 2.5,
       "rotation": 66.19707713630083,
@@ -871,8 +856,8 @@
       "symId": "layher-sq",
       "catId": "structures",
       "label": "Layher 2.5×2.5",
-      "lat": 53.79264840721827,
-      "lng": -1.754210915803902,
+      "lat": 53.792038010538654,
+      "lng": -1.755138960123055,
       "wM": 2.5,
       "dM": 2.5,
       "rotation": 34.432402286809804,
@@ -962,8 +947,8 @@
       "lineType": "ped-barrier",
       "points": [
         {
-          "lat": 53.79272129010807,
-          "lng": -1.753736164808266
+          "lat": 53.79271586196109,
+          "lng": -1.7537911500930714
         },
         {
           "lat": 53.79274980934872,
@@ -1047,8 +1032,8 @@
       "lineType": "ped-barrier",
       "points": [
         {
-          "lat": 53.793012817847725,
-          "lng": -1.7532815303802418
+          "lat": 53.792995508158874,
+          "lng": -1.7533049997091221
         },
         {
           "lat": 53.793038984606234,
@@ -1133,8 +1118,8 @@
       "symId": "branding",
       "catId": "signage",
       "label": "Branding Point",
-      "lat": 53.79277160374007,
-      "lng": -1.7540285255908894,
+      "lat": 53.792844882217565,
+      "lng": -1.7540895458459782,
       "wM": 0.8,
       "dM": 0.8,
       "rotation": 3.6623544829956813,
@@ -1147,8 +1132,8 @@
       "symId": "branding",
       "catId": "signage",
       "label": "Branding Point",
-      "lat": 53.79264762418665,
-      "lng": -1.7542115863561558,
+      "lat": 53.79203762360281,
+      "lng": -1.7551396306753086,
       "wM": 0.8,
       "dM": 0.8,
       "rotation": 0,
@@ -1529,21 +1514,6 @@
       "layerId": "base",
       "customLabel": "",
       "note": "Greek Olives - no power requirements - lighting run only"
-    },
-    {
-      "id": "el-138",
-      "type": "symbol",
-      "symId": "gaz-3x3",
-      "catId": "structures",
-      "label": "Gazebo 3×3",
-      "lat": 53.792165502984005,
-      "lng": -1.7543463673591542,
-      "wM": 4.5,
-      "dM": 1.7,
-      "rotation": 323.6743149873911,
-      "layerId": "base",
-      "customLabel": "",
-      "note": "Keto Home Bakery - 16A - 2 sockets for microwavbe and hot drink machine"
     },
     {
       "id": "el-139",
@@ -1959,24 +1929,24 @@
           "lng": -1.7538313832282948
         },
         {
-          "lat": 53.792840508259914,
-          "lng": -1.7537603046894001
+          "lat": 53.79284142571111,
+          "lng": -1.7537690218686985
         },
         {
-          "lat": 53.79282307987503,
-          "lng": -1.7537683513164448
+          "lat": 53.79281607533128,
+          "lng": -1.7537710335254597
         },
         {
-          "lat": 53.792777132280236,
-          "lng": -1.7537562813758778
+          "lat": 53.792778841933156,
+          "lng": -1.753758293032639
         },
         {
-          "lat": 53.79275178186158,
-          "lng": -1.753738847017281
+          "lat": 53.79275151101351,
+          "lng": -1.7537475641965794
         },
         {
-          "lat": 53.79275178186158,
-          "lng": -1.753736164808266
+          "lat": 53.79275190711392,
+          "lng": -1.7537482347488331
         }
       ],
       "label": "",
@@ -1988,8 +1958,8 @@
       "lineType": "lighting-run",
       "points": [
         {
-          "lat": 53.79298944143516,
-          "lng": -1.7533096935748982
+          "lat": 53.792994514221064,
+          "lng": -1.753302988052361
         },
         {
           "lat": 53.7929640911448,
@@ -2235,31 +2205,16 @@
       "layerId": "base"
     },
     {
-      "id": "el-186",
-      "type": "symbol",
-      "symId": "gaz-3x3",
-      "catId": "structures",
-      "label": "Gazebo 3×3",
-      "lat": 53.79299338519488,
-      "lng": -1.7532741543054509,
-      "wM": 3,
-      "dM": 3,
-      "rotation": 43.00469598721929,
-      "layerId": "base",
-      "customLabel": "",
-      "note": "Lucelas - no power requirements - lighting run only"
-    },
-    {
       "id": "el-189",
       "type": "symbol",
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79305953643197,
-      "lng": -1.7535531040429997,
+      "lat": 53.79295219387072,
+      "lng": -1.7531950291395115,
       "wM": 3,
       "dM": 3,
-      "rotation": 331.1342489386468,
+      "rotation": 47.58178193050804,
       "layerId": "base",
       "customLabel": "",
       "note": "Il Pirata - 16A"

@@ -5,6 +5,9 @@
 // ── Readonly mode (append ?readonly to URL) ────────────────────────────────
 const READONLY = new URLSearchParams(window.location.search).has('readonly');
 
+// Suppress the spurious click Chrome fires on the overlay after a drop event.
+let justDropped = false;
+
 // ── Panel switching ────────────────────────────────────────────────────────
 function switchPanel(name, btn) {
   document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
@@ -740,6 +743,7 @@ function onMouseUp(e) {
 function onCanvasClick(e) {
   if (e.target.closest('#prop-panel')) return;
   if (READONLY) return;
+  if (justDropped) { justDropped = false; return; }
   const r = document.getElementById('map-wrap').getBoundingClientRect();
   const x = e.clientX - r.left;
   const y = e.clientY - r.top;
@@ -865,6 +869,7 @@ function onMapDrop(e) {
   const r = wrap.getBoundingClientRect();
   const el = makeSymbolEl(found.sym, found.catId, e.clientX - r.left, e.clientY - r.top);
   State.elements.push(el);
+  justDropped = true;
   selectElement(el.id);
   updateLegend();
   redraw();

@@ -188,6 +188,15 @@ input[type=file]:hover { border-color: #c9a84c; }
 }
 .note-reply-input:focus { border-color: #c9a84c; }
 
+/* Attachment panel */
+.attach-panel { padding: 10px 16px 14px; border-top: 1px solid #1a1a1a; background: #080808; }
+.attach-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #151515; }
+.attach-filename { flex: 1; color: #ccc; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.attach-date { color: #555; font-size: 0.75rem; flex-shrink: 0; }
+.attach-upload { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+.attach-upload input[type=file] { flex: 1; min-width: 0; }
+.attach-badge { background: #3498db; color: #fff; font-size: 0.68rem; padding: 1px 5px; border-radius: 999px; margin-left: 5px; font-weight: 800; vertical-align: middle; }
+
 /* Toast */
 #toast {
   position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
@@ -966,8 +975,9 @@ input[type=file]:hover { border-color: #c9a84c; }
     appData.tasks.forEach(function(t) {
       var assigned = (t.assignedTo || []).join(', ') || '\u2014';
       var linkedJob = t.jobId ? appData.jobs.find(function(j) { return j.id === t.jobId; }) : null;
-      html += '<tr>' +
-        '<td><strong>' + esc(t.title) + '</strong></td>' +
+      var sid = esc(t.id);
+      html += '<tr id="task-row-' + sid + '">' +
+        '<td><strong>' + esc(t.title) + '</strong><span id="attach-badge-' + sid + '" class="attach-badge" style="display:none"></span></td>' +
         '<td>' + (linkedJob ? esc(linkedJob.title) : '\u2014') + '</td>' +
         '<td>' + esc(String((t.assignedTo||[]).length)) + '/' + esc(String(t.slots||1)) + '</td>' +
         '<td>' + esc(assigned) + '</td>' +
@@ -975,12 +985,19 @@ input[type=file]:hover { border-color: #c9a84c; }
         '<td>' + (t.priority ? '\u2605' : '\u2014') + '</td>' +
         '<td><span class="c-preview" style="background:' + esc(t.colorHex||'#444') + '"></span>' + esc(t.colorHex||'') + '</td>' +
         '<td><div class="tbl-actions">' +
-          '<button class="btn btn-ghost btn-sm" onclick="editTaskById(\\'' + esc(t.id) + '\\')">Edit</button>' +
-          '<button class="btn btn-danger btn-sm" onclick="deleteTask(\\'' + esc(t.id) + '\\')">Delete</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="editTaskById(\\'' + sid + '\\')">Edit</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="toggleTaskAttachments(\\'' + sid + '\\')">Files</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteTask(\\'' + sid + '\\')">Delete</button>' +
         '</div></td>' +
+        '</tr>' +
+        '<tr id="task-attach-row-' + sid + '" style="display:none">' +
+          '<td colspan="8" style="padding:0">' +
+            '<div id="task-attach-panel-' + sid + '" class="attach-panel"></div>' +
+          '</td>' +
         '</tr>';
     });
     tbody.innerHTML = html;
+    loadAllAttachmentCounts();
   }
 
   window.editTaskById = function(id) {
@@ -1266,6 +1283,110 @@ input[type=file]:hover { border-color: #c9a84c; }
   };
 
   document.getElementById('refresh-notes-btn').addEventListener('click', renderNotes);
+
+  // ── Attachments ────────────────────────────────────────────────────────────
+
+  function loadAllAttachmentCounts() {
+    (appData.tasks || []).forEach(function(t) {
+      fetch('/attachments?task_id=' + encodeURIComponent(t.id))
+        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function(list) {
+          var badge = document.getElementById('attach-badge-' + t.id);
+          if (badge) {
+            badge.textContent = list.length;
+            badge.style.display = list.length > 0 ? '' : 'none';
+          }
+        })
+        .catch(function() {});
+    });
+  }
+
+  window.toggleTaskAttachments = function(id) {
+    var row = document.getElementById('task-attach-row-' + id);
+    if (!row) return;
+    var opening = row.style.display === 'none';
+    row.style.display = opening ? '' : 'none';
+    if (opening) loadTaskAttachments(id);
+  };
+
+  async function loadTaskAttachments(id) {
+    var panel = document.getElementById('task-attach-panel-' + id);
+    if (!panel) return;
+    panel.innerHTML = '<div style="color:#555;font-size:0.85rem;padding:4px 0">Loading…</div>';
+    try {
+      var res = await fetch('/attachments?task_id=' + encodeURIComponent(id));
+      if (res.status === 401) { showLogin(); return; }
+      var list = await res.json();
+      renderAttachmentPanel(id, list);
+      var badge = document.getElementById('attach-badge-' + id);
+      if (badge) { badge.textContent = list.length; badge.style.display = list.length > 0 ? '' : 'none'; }
+    } catch (e) {
+      panel.innerHTML = '<div style="color:#e74c3c;font-size:0.85rem">Failed to load attachments</div>';
+    }
+  }
+
+  function renderAttachmentPanel(taskId, list) {
+    var panel = document.getElementById('task-attach-panel-' + taskId);
+    if (!panel) return;
+    var sid = esc(taskId);
+    var html = '';
+    if (!list.length) {
+      html += '<div style="color:#555;font-size:0.85rem;font-style:italic;margin-bottom:8px">No attachments yet</div>';
+    } else {
+      list.forEach(function(a) {
+        var d = new Date(a.uploaded_at);
+        var dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        var aid = esc(a.id);
+        html += '<div class="attach-row">' +
+          '<span class="attach-filename">' + esc(a.filename) + '</span>' +
+          '<span class="attach-date">' + esc(dateStr) + '</span>' +
+          '<a href="/attachments/' + aid + '/view" target="_blank" class="btn btn-ghost btn-sm">View</a>' +
+          '<a href="/attachments/' + aid + '/download" class="btn btn-ghost btn-sm">Download</a>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteAttachment(\\'' + aid + '\\',\\'' + sid + '\\')">Delete</button>' +
+          '</div>';
+      });
+    }
+    html += '<div class="attach-upload">' +
+      '<input type="file" id="attach-input-' + sid + '" accept=".html">' +
+      '<button class="btn btn-gold btn-sm" onclick="uploadTaskAttachment(\\'' + sid + '\\')">Upload</button>' +
+      '</div>';
+    panel.innerHTML = html;
+  }
+
+  window.uploadTaskAttachment = async function(taskId) {
+    var input = document.getElementById('attach-input-' + taskId);
+    if (!input || !input.files.length) { toast('Select a file first', true); return; }
+    var file = input.files[0];
+    if (!file.name.toLowerCase().endsWith('.html')) { toast('Only .html files allowed', true); return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('task_id', taskId);
+    fd.append('uploaded_by', 'admin');
+    try {
+      var res = await fetch('/attachments', { method: 'POST', body: fd });
+      if (res.status === 401) { showLogin(); return; }
+      var json = await res.json();
+      if (!res.ok) { toast(json.error || 'Upload failed', true); return; }
+      toast('Attachment uploaded');
+      loadTaskAttachments(taskId);
+    } catch (e) {
+      toast('Upload failed', true);
+    }
+  };
+
+  window.deleteAttachment = async function(attachId, taskId) {
+    if (!confirm('Delete this attachment?')) return;
+    try {
+      var res = await fetch('/attachments/' + encodeURIComponent(attachId), { method: 'DELETE' });
+      if (res.status === 401) { showLogin(); return; }
+      var json = await res.json();
+      if (!res.ok) { toast(json.error || 'Delete failed', true); return; }
+      toast('Attachment deleted');
+      loadTaskAttachments(taskId);
+    } catch (e) {
+      toast('Delete failed', true);
+    }
+  };
 
   // ── Init ───────────────────────────────────────────────────────────────────
 

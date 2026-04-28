@@ -10,6 +10,10 @@ kv_namespaces = [
 binding = "WAREHOUSE_R2"
 bucket_name = "warehouse-docs"
 
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "warehouse-attachments"
+
 [[d1_databases]]
 binding = "NOTES_DB"
 database_name = "warehouse-notes"

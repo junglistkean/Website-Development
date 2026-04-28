@@ -70,6 +70,28 @@ export default {
         return await notesDeleteHandler(env, noteId);
       }
 
+      // Attachments API (admin auth required)
+      if (path === '/attachments') {
+        if (!isAdminAuthed(request)) return jsonResp({ error: 'Unauthorised' }, 401);
+        if (method === 'POST') return await attachmentsUploadHandler(request, env);
+        if (method === 'GET')  return await attachmentsListHandler(request, env);
+      }
+      if (method === 'GET' && path.startsWith('/attachments/') && path.endsWith('/view')) {
+        if (!isAdminAuthed(request)) return jsonResp({ error: 'Unauthorised' }, 401);
+        const id = path.slice('/attachments/'.length, -'/view'.length);
+        if (id && !id.includes('/')) return await attachmentsViewHandler(env, id);
+      }
+      if (method === 'GET' && path.startsWith('/attachments/') && path.endsWith('/download')) {
+        if (!isAdminAuthed(request)) return jsonResp({ error: 'Unauthorised' }, 401);
+        const id = path.slice('/attachments/'.length, -'/download'.length);
+        if (id && !id.includes('/')) return await attachmentsDownloadHandler(env, id);
+      }
+      if (method === 'DELETE' && path.startsWith('/attachments/')) {
+        if (!isAdminAuthed(request)) return jsonResp({ error: 'Unauthorised' }, 401);
+        const id = path.slice('/attachments/'.length);
+        if (id && !id.includes('/')) return await attachmentsDeleteHandler(env, id);
+      }
+
       // Admin write API (auth required)
       if (method === 'POST' && path.startsWith('/api/admin/')) {
         if (!isAdminAuthed(request)) return jsonResp({ error: 'Unauthorised' }, 401);
@@ -567,4 +589,87 @@ async function pushNote(env, note) {
       text: '[Note from ' + note.author + '] ' + note.body.slice(0, 80),
     }),
   });
+}
+
+// ── Attachments API ──────────────────────────────────────────────────────────
+
+async function attachmentsUploadHandler(request, env) {
+  let formData;
+  try { formData = await request.formData(); } catch { return jsonResp({ error: 'Invalid form data' }, 400); }
+
+  const file = formData.get('file');
+  const task_id = formData.get('task_id');
+  const uploaded_by = formData.get('uploaded_by') || 'admin';
+
+  if (!file || typeof file.stream !== 'function') return jsonResp({ error: 'No file provided' }, 400);
+  if (!task_id) return jsonResp({ error: 'task_id required' }, 400);
+
+  const originalFilename = file.name || 'file';
+  if (!originalFilename.toLowerCase().endsWith('.html')) {
+    return jsonResp({ error: 'Only .html files are allowed' }, 400);
+  }
+
+  const id = genId('att');
+  const safeName = originalFilename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+  const r2_key = task_id + '/' + id + '/' + safeName;
+  const uploaded_at = new Date().toISOString();
+
+  await env.ATTACHMENTS.put(r2_key, file.stream(), {
+    httpMetadata: { contentType: 'text/html; charset=utf-8' }
+  });
+
+  await env.NOTES_DB.prepare(
+    'INSERT INTO attachments (id, task_id, filename, r2_key, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(id, task_id, originalFilename, r2_key, uploaded_by, uploaded_at).run();
+
+  return jsonResp({ ok: true, id, filename: originalFilename, uploaded_at });
+}
+
+async function attachmentsListHandler(request, env) {
+  const taskId = new URL(request.url).searchParams.get('task_id');
+  if (!taskId) return jsonResp({ error: 'task_id required' }, 400);
+
+  const { results } = await env.NOTES_DB.prepare(
+    'SELECT id, task_id, filename, uploaded_by, uploaded_at FROM attachments WHERE task_id=? ORDER BY uploaded_at ASC'
+  ).bind(taskId).all();
+
+  return jsonResp(results);
+}
+
+async function attachmentsViewHandler(env, id) {
+  const row = await env.NOTES_DB.prepare('SELECT r2_key, filename FROM attachments WHERE id=?').bind(id).first();
+  if (!row) return new Response('Not Found', { status: 404 });
+
+  const obj = await env.ATTACHMENTS.get(row.r2_key);
+  if (!obj) return new Response('Not Found', { status: 404 });
+
+  return new Response(obj.body, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  });
+}
+
+async function attachmentsDownloadHandler(env, id) {
+  const row = await env.NOTES_DB.prepare('SELECT r2_key, filename FROM attachments WHERE id=?').bind(id).first();
+  if (!row) return new Response('Not Found', { status: 404 });
+
+  const obj = await env.ATTACHMENTS.get(row.r2_key);
+  if (!obj) return new Response('Not Found', { status: 404 });
+
+  const safeName = row.filename.replace(/"/g, '');
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': 'attachment; filename="' + safeName + '"'
+    }
+  });
+}
+
+async function attachmentsDeleteHandler(env, id) {
+  const row = await env.NOTES_DB.prepare('SELECT r2_key FROM attachments WHERE id=?').bind(id).first();
+  if (!row) return jsonResp({ error: 'Not found' }, 404);
+
+  await env.ATTACHMENTS.delete(row.r2_key);
+  await env.NOTES_DB.prepare('DELETE FROM attachments WHERE id=?').bind(id).run();
+
+  return jsonResp({ ok: true });
 }

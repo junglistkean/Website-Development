@@ -361,12 +361,12 @@ input[type=file]:hover { border-color: #c9a84c; }
         </div>
         <div class="field"><label>Colour</label><div class="color-picker" id="task-colors"></div><input type="hidden" id="task-color"></div>
         <div class="field">
-          <label>Attach Document (PDF or image)</label>
+          <label>Attach Document</label>
           <div class="attach-current" id="task-attach-current" style="display:none">
             <span class="doc-name" id="task-attach-doc-name"></span>
             <button class="btn btn-danger btn-sm" id="task-remove-doc-btn" type="button">Remove</button>
           </div>
-          <input type="file" id="task-file" accept="application/pdf,image/*">
+          <input type="file" id="task-file" accept=".pdf,.html,image/*">
           <input type="hidden" id="task-doc-key">
           <input type="hidden" id="task-doc-name">
         </div>

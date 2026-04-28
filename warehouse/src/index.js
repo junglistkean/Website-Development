@@ -401,8 +401,9 @@ async function adminDocUploadHandler(request, env) {
   if (!file || typeof file.stream !== 'function') return jsonResp({ error: 'No file provided' }, 400);
 
   const mime = file.type || '';
-  if (!mime.startsWith('image/') && mime !== 'application/pdf') {
-    return jsonResp({ error: 'Only PDF and image files are allowed' }, 400);
+  const isHtml = mime === 'text/html' || (file.name || '').toLowerCase().endsWith('.html');
+  if (!mime.startsWith('image/') && mime !== 'application/pdf' && !isHtml) {
+    return jsonResp({ error: 'Only PDF, image, and HTML files are allowed' }, 400);
   }
 
   const safeName = (file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);

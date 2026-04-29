@@ -512,6 +512,10 @@ function layerAlpha(layerId) {
   } finally {
     ctx.restore();
   }
+
+  if (el.showLabel && el.note) {
+    drawPinnedLabel(px.x, px.y + ph / 2, el.note);
+  }
 }
 
 function drawLine(el) {
@@ -863,6 +867,25 @@ function symLabel(text, offsetY, maxW) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(text, 0, offsetY);
+  ctx.restore();
+}
+
+function drawPinnedLabel(cx, bottomY, text) {
+  ctx.save();
+  ctx.font = '11px Barlow Condensed, sans-serif';
+  const tw = ctx.measureText(text).width;
+  const pad = 5;
+  const bh = 16;
+  const bw = tw + pad * 2;
+  const bx = cx - bw / 2;
+  const by = bottomY + 4;
+  ctx.fillStyle = 'rgba(15,17,20,0.82)';
+  roundRect(bx, by, bw, bh, 3);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cx, by + bh / 2);
   ctx.restore();
 }
 

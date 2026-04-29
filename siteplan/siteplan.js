@@ -392,3 +392,11 @@ function formatDistance(m) {
   if (m >= 10)   return m.toFixed(1) + ' m';
   return m.toFixed(2) + ' m';
 }
+
+function toggleLabel(id) {
+  const el = State.elements.find(e => e.id === id);
+  if (!el) return;
+  el.showLabel = !el.showLabel;
+  saveAutoSnapshot();
+  redraw();
+}

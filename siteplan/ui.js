@@ -224,6 +224,7 @@ function makeSymbolEl(sym, catId, x, y) {
     layerId: State.activeLayer,
     heightNote: sym.hasHeight ? '' : undefined,
     customLabel: '',
+    showLabel: false,
   };
 }
 
@@ -1093,6 +1094,32 @@ function openPropPanel(el) {
     document.getElementById('prop-notes').closest('label').style.display = '';
   } else {
     document.getElementById('prop-notes').closest('label').style.display = 'none';
+  }
+
+  // Pin label button — symbols only
+  let pinBtn = document.getElementById('prop-pin-label');
+  if (!pinBtn) {
+    pinBtn = document.createElement('button');
+    pinBtn.id = 'prop-pin-label';
+    pinBtn.type = 'button';
+    pinBtn.style.cssText = 'width:100%;margin-top:6px;padding:5px 8px;background:none;border:1px solid #3a3d44;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;transition:color .15s,border-color .15s';
+    pinBtn.innerHTML = '📌 Pin label';
+    document.getElementById('prop-notes').closest('label').insertAdjacentElement('afterend', pinBtn);
+  }
+  if (el.type === 'symbol') {
+    pinBtn.style.display = '';
+    pinBtn.style.color = el.showLabel ? '#f59e0b' : '#9ca3af';
+    pinBtn.style.borderColor = el.showLabel ? '#f59e0b' : '#3a3d44';
+    pinBtn.onclick = () => {
+      toggleLabel(el.id);
+      const cur = State.elements.find(e => e.id === el.id);
+      if (cur) {
+        pinBtn.style.color = cur.showLabel ? '#f59e0b' : '#9ca3af';
+        pinBtn.style.borderColor = cur.showLabel ? '#f59e0b' : '#3a3d44';
+      }
+    };
+  } else {
+    pinBtn.style.display = 'none';
   }
 }
 

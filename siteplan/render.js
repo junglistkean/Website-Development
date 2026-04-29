@@ -56,6 +56,14 @@ function redraw() {
     } finally { ctx.restore(); }
   }
 
+  // Pinned labels — second pass so they always render above all elements
+  for (const el of State.elements) {
+    if (el.type !== 'symbol' || !el.showLabel || !el.note) continue;
+    if (!layerVisible(el.layerId)) continue;
+    const px = latLngToPixel(el.lat, el.lng);
+    drawPinnedLabel(px.x, px.y, el.note);
+  }
+
   // In-progress drawing preview
   if (State.drawing && State.drawPoints.length > 0) {
     drawPreview();
@@ -513,9 +521,6 @@ function layerAlpha(layerId) {
     ctx.restore();
   }
 
-  if (el.showLabel && el.note) {
-    drawPinnedLabel(px.x, px.y, el.note);
-  }
 }
 
 function drawLine(el) {
@@ -872,7 +877,7 @@ function symLabel(text, offsetY, maxW) {
 
 function drawPinnedLabel(cx, cy, text) {
   ctx.save();
-  ctx.font = '11px Barlow Condensed, sans-serif';
+  ctx.font = '13px Barlow Condensed, sans-serif';
   const tw = ctx.measureText(text).width;
   const pad = 5;
   const bh = 16;

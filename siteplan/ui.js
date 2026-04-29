@@ -1107,7 +1107,7 @@ function openPropPanel(el) {
     document.getElementById('prop-notes').closest('label').insertAdjacentElement('afterend', pinBtn);
   }
   if (el.type === 'symbol') {
-    pinBtn.style.display = '';
+    pinBtn.style.display = 'flex';
     pinBtn.style.color = el.showLabel ? '#f59e0b' : '#9ca3af';
     pinBtn.style.borderColor = el.showLabel ? '#f59e0b' : '#3a3d44';
     pinBtn.onclick = () => {

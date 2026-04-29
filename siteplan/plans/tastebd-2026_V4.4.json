@@ -1,6 +1,6 @@
 {
   "planTitle": "TasteBD-2026",
-  "exportedAt": "2026-04-27T19:57:29.175Z",
+  "exportedAt": "2026-04-29T06:44:32.517Z",
   "layers": [
     {
       "id": "base",
@@ -52,14 +52,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.791965477014905,
-      "lng": -1.7549176778793263,
+      "lat": 53.79197419138643,
+      "lng": -1.7547808852195668,
       "wM": 3,
       "dM": 3,
-      "rotation": 5.514333127777888,
+      "rotation": 349.65504144364286,
       "layerId": "base",
       "customLabel": "",
-      "note": "Carribbean Grill - no power requirements - lighting run only"
+      "note": "HF08 - Caribbean Grill "
     },
     {
       "id": "el-3",
@@ -67,14 +67,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79201340603578,
-      "lng": -1.7545495446920323,
+      "lat": 53.79218848513422,
+      "lng": -1.7543094869851994,
       "wM": 4,
       "dM": 2,
-      "rotation": 332.6785197690501,
+      "rotation": 325.2228883102084,
       "layerId": "base",
       "customLabel": "",
-      "note": "Cup of Kin - 16A"
+      "note": "M11 - Cup of Kin"
     },
     {
       "id": "el-4",
@@ -82,14 +82,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79197181473981,
-      "lng": -1.754986074209206,
+      "lat": 53.79206529607098,
+      "lng": -1.7548425760269093,
       "wM": 4.5,
       "dM": 3,
-      "rotation": 14.421268184871565,
+      "rotation": 352.9692277454775,
       "layerId": "base",
       "customLabel": "",
-      "note": "Cypriana - 16A"
+      "note": "HF09 - Cypriana - 16A"
     },
     {
       "id": "el-5",
@@ -104,7 +104,7 @@
       "rotation": 351.6177548822589,
       "layerId": "base",
       "customLabel": "",
-      "note": "Porterhouse Bros - power TBC"
+      "note": "HF04 - Porterhouse Bros"
     },
     {
       "id": "el-6",
@@ -119,7 +119,7 @@
       "rotation": 345.7847701146558,
       "layerId": "base",
       "customLabel": "",
-      "note": "Jakes Bakehouse - power tbc"
+      "note": "HF03 - Jakes Bakehouse"
     },
     {
       "id": "el-7",
@@ -134,7 +134,7 @@
       "rotation": 341.6955178243809,
       "layerId": "base",
       "customLabel": "",
-      "note": "Eyes on the Fries - 16A"
+      "note": "HF02 - Eyes on the Fries"
     },
     {
       "id": "el-9",
@@ -149,22 +149,7 @@
       "rotation": 343.61837024404485,
       "layerId": "base",
       "customLabel": "",
-      "note": "Miski - 16A"
-    },
-    {
-      "id": "el-10",
-      "type": "symbol",
-      "symId": "gaz-3x3",
-      "catId": "structures",
-      "label": "Gazebo 3×3",
-      "lat": 53.792070445460304,
-      "lng": -1.7548526343107151,
-      "wM": 6,
-      "dM": 3,
-      "rotation": 190.35453145331326,
-      "layerId": "base",
-      "customLabel": "",
-      "note": "My Lahore - 16A"
+      "note": "HF01 - Miski"
     },
     {
       "id": "el-11",
@@ -172,14 +157,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79207836759643,
-      "lng": -1.7549317594766545,
+      "lat": 53.79206886103287,
+      "lng": -1.7547788735628056,
       "wM": 3,
       "dM": 3,
-      "rotation": 12.154089246778653,
+      "rotation": 353.290830364484,
       "layerId": "base",
       "customLabel": "",
-      "note": "NUR events - power TBC"
+      "note": "HF09 -NUR events"
     },
     {
       "id": "el-12",
@@ -187,14 +172,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79197973689457,
-      "lng": -1.7546534802913594,
+      "lat": 53.79200429556495,
+      "lng": -1.7546078827381062,
       "wM": 3,
       "dM": 3,
       "rotation": 338.677869825636,
       "layerId": "base",
       "customLabel": "",
-      "note": "La Caverna - 13A"
+      "note": "HF05 - La Caverna"
     },
     {
       "id": "el-15",
@@ -202,14 +187,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.791993996769435,
-      "lng": -1.7546025183200764,
-      "wM": 3,
-      "dM": 3,
-      "rotation": 331.94367789985284,
+      "lat": 53.79203202307865,
+      "lng": -1.7545072999000477,
+      "wM": 4,
+      "dM": 2.5,
+      "rotation": 330.54442709686623,
       "layerId": "base",
       "customLabel": "",
-      "note": "Jinnah - TBC - 16A"
+      "note": "M09 - Chai Company"
     },
     {
       "id": "el-16",
@@ -247,14 +232,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.792151306046144,
-      "lng": -1.7543979998826909,
+      "lat": 53.79215764374296,
+      "lng": -1.7543993409871983,
       "wM": 3,
       "dM": 3,
       "rotation": 325.1053137367444,
       "layerId": "base",
       "customLabel": "",
-      "note": "Candy Emporium - 16A"
+      "note": "M13 - Candy Emporium"
     },
     {
       "id": "el-21",
@@ -269,7 +254,7 @@
       "rotation": 31.56068174084129,
       "layerId": "base",
       "customLabel": "",
-      "note": "Corn Dolly - 16A"
+      "note": "B03 - Corn Dolly\n"
     },
     {
       "id": "el-22",
@@ -284,7 +269,7 @@
       "rotation": 5.913263262403632,
       "layerId": "base",
       "customLabel": "",
-      "note": "Northern Monk - 16A"
+      "note": "B02 - Northern Monk"
     },
     {
       "id": "el-23",
@@ -299,7 +284,7 @@
       "rotation": 48.22134968584021,
       "layerId": "base",
       "customLabel": "",
-      "note": "Amity - 16A"
+      "note": "B04 - Amity"
     },
     {
       "id": "el-24",
@@ -310,11 +295,11 @@
       "lat": 53.79275813530507,
       "lng": -1.7537770684957432,
       "wM": 3,
-      "dM": 3,
+      "dM": 7,
       "rotation": 342.80145877993414,
       "layerId": "base",
       "customLabel": "",
-      "note": "Ilkley Brewery - 13A"
+      "note": "B01 - Ilkley Brewery"
     },
     {
       "id": "el-25",
@@ -329,7 +314,7 @@
       "rotation": 59.01199440781579,
       "layerId": "base",
       "customLabel": "",
-      "note": "VDub Camper - 16A"
+      "note": "B05 - VDub Camper"
     },
     {
       "id": "el-26",
@@ -344,7 +329,7 @@
       "rotation": 87.72864752626305,
       "layerId": "base",
       "customLabel": "",
-      "note": "Fries the Limit - \"Electric fryers so need 9k of power\""
+      "note": "HFB01 - Fries the Limit"
     },
     {
       "id": "el-30",
@@ -563,7 +548,7 @@
       "rotation": 333.76663166295924,
       "layerId": "base",
       "customLabel": "",
-      "note": "First Aid - base"
+      "note": "First Aid - 13A"
     },
     {
       "id": "el-46",
@@ -781,8 +766,8 @@
       "symId": "truss-arch",
       "catId": "stages",
       "label": "Truss Archway",
-      "lat": 53.79212753114561,
-      "lng": -1.7544932183027195,
+      "lat": 53.79212198565695,
+      "lng": -1.7545052882432866,
       "wM": 6,
       "dM": 0.58,
       "rotation": 333.5765001989291,
@@ -907,7 +892,7 @@
       "rotation": 334.79887635452496,
       "layerId": "base",
       "customLabel": "",
-      "note": "Event Control"
+      "note": "Event Control - 16A"
     },
     {
       "id": "el-71",
@@ -936,8 +921,8 @@
           "lng": -1.7537911500930714
         },
         {
-          "lat": 53.79274980934872,
-          "lng": -1.7537482347488331
+          "lat": 53.792728790659645,
+          "lng": -1.7537281181812214
         }
       ],
       "label": "",
@@ -1173,7 +1158,7 @@
       "rotation": 299.10716901966265,
       "layerId": "base",
       "customLabel": "",
-      "note": "Hooked Aura - no power requirements - lighting run only"
+      "note": "M07 - Hooked Aura"
     },
     {
       "id": "el-112",
@@ -1188,7 +1173,7 @@
       "rotation": 307.04247477308286,
       "layerId": "base",
       "customLabel": "",
-      "note": "Breeosh - no power requirements - lighting run only"
+      "note": "M09 - Breeosh"
     },
     {
       "id": "el-113",
@@ -1196,14 +1181,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79225344178606,
+      "lat": 53.792254233996275,
       "lng": -1.7542095746993946,
       "wM": 3,
       "dM": 3,
       "rotation": 307.27817420830286,
       "layerId": "base",
       "customLabel": "",
-      "note": "Good Things - no power requirements - lighting run only"
+      "note": "M08 - Good Things"
     },
     {
       "id": "el-114",
@@ -1212,13 +1197,13 @@
       "catId": "structures",
       "label": "Gazebo 3×3",
       "lat": 53.79217659732299,
-      "lng": -1.7540861930847096,
+      "lng": -1.754087534189217,
       "wM": 3,
       "dM": 6,
       "rotation": 53.786514173523074,
       "layerId": "base",
       "customLabel": "",
-      "note": "Naji's Heritage - no power requirements - lighting run only"
+      "note": "M02 - Naji's Heritage"
     },
     {
       "id": "el-115",
@@ -1233,7 +1218,7 @@
       "rotation": 326.73231817603215,
       "layerId": "base",
       "customLabel": "",
-      "note": "Rani's - Jewllery - no power requirements - lighting run only"
+      "note": "M03 - Rani's "
     },
     {
       "id": "el-125",
@@ -1241,12 +1226,12 @@
       "lineType": "ped-barrier",
       "points": [
         {
-          "lat": 53.79215124646176,
-          "lng": -1.754189458131783
+          "lat": 53.792136655521155,
+          "lng": -1.7542363967895436
         },
         {
-          "lat": 53.79212431089038,
-          "lng": -1.7541586127281117
+          "lat": 53.79210972028954,
+          "lng": -1.7542068924903798
         },
         {
           "lat": 53.792195659351115,
@@ -1291,14 +1276,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79196863773173,
-      "lng": -1.7547165122032093,
+      "lat": 53.79199319640857,
+      "lng": -1.7546682324409413,
       "wM": 4.5,
       "dM": 3,
-      "rotation": 348.56528644490834,
+      "rotation": 336.9760941307178,
       "layerId": "base",
       "customLabel": "",
-      "note": "Istanbul Grill"
+      "note": "HF06 - Istanbul Grill"
     },
     {
       "id": "el-131",
@@ -1491,14 +1476,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.792192438179804,
-      "lng": -1.7543027814626622,
+      "lat": 53.7921710484669,
+      "lng": -1.7543577667474675,
       "wM": 3,
       "dM": 3,
-      "rotation": 316.7430140276033,
+      "rotation": 328.32827165726144,
       "layerId": "base",
       "customLabel": "",
-      "note": "Greek Olives - no power requirements - lighting run only"
+      "note": "M12 - Greek Olives"
     },
     {
       "id": "el-139",
@@ -1506,14 +1491,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79211836634971,
-      "lng": -1.7542685832977223,
+      "lat": 53.79210727536924,
+      "lng": -1.7542779710292744,
       "wM": 3,
       "dM": 3,
       "rotation": 322.6580103748224,
       "layerId": "base",
       "customLabel": "",
-      "note": "Bubbleicious - no power requirements - lighting run only"
+      "note": "M05 - Bubbleicious "
     },
     {
       "id": "el-140",
@@ -1528,7 +1513,7 @@
       "rotation": 144.09757078984,
       "layerId": "base",
       "customLabel": "",
-      "note": "Kindred Bizarre - no power requirements - lighting run only"
+      "note": "M01 - Kindred Bizarre"
     },
     {
       "id": "el-141",
@@ -1536,14 +1521,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.792169860149194,
-      "lng": -1.754351731777184,
+      "lat": 53.79201537856118,
+      "lng": -1.7545596029758381,
       "wM": 3,
       "dM": 3,
-      "rotation": 143.07298145837615,
+      "rotation": 152.49921902102824,
       "layerId": "base",
       "customLabel": "",
-      "note": "Cafe Brigante - 13A"
+      "note": "M10 -Cafe Brigante"
     },
     {
       "id": "el-144",
@@ -1657,7 +1642,7 @@
       "rotation": 336.11242919562784,
       "layerId": "base",
       "customLabel": "",
-      "note": "PA - amp rack and mic store"
+      "note": "PA -63A / 32A 3p"
     },
     {
       "id": "el-157",
@@ -1926,12 +1911,12 @@
           "lng": -1.753758293032639
         },
         {
-          "lat": 53.79275151101351,
-          "lng": -1.7537475641965794
+          "lat": 53.7927272062571,
+          "lng": -1.753726777076714
         },
         {
-          "lat": 53.79275190711392,
-          "lng": -1.7537482347488331
+          "lat": 53.792726414055785,
+          "lng": -1.7537294592857289
         }
       ],
       "label": "",
@@ -2037,20 +2022,20 @@
       "lineType": "heras",
       "points": [
         {
-          "lat": 53.792061361402,
-          "lng": -1.7547500398158955
+          "lat": 53.792050699994135,
+          "lng": -1.7548881735801625
         },
         {
-          "lat": 53.7921233351002,
-          "lng": -1.754768071675561
+          "lat": 53.79210694772944,
+          "lng": -1.754898902416222
         },
         {
-          "lat": 53.79215220183327,
-          "lng": -1.7545608538587354
+          "lat": 53.79214022008785,
+          "lng": -1.754562285184853
         },
         {
-          "lat": 53.79209088487655,
-          "lng": -1.754537249318393
+          "lat": 53.79208771602514,
+          "lng": -1.7545345671093782
         }
       ],
       "label": "",
@@ -2062,12 +2047,12 @@
       "lineType": "heras",
       "points": [
         {
-          "lat": 53.792127905900266,
-          "lng": -1.7544140931367802
+          "lat": 53.79212120698656,
+          "lng": -1.7544496324062275
         },
         {
-          "lat": 53.79218177632206,
-          "lng": -1.7544663962125706
+          "lat": 53.792170324147214,
+          "lng": -1.7544952299594807
         },
         {
           "lat": 53.792238023307924,
@@ -2082,50 +2067,25 @@
       "layerId": "base"
     },
     {
-      "id": "el-182",
-      "type": "line",
-      "lineType": "heras",
-      "points": [
-        {
-          "lat": 53.79207247054238,
-          "lng": -1.7549652870893406
-        },
-        {
-          "lat": 53.792136594675405,
-          "lng": -1.7549380703002782
-        },
-        {
-          "lat": 53.79211958909738,
-          "lng": -1.7547855790853428
-        },
-        {
-          "lat": 53.792052250958506,
-          "lng": -1.754807036757462
-        }
-      ],
-      "label": "",
-      "layerId": "base"
-    },
-    {
       "id": "el-183",
       "type": "line",
       "lineType": "ped-barrier",
       "points": [
         {
-          "lat": 53.792094237859125,
-          "lng": -1.7543477084636616
+          "lat": 53.792086315729044,
+          "lng": -1.7543530728816914
         },
         {
-          "lat": 53.79207284809617,
-          "lng": -1.7543182041644978
+          "lat": 53.79206492596609,
+          "lng": -1.7543235685825276
         },
         {
-          "lat": 53.79211366539873,
-          "lng": -1.7542223151922154
+          "lat": 53.79210574326865,
+          "lng": -1.7542276796102452
         },
         {
-          "lat": 53.79213788486252,
-          "lng": -1.7542597145629957
+          "lat": 53.79212996273244,
+          "lng": -1.7542650789810255
         }
       ],
       "label": "",
@@ -2137,53 +2097,24 @@
       "lineType": "ped-barrier",
       "points": [
         {
-          "lat": 53.79197621647882,
-          "lng": -1.7547594275474476
+          "lat": 53.79196910243981,
+          "lng": -1.7548077073097157
         },
         {
-          "lat": 53.791947279370156,
-          "lng": -1.7547493692636418
+          "lat": 53.79193741380544,
+          "lng": -1.754799660682671
         },
         {
-          "lat": 53.79196470812512,
-          "lng": -1.754630010962479
+          "lat": 53.79196233147752,
+          "lng": -1.7546273287534642
         },
         {
-          "lat": 53.79201065660365,
-          "lng": -1.7545026060342717
+          "lat": 53.79202138867477,
+          "lng": -1.7544429268836903
         },
         {
-          "lat": 53.792031254167874,
-          "lng": -1.7545227226018834
-        }
-      ],
-      "label": "",
-      "layerId": "base"
-    },
-    {
-      "id": "el-185",
-      "type": "line",
-      "lineType": "heras",
-      "points": [
-        {
-          "lat": 53.79199721018352,
-          "lng": -1.7550772693157124
-        },
-        {
-          "lat": 53.7919714631857,
-          "lng": -1.755092692017548
-        },
-        {
-          "lat": 53.791953242223876,
-          "lng": -1.754976686477654
-        },
-        {
-          "lat": 53.79194769671216,
-          "lng": -1.754894208550446
-        },
-        {
-          "lat": 53.79197500692161,
-          "lng": -1.7548875030279087
+          "lat": 53.79204357067693,
+          "lng": -1.7544617023467945
         }
       ],
       "label": "",
@@ -2202,7 +2133,7 @@
       "rotation": 47.58178193050804,
       "layerId": "base",
       "customLabel": "",
-      "note": "Il Pirata - 16A"
+      "note": "HFB02 - Il Pirata\n"
     },
     {
       "id": "el-190",
@@ -2232,23 +2163,7 @@
       "rotation": 170.28812514013407,
       "layerId": "base",
       "customLabel": "",
-      "note": "Rossi's Icecreams - No power needed"
-    },
-    {
-      "id": "pp-192",
-      "type": "pinchpoint",
-      "points": [
-        {
-          "lat": 53.79206771726586,
-          "lng": -1.7546306815147328
-        },
-        {
-          "lat": 53.79201503501889,
-          "lng": -1.7545971539020466
-        }
-      ],
-      "label": "Pinch Point 15",
-      "layerId": "base"
+      "note": "IC02 - Rossi's"
     },
     {
       "id": "pp-193",
@@ -2272,14 +2187,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79198096976978,
-      "lng": -1.7550571527481007,
+      "lat": 53.79198096976985,
+      "lng": -1.7547312643527913,
       "wM": 3,
       "dM": 3,
-      "rotation": 19.761399744071866,
+      "rotation": 343.85435827367155,
       "layerId": "base",
       "customLabel": "",
-      "note": "Sushi Hometown 16A"
+      "note": "HF07 - Sushi Hometown"
     },
     {
       "id": "el-193",
@@ -2287,14 +2202,14 @@
       "symId": "gaz-3x3",
       "catId": "structures",
       "label": "Gazebo 3×3",
-      "lat": 53.79209861359046,
-      "lng": -1.7543074753284382,
+      "lat": 53.792087522604824,
+      "lng": -1.7543114986419606,
       "wM": 3,
       "dM": 3,
       "rotation": 318.4127696399293,
       "layerId": "base",
       "customLabel": "",
-      "note": "Love Mithai - None requested"
+      "note": "M06 - Love Mithai"
     },
     {
       "id": "el-194",
@@ -2350,7 +2265,7 @@
       "rotation": 62.342576928219216,
       "layerId": "base",
       "customLabel": "",
-      "note": "Creams and Cones - 16A"
+      "note": "IC01 - Creams and Cones"
     },
     {
       "id": "el-196",
@@ -2446,11 +2361,11 @@
       "symId": "emerg-exit",
       "catId": "hs",
       "label": "Emergency Exit",
-      "lat": 53.792588987829284,
-      "lng": -1.7539366599321293,
+      "lat": 53.792668208144235,
+      "lng": -1.7537904795408177,
       "wM": 1.2,
       "dM": 0.6,
-      "rotation": 246.81649482127568,
+      "rotation": 217.8149120208543,
       "layerId": "base",
       "customLabel": ""
     },
@@ -2558,8 +2473,8 @@
       "symId": "bin-1100-gen",
       "catId": "waste",
       "label": "1100L General",
-      "lat": 53.79214417614552,
-      "lng": -1.7545732158236071,
+      "lat": 53.79213150074683,
+      "lng": -1.7545799213461444,
       "wM": 1.2,
       "dM": 1,
       "rotation": 339.98683641069624,
@@ -2572,39 +2487,11 @@
       "symId": "bin-1100-gen",
       "catId": "waste",
       "label": "1100L General",
-      "lat": 53.79212040973427,
-      "lng": -1.7547517072634755,
+      "lat": 53.792097435558325,
+      "lng": -1.7548589956240712,
       "wM": 1.2,
       "dM": 1,
       "rotation": 349.8762102864955,
-      "layerId": "base",
-      "customLabel": ""
-    },
-    {
-      "id": "el-212",
-      "type": "symbol",
-      "symId": "bin-1100-gen",
-      "catId": "waste",
-      "label": "1100L General",
-      "lat": 53.79211684473454,
-      "lng": -1.7548001115682799,
-      "wM": 1.2,
-      "dM": 1,
-      "rotation": 15.531378465956664,
-      "layerId": "base",
-      "customLabel": ""
-    },
-    {
-      "id": "el-213",
-      "type": "symbol",
-      "symId": "bin-1100-gen",
-      "catId": "waste",
-      "label": "1100L General",
-      "lat": 53.79212991620103,
-      "lng": -1.754926299934516,
-      "wM": 1.2,
-      "dM": 1,
-      "rotation": 10.320244620188248,
       "layerId": "base",
       "customLabel": ""
     },
@@ -2623,6 +2510,162 @@
       ],
       "label": "Pinch Point 17",
       "layerId": "base"
+    },
+    {
+      "id": "el-214",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.79213586330873,
+      "lng": -1.7541975047588276,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 328.2682495104064,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "M04 - Oud Perfumes"
+    },
+    {
+      "id": "el-215",
+      "type": "symbol",
+      "symId": "gaz-3x3",
+      "catId": "structures",
+      "label": "Gazebo 3×3",
+      "lat": 53.792142596724915,
+      "lng": -1.754438903570168,
+      "wM": 3,
+      "dM": 3,
+      "rotation": 329.11964336000904,
+      "layerId": "base",
+      "customLabel": "",
+      "note": "M14 - Betty's Treats"
+    },
+    {
+      "id": "el-216",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79210060909255,
+      "lng": -1.754790272951119,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-217",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79210377794491,
+      "lng": -1.754736628770821,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-218",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.792110115648924,
+      "lng": -1.7546803023815083,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-219",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79211645335197,
+      "lng": -1.7546172704696583,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-220",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79195880270663,
+      "lng": -1.7547218766212391,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-221",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.791970685941926,
+      "lng": -1.7546548213958668,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-222",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79198336138919,
+      "lng": -1.7545998361110615,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-223",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79279062080316,
+      "lng": -1.7538219954967427,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
+    },
+    {
+      "id": "el-224",
+      "type": "symbol",
+      "symId": "handwash",
+      "catId": "welfare",
+      "label": "Handwash Station",
+      "lat": 53.79293163218204,
+      "lng": -1.7531688776016163,
+      "wM": 1,
+      "dM": 0.8,
+      "rotation": 0,
+      "layerId": "base",
+      "customLabel": ""
     }
   ]
 }

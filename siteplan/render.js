@@ -878,19 +878,33 @@ function symLabel(text, offsetY, maxW) {
 function drawPinnedLabel(cx, cy, text) {
   ctx.save();
   ctx.font = '13px Barlow Condensed, sans-serif';
-  const tw = ctx.measureText(text).width;
-  const pad = 5;
-  const bh = 16;
-  const bw = tw + pad * 2;
+
+  const words = text.split(' ');
+  const lineHeight = 16;
+  const pad = 6;
+  const totalHeight = words.length * lineHeight;
+
+  // Single rect sized to the longest word
+  const maxTw = Math.max(...words.map(w => ctx.measureText(w).width));
+  const bw = maxTw + pad * 2;
+  const bh = totalHeight + pad;
   const bx = cx - bw / 2;
   const by = cy - bh / 2;
+
   ctx.fillStyle = 'rgba(15,17,20,0.82)';
   roundRect(bx, by, bw, bh, 3);
   ctx.fill();
+
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, cx, cy);
+
+  let y = cy - totalHeight / 2 + lineHeight / 2;
+  for (const word of words) {
+    ctx.fillText(word, cx, y);
+    y += lineHeight;
+  }
+
   ctx.restore();
 }
 

@@ -1121,6 +1121,44 @@ function openPropPanel(el) {
   } else {
     pinBtn.style.display = 'none';
   }
+
+  // Gazebo fill-colour picker — two presets + free pick
+  let colorRow = document.getElementById('prop-gaz-color');
+  if (!colorRow) {
+    colorRow = document.createElement('div');
+    colorRow.id = 'prop-gaz-color';
+    colorRow.style.cssText = 'margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+    colorRow.innerHTML =
+      '<span style="font-size:11px;color:#9ca3af;width:100%">Fill colour</span>'
+      + '<button type="button" data-preset="#111827" style="width:22px;height:22px;border-radius:3px;border:2px solid #6b7280;background:#111827;cursor:pointer" title="Raven (dark)"></button>'
+      + '<button type="button" data-preset="#d4b483" style="width:22px;height:22px;border-radius:3px;border:2px solid #6b7280;background:#d4b483;cursor:pointer" title="Trader (canvas)"></button>'
+      + '<input type="color" id="prop-gaz-color-input" style="width:22px;height:22px;padding:1px;border:1px solid #3a3d44;border-radius:3px;background:none;cursor:pointer" title="Custom colour">';
+    pinBtn.insertAdjacentElement('afterend', colorRow);
+    colorRow.querySelectorAll('button[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cur = State.elements.find(e => e.id === State.selectedId);
+        if (!cur) return;
+        cur.fillColor = btn.dataset.preset;
+        document.getElementById('prop-gaz-color-input').value = btn.dataset.preset;
+        saveAutoSnapshot();
+        redraw();
+      });
+    });
+    const colorInput = document.getElementById('prop-gaz-color-input');
+    colorInput.addEventListener('input', ev => {
+      const cur = State.elements.find(e => e.id === State.selectedId);
+      if (!cur) return;
+      cur.fillColor = ev.target.value;
+      redraw();
+    });
+    colorInput.addEventListener('change', () => saveAutoSnapshot());
+  }
+  if (el.sym && el.sym.render === 'gazebo') {
+    colorRow.style.display = 'flex';
+    document.getElementById('prop-gaz-color-input').value = el.fillColor || el.sym.fill;
+  } else {
+    colorRow.style.display = 'none';
+  }
 }
 
 function updatePropPanel(el) {

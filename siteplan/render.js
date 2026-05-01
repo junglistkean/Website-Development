@@ -212,7 +212,7 @@ function layerAlpha(layerId) {
     }
 
     case 'gazebo': {
-      ctx.fillStyle = el.sym.fill;
+      ctx.fillStyle = el.fillColor || el.sym.fill;
       ctx.strokeStyle = el.sym.stroke;
       ctx.lineWidth = 1.5;
       ctx.fillRect(hx, hy, pw, ph);

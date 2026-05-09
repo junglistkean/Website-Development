@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Checklist</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap');
+
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C96A;
+    --black: #0A0A0A;
+    --surface: #141414;
+    --surface2: #1E1E1E;
+    --surface3: #282828;
+    --text: #F0EDE8;
+    --text-muted: #888;
+    --done-text: #555;
+    --high: #E05A4A;
+    --med: #C9A84C;
+    --low: #5A8A6A;
+    --border: #2A2A2A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--gold);
+    padding: 28px 32px 22px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .event-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .event-meta {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .progress-bar-wrap {
+    margin-top: 14px;
+    background: var(--border);
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .progress-label {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Controls ── */
+  .controls {
+    padding: 18px 32px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .filter-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .filter-btn.active { background: var(--gold); color: var(--black); border-color: var(--gold); }
+
+  .add-task-btn {
+    margin-left: auto;
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    color: var(--black);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .add-task-btn:hover { background: var(--gold-light); border-color: var(--gold-light); }
+
+  .settings-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .settings-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .reset-btn:hover { border-color: var(--high); color: var(--high); }
+
+  /* ── Main ── */
+  main { padding: 24px 32px; max-width: 900px; }
+
+  .empty-state {
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  .empty-state-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .empty-state-sub {
+    font-size: 0.82rem;
+    color: #333;
+  }
+
+  .empty-state-sub button {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 32px; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .section-count {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Tasks ── */
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .task-item:hover { border-color: var(--gold); background: var(--surface2); }
+  .task-item.done { opacity: 0.45; border-color: var(--border); background: var(--surface); }
+  .task-item.done:hover { opacity: 0.6; }
+  .task-item.hidden { display: none; }
+
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border: 2px solid var(--border);
+    border-radius: 3px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .task-item:hover .checkbox { border-color: var(--gold); }
+  .task-item.done .checkbox { background: var(--gold); border-color: var(--gold); }
+
+  .checkbox-tick {
+    display: none;
+    color: var(--black);
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .task-item.done .checkbox-tick { display: block; }
+  .task-body { flex: 1; min-width: 0; }
+
+  .task-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    cursor: pointer;
+  }
+
+  .task-item.done .task-name { color: var(--done-text); text-decoration: line-through; }
+
+  .task-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .task-item.done .task-desc { color: #444; }
+
+  .task-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .priority-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+  }
+
+  .priority-badge.high   { background: rgba(224,90,74,0.15);  color: var(--high); border: 1px solid rgba(224,90,74,0.3); }
+  .priority-badge.medium { background: rgba(201,168,76,0.15); color: var(--med);  border: 1px solid rgba(201,168,76,0.3); }
+  .priority-badge.low    { background: rgba(90,138,106,0.15); color: var(--low);  border: 1px solid rgba(90,138,106,0.3); }
+
+  .assignee {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .task-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    align-items: center;
+  }
+
+  .notes-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: color 0.15s;
+  }
+
+  .notes-toggle:hover { color: var(--gold); }
+  .notes-toggle.has-note { color: var(--gold); }
+
+  .notes-toggle .toggle-icon {
+    font-size: 0.65rem;
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+
+  .notes-toggle.open .toggle-icon { transform: rotate(90deg); }
+
+  .delete-task-btn {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #444;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: color 0.15s;
+  }
+
+  .delete-task-btn:hover { color: var(--high); }
+
+  .notes-area { display: none; margin-top: 8px; }
+  .notes-area.open { display: block; }
+
+  .notes-textarea {
+    width: 100%;
+    min-height: 70px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    padding: 8px 10px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .notes-textarea:focus { border-color: var(--gold); }
+  .notes-textarea::placeholder { color: #555; }
+
+  /* ── Shared modal styles ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--gold);
+    border-radius: 4px;
+    width: 100%;
+    max-width: 480px;
+    padding: 28px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .modal-subtitle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 22px;
+    line-height: 1.5;
+  }
+
+  .form-field { margin-bottom: 16px; }
+
+  .form-label {
+    display: block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 0.88rem;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--gold); }
+  .form-select option { background: var(--surface2); }
+  .form-textarea { min-height: 70px; resize: vertical; line-height: 1.5; }
+
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-field { flex: 1; }
+
+  .custom-section-field { display: none; margin-top: 10px; }
+  .custom-section-field.visible { display: block; }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 22px;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    color: var(--black);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary:hover { background: var(--gold-light); }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+
+  .form-error {
+    font-size: 0.75rem;
+    color: var(--high);
+    margin-top: 4px;
+    display: none;
+  }
+
+  .form-error.visible { display: block; }
+
+  /* ── Settings divider ── */
+  .settings-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 18px 0;
+  }
+
+  .settings-section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #444;
+    margin-bottom: 14px;
+  }
+
+  .danger-zone {
+    margin-top: 4px;
+  }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid rgba(224,90,74,0.3);
+    color: var(--high);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+  }
+
+  .btn-danger:hover { background: rgba(224,90,74,0.1); border-color: var(--high); }
+
+  .save-confirm {
+    display: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--low);
+    text-align: right;
+    margin-top: 10px;
+  }
+
+  .save-confirm.visible { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="event-title" id="headerTitle">Job Checklist</div>
+    <div class="event-meta" id="headerSubtitle"></div>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+  </div>
+  <div class="progress-label" id="progressLabel">0 of 0 tasks complete</div>
+</header>
+
+<div class="controls">
+  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" onclick="setFilter('todo',this)">To Do</button>
+  <button class="filter-btn" onclick="setFilter('done',this)">Done</button>
+  <button class="filter-btn" onclick="setFilter('high',this)">High Priority</button>
+  <button class="filter-btn" onclick="setFilter('medium',this)">Medium</button>
+  <button class="filter-btn" onclick="setFilter('low',this)">Low</button>
+  <button class="add-task-btn" onclick="openTaskModal()">+ Add Task</button>
+  <button class="settings-btn" onclick="openSettings()">⚙ Settings</button>
+  <button class="reset-btn" onclick="resetProgress()">Reset Progress</button>
+</div>
+
+<main id="taskList"></main>
+
+<!-- ── Settings Modal ── -->
+<div class="modal-overlay" id="settingsOverlay" onclick="handleSettingsOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-title">Settings</div>
+    <div class="modal-subtitle">Configure this checklist. Changes are saved when you click Save.</div>
+
+    <div class="form-field">
+      <label class="form-label">Job / Project title</label>
+      <input class="form-input" id="settingTitle" type="text" placeholder="e.g. Taste BD 2026">
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Subtitle / date / location</label>
+      <input class="form-input" id="settingSubtitle" type="text" placeholder="e.g. 2nd–3rd May · Centenary Square, Bradford">
+    </div>
+
+    <hr class="settings-divider">
+    <div class="settings-section-label">Danger Zone</div>
+    <div class="danger-zone">
+      <button class="btn-danger" onclick="resetEverything()">Reset everything — clear all tasks, notes &amp; settings</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+    <div class="save-confirm" id="saveConfirm">✓ Saved</div>
+  </div>
+</div>
+
+<!-- ── Add Task Modal ── -->
+<div class="modal-overlay" id="taskModalOverlay" onclick="handleTaskOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-title">Add Task</div>
+
+    <div class="form-field">
+      <label class="form-label">Task name *</label>
+      <input class="form-input" id="inputName" type="text" placeholder="e.g. Confirm stage dimensions">
+      <div class="form-error" id="errorName">Task name is required.</div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Description</label>
+      <textarea class="form-textarea" id="inputDesc" placeholder="Optional detail…"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="inputPriority">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Section</label>
+        <select class="form-select" id="inputSection" onchange="handleSectionChange()"></select>
+      </div>
+    </div>
+
+    <div class="custom-section-field" id="customSectionField">
+      <label class="form-label">New section name *</label>
+      <input class="form-input" id="inputCustomSection" type="text" placeholder="e.g. Comms &amp; Marketing">
+      <div class="form-error" id="errorSection">Section name is required.</div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Assignee</label>
+      <input class="form-input" id="inputAssignee" type="text" placeholder="e.g. Aston">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeTaskModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Storage keys ──────────────────────────────────────────────────────────────
+const SK = {
+  done:     'jc-done',
+  notes:    'jc-notes',
+  tasks:    'jc-tasks',
+  sections: 'jc-sections',
+  meta:     'jc-meta',       // { title, subtitle }
+};
+
+let currentFilter = 'all';
+
+// ── Loaders / savers ──────────────────────────────────────────────────────────
+const load = key      => { try { return JSON.parse(localStorage.getItem(key)) || (key === SK.done || key === SK.notes ? {} : []); } catch { return key === SK.done || key === SK.notes ? {} : []; } };
+const save = (key, v) => localStorage.setItem(key, JSON.stringify(v));
+
+const loadDone     = ()  => load(SK.done);
+const saveDone     = d   => save(SK.done, d);
+const loadNotes    = ()  => load(SK.notes);
+const loadTasks    = ()  => load(SK.tasks);
+const saveTasks    = t   => save(SK.tasks, t);
+const loadSections = ()  => load(SK.sections);
+const saveSections = s   => save(SK.sections, s);
+const loadMeta     = ()  => { try { return JSON.parse(localStorage.getItem(SK.meta)) || {}; } catch { return {}; } };
+const saveMeta     = m   => save(SK.meta, m);
+
+function saveNote(id, text) {
+  const n = loadNotes();
+  text.trim() === '' ? delete n[id] : (n[id] = text);
+  save(SK.notes, n);
+}
+
+// ── Sections ──────────────────────────────────────────────────────────────────
+function getSections() {
+  const sectionNames = loadSections();
+  const tasks = loadTasks();
+  const sections = [];
+
+  // Build ordered section list from stored section names
+  sectionNames.forEach(name => {
+    sections.push({ section: name, tasks: [] });
+  });
+
+  // Slot tasks; create section if somehow orphaned
+  tasks.forEach(task => {
+    let sec = sections.find(s => s.section === task.section);
+    if (!sec) {
+      sec = { section: task.section, tasks: [] };
+      sections.push(sec);
+    }
+    sec.tasks.push(task);
+  });
+
+  return sections;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function toggleTask(id) {
+  const done = loadDone();
+  done[id] = !done[id];
+  saveDone(done);
+  render();
+}
+
+function deleteTask(id) {
+  saveTasks(loadTasks().filter(t => t.id !== id));
+  const done = loadDone(); delete done[id]; saveDone(done);
+  const notes = loadNotes(); delete notes[id]; save(SK.notes, notes);
+  render();
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+
+function applyFilter() {
+  const done = loadDone();
+  document.querySelectorAll('.task-item').forEach(el => {
+    const isDone = !!done[el.dataset.id];
+    const p = el.dataset.priority;
+    let show = true;
+    if      (currentFilter === 'todo')   show = !isDone;
+    else if (currentFilter === 'done')   show = isDone;
+    else if (currentFilter === 'high')   show = p === 'high';
+    else if (currentFilter === 'medium') show = p === 'medium';
+    else if (currentFilter === 'low')    show = p === 'low';
+    el.classList.toggle('hidden', !show);
+  });
+}
+
+// ── Progress ──────────────────────────────────────────────────────────────────
+function updateProgress() {
+  const done = loadDone();
+  const allIds = loadTasks().map(t => t.id);
+  const completed = allIds.filter(id => done[id]).length;
+  const pct = allIds.length ? Math.round((completed / allIds.length) * 100) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent =
+    allIds.length ? `${completed} of ${allIds.length} tasks complete` : 'No tasks yet';
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+function applyMeta() {
+  const meta = loadMeta();
+  const title = meta.title || 'Job Checklist';
+  const subtitle = meta.subtitle || '';
+  document.getElementById('headerTitle').textContent = title;
+  document.getElementById('headerSubtitle').textContent = subtitle;
+  document.title = title;
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetProgress() {
+  if (!confirm('Clear all tick states and notes? Tasks will remain.')) return;
+  localStorage.removeItem(SK.done);
+  localStorage.removeItem(SK.notes);
+  render();
+}
+
+function resetEverything() {
+  if (!confirm('Delete everything — all tasks, sections, notes and settings?')) return;
+  Object.values(SK).forEach(k => localStorage.removeItem(k));
+  closeSettings();
+  applyMeta();
+  render();
+}
+
+// ── Settings modal ────────────────────────────────────────────────────────────
+function openSettings() {
+  const meta = loadMeta();
+  document.getElementById('settingTitle').value    = meta.title    || '';
+  document.getElementById('settingSubtitle').value = meta.subtitle || '';
+  document.getElementById('saveConfirm').classList.remove('visible');
+  document.getElementById('settingsOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('settingTitle').focus(), 50);
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+function handleSettingsOverlayClick(e) {
+  if (e.target.id === 'settingsOverlay') closeSettings();
+}
+
+function saveSettings() {
+  const title    = document.getElementById('settingTitle').value.trim();
+  const subtitle = document.getElementById('settingSubtitle').value.trim();
+  saveMeta({ title: title || 'Job Checklist', subtitle });
+  applyMeta();
+  document.getElementById('saveConfirm').classList.add('visible');
+  setTimeout(() => {
+    document.getElementById('saveConfirm').classList.remove('visible');
+    closeSettings();
+  }, 1200);
+}
+
+// ── Add task modal ────────────────────────────────────────────────────────────
+function openTaskModal() {
+  ['inputName','inputDesc','inputAssignee','inputCustomSection'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('inputPriority').value = 'medium';
+  document.getElementById('customSectionField').classList.remove('visible');
+  document.getElementById('errorName').classList.remove('visible');
+  document.getElementById('errorSection').classList.remove('visible');
+  rebuildSectionDropdown();
+  document.getElementById('taskModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('inputName').focus(), 50);
+}
+
+function closeTaskModal() {
+  document.getElementById('taskModalOverlay').classList.remove('open');
+}
+
+function handleTaskOverlayClick(e) {
+  if (e.target.id === 'taskModalOverlay') closeTaskModal();
+}
+
+function rebuildSectionDropdown() {
+  const sel = document.getElementById('inputSection');
+  const prev = sel.value;
+  const sections = loadSections();
+  if (sections.length === 0) {
+    sel.innerHTML = `<option value="__custom__">+ New section…</option>`;
+  } else {
+    sel.innerHTML = sections.map(s => `<option value="${s}">${s}</option>`).join('')
+      + `<option value="__custom__">+ New section…</option>`;
+  }
+  if ([...sel.options].find(o => o.value === prev)) sel.value = prev;
+  // Show custom field if only option is custom
+  if (sel.value === '__custom__') {
+    document.getElementById('customSectionField').classList.add('visible');
+  }
+}
+
+function handleSectionChange() {
+  const isCustom = document.getElementById('inputSection').value === '__custom__';
+  document.getElementById('customSectionField').classList.toggle('visible', isCustom);
+  if (isCustom) document.getElementById('inputCustomSection').focus();
+}
+
+function submitTask() {
+  const name         = document.getElementById('inputName').value.trim();
+  const desc         = document.getElementById('inputDesc').value.trim();
+  const priority     = document.getElementById('inputPriority').value;
+  const sectionVal   = document.getElementById('inputSection').value;
+  const customSection= document.getElementById('inputCustomSection').value.trim();
+  const assignee     = document.getElementById('inputAssignee').value.trim();
+
+  let valid = true;
+  if (!name) { document.getElementById('errorName').classList.add('visible'); valid = false; }
+  else document.getElementById('errorName').classList.remove('visible');
+  if (sectionVal === '__custom__' && !customSection) {
+    document.getElementById('errorSection').classList.add('visible'); valid = false;
+  } else document.getElementById('errorSection').classList.remove('visible');
+  if (!valid) return;
+
+  let section = sectionVal;
+  if (sectionVal === '__custom__') {
+    section = customSection;
+    const secs = loadSections();
+    if (!secs.includes(section)) { secs.push(section); saveSections(secs); }
+  }
+
+  const task = { id: 'task-' + Date.now(), name, desc, priority, assignee, section };
+  const tasks = loadTasks();
+  tasks.push(task);
+  saveTasks(tasks);
+
+  closeTaskModal();
+  render();
+}
+
+// ── Build task element ────────────────────────────────────────────────────────
+function buildTaskEl(task, done, notes) {
+  const isDone   = !!done[task.id];
+  const noteText = notes[task.id] || '';
+  const hasNote  = noteText.trim() !== '';
+
+  const el = document.createElement('div');
+  el.className = 'task-item' + (isDone ? ' done' : '');
+  el.dataset.id = task.id;
+  el.dataset.priority = task.priority;
+
+  el.innerHTML = `
+    <div class="checkbox"><span class="checkbox-tick">✓</span></div>
+    <div class="task-body">
+      <div class="task-name">${task.name}</div>
+      ${task.desc ? `<div class="task-desc">${task.desc}</div>` : ''}
+      <div class="task-meta">
+        <span class="priority-badge ${task.priority}">${task.priority}</span>
+        ${task.assignee ? `<span class="assignee">${task.assignee}</span>` : ''}
+      </div>
+      <div class="task-actions">
+        <button class="notes-toggle ${hasNote ? 'has-note' : ''}">
+          <span class="toggle-icon">▶</span> ${hasNote ? 'Notes' : 'Add note'}
+        </button>
+        <button class="delete-task-btn">✕ Remove</button>
+      </div>
+      <div class="notes-area" id="notes-area-${task.id}">
+        <textarea class="notes-textarea" placeholder="Add notes…">${noteText}</textarea>
+      </div>
+    </div>`;
+
+  el.querySelector('.checkbox').addEventListener('click', e => { e.stopPropagation(); toggleTask(task.id); });
+  el.querySelector('.task-name').addEventListener('click', () => toggleTask(task.id));
+
+  const notesBtn  = el.querySelector('.notes-toggle');
+  const notesArea = el.querySelector('.notes-area');
+  const textarea  = el.querySelector('.notes-textarea');
+
+  notesBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notesBtn.classList.toggle('open');
+    notesArea.classList.toggle('open');
+    if (notesArea.classList.contains('open')) textarea.focus();
+  });
+
+  textarea.addEventListener('input', e => {
+    e.stopPropagation();
+    const val = e.target.value;
+    saveNote(task.id, val);
+    const hasContent = val.trim() !== '';
+    const isOpen = notesBtn.classList.contains('open');
+    notesBtn.className = `notes-toggle${hasContent ? ' has-note' : ''}${isOpen ? ' open' : ''}`;
+    notesBtn.innerHTML = `<span class="toggle-icon">▶</span> ${hasContent ? 'Notes' : 'Add note'}`;
+  });
+
+  textarea.addEventListener('click', e => e.stopPropagation());
+
+  el.querySelector('.delete-task-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    if (confirm(`Remove "${task.name}"?`)) deleteTask(task.id);
+  });
+
+  return el;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const done  = loadDone();
+  const notes = loadNotes();
+  const sections = getSections();
+  const container = document.getElementById('taskList');
+  container.innerHTML = '';
+
+  if (loadTasks().length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-title">No tasks yet</div>
+        <div class="empty-state-sub">
+          <button onclick="openTaskModal()">+ Add your first task</button>
+        </div>
+      </div>`;
+    updateProgress();
+    return;
+  }
+
+  sections.forEach(sec => {
+    if (!sec.tasks.length) return;
+    const secEl = document.createElement('div');
+    secEl.className = 'section';
+    const completed = sec.tasks.filter(t => done[t.id]).length;
+    secEl.innerHTML = `
+      <div class="section-header">
+        <span class="section-title">${sec.section}</span>
+        <span class="section-count">${completed}/${sec.tasks.length}</span>
+      </div>`;
+    sec.tasks.forEach(task => secEl.appendChild(buildTaskEl(task, done, notes)));
+    container.appendChild(secEl);
+  });
+
+  updateProgress();
+  applyFilter();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+applyMeta();
+render();
+
+// Open settings on first load if no title set
+const meta = loadMeta();
+if (!meta.title) openSettings();
+</script>
+</body>
+</html>

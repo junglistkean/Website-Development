@@ -6,6 +6,10 @@ kv_namespaces = [
   { binding = "WAREHOUSE_KV", id = "d396e7e64dfd48eb993f3b384c031b5f" }
 ]
 
+[[services]]
+binding = "JOBS_API_SVC"
+service = "jobs-api"
+
 [[r2_buckets]]
 binding = "WAREHOUSE_R2"
 bucket_name = "warehouse-docs"

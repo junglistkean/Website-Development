@@ -1,4 +1,4 @@
-import { kvGet, kvPut, genId, sha256hex, isAdminAuthed, jsonResp, htmlResp } from './utils.js';
+import { kvGet, kvPut, genId, sha256hex, isAdminAuthed, jsonResp, htmlResp, jobsApi, warehouseJob, findJobForTask } from './utils.js';
 import { wallHTML } from './wall.js';
 import { staffHTML } from './staff.js';
 import { adminHTML } from './admin.js';
@@ -99,10 +99,11 @@ export default {
         if (path === '/api/admin/jobs/delete')  return await adminJobDeleteHandler(request, env);
         if (path === '/api/admin/tasks/save')   return await adminTaskSaveHandler(request, env);
         if (path === '/api/admin/tasks/delete') return await adminTaskDeleteHandler(request, env);
-        if (path === '/api/admin/crew/save')        return await adminCrewSaveHandler(request, env);
-        if (path === '/api/admin/config/save')      return await adminConfigSaveHandler(request, env);
-        if (path === '/api/admin/documents/upload') return await adminDocUploadHandler(request, env);
-        if (path === '/api/admin/documents/delete') return await adminDocDeleteHandler(request, env);
+        if (path === '/api/admin/crew/save')         return await adminCrewSaveHandler(request, env);
+        if (path === '/api/admin/config/save')       return await adminConfigSaveHandler(request, env);
+        if (path === '/api/admin/documents/upload')  return await adminDocUploadHandler(request, env);
+        if (path === '/api/admin/documents/delete')  return await adminDocDeleteHandler(request, env);
+        if (path === '/api/admin/migrate-warehouse') return await adminMigrateWarehouseHandler(env);
       }
 
       return new Response('Not Found', { status: 404 });
@@ -116,13 +117,19 @@ export default {
 // ── Public API ───────────────────────────────────────────────────────────────
 
 async function getDataHandler(env) {
-  const [jobs, tasks, crew, config] = await Promise.all([
-    kvGet(env, 'jobs', []),
-    kvGet(env, 'tasks', []),
+  const [apiJobs, standalone, crew, config] = await Promise.all([
+    jobsApi(env, '/jobs'),
+    kvGet(env, 'standalone_tasks', []),
     kvGet(env, 'crew', []),
-    kvGet(env, 'config', { scrollInterval: 20000 })
+    kvGet(env, 'config', { scrollInterval: 20000 }),
   ]);
-  // Never expose the password hash
+
+  const jobs = (apiJobs || []).map(warehouseJob);
+  const tasks = [
+    ...jobs.flatMap(j => (j.tasks || []).map(t => ({ ...t, jobId: j.id }))),
+    ...standalone,
+  ];
+
   const { adminPasswordHash, ...safeConfig } = config;
   return jsonResp({ jobs, tasks, crew, config: safeConfig });
 }
@@ -177,28 +184,39 @@ async function staffClaimHandler(request, env) {
   const { taskId, staffName } = body;
   if (!taskId || !staffName) return jsonResp({ error: 'taskId and staffName required' }, 400);
 
-  const [tasks, crew] = await Promise.all([
-    kvGet(env, 'tasks', []),
-    kvGet(env, 'crew', [])
-  ]);
-
+  const crew = await kvGet(env, 'crew', []);
   if (!crew.includes(staffName)) return jsonResp({ error: 'Name not in crew list' }, 400);
 
-  const idx = tasks.findIndex(t => t.id === taskId);
-  if (idx === -1) return jsonResp({ error: 'Task not found' }, 404);
+  // Standalone tasks
+  const standalone = await kvGet(env, 'standalone_tasks', []);
+  const sIdx = standalone.findIndex(t => t.id === taskId);
+  if (sIdx !== -1) {
+    const task = { ...standalone[sIdx] };
+    const assigned = task.assignedTo || [];
+    if (task.status === 'complete') return jsonResp({ error: 'Task is already complete' }, 400);
+    if (assigned.includes(staffName)) return jsonResp({ error: 'Already assigned to this task' }, 400);
+    if (assigned.length >= (task.slots || 1)) return jsonResp({ error: 'No slots available' }, 400);
+    task.assignedTo = [...assigned, staffName];
+    if (task.status === 'pending') task.status = 'inprogress';
+    standalone[sIdx] = task;
+    await kvPut(env, 'standalone_tasks', standalone);
+    return jsonResp({ ok: true, task });
+  }
 
-  const task = { ...tasks[idx] };
+  // Tasks embedded in jobs
+  const job = await findJobForTask(env, taskId);
+  if (!job) return jsonResp({ error: 'Task not found' }, 404);
+
+  const tasks = job.tasks || [];
+  const tIdx = tasks.findIndex(t => t.id === taskId);
+  const task = { ...tasks[tIdx] };
   const assigned = task.assignedTo || [];
-
   if (task.status === 'complete') return jsonResp({ error: 'Task is already complete' }, 400);
   if (assigned.includes(staffName)) return jsonResp({ error: 'Already assigned to this task' }, 400);
   if (assigned.length >= (task.slots || 1)) return jsonResp({ error: 'No slots available' }, 400);
-
   task.assignedTo = [...assigned, staffName];
   if (task.status === 'pending') task.status = 'inprogress';
-
-  tasks[idx] = task;
-  await kvPut(env, 'tasks', tasks);
+  await jobsApi(env, `/jobs/${job.id}`, 'PUT', { tasks: tasks.map((t, i) => i === tIdx ? task : t) });
   return jsonResp({ ok: true, task });
 }
 
@@ -209,18 +227,29 @@ async function staffUnclaimHandler(request, env) {
   const { taskId, staffName } = body;
   if (!taskId || !staffName) return jsonResp({ error: 'taskId and staffName required' }, 400);
 
-  const tasks = await kvGet(env, 'tasks', []);
-  const idx = tasks.findIndex(t => t.id === taskId);
-  if (idx === -1) return jsonResp({ error: 'Task not found' }, 404);
+  // Standalone tasks
+  const standalone = await kvGet(env, 'standalone_tasks', []);
+  const sIdx = standalone.findIndex(t => t.id === taskId);
+  if (sIdx !== -1) {
+    const task = { ...standalone[sIdx] };
+    if (!(task.assignedTo || []).includes(staffName)) return jsonResp({ error: 'Not assigned to this task' }, 400);
+    task.assignedTo = (task.assignedTo || []).filter(n => n !== staffName);
+    if (task.assignedTo.length === 0 && task.status === 'inprogress') task.status = 'pending';
+    standalone[sIdx] = task;
+    await kvPut(env, 'standalone_tasks', standalone);
+    return jsonResp({ ok: true, task });
+  }
 
-  const task = { ...tasks[idx] };
+  const job = await findJobForTask(env, taskId);
+  if (!job) return jsonResp({ error: 'Task not found' }, 404);
+
+  const tasks = job.tasks || [];
+  const tIdx = tasks.findIndex(t => t.id === taskId);
+  const task = { ...tasks[tIdx] };
   if (!(task.assignedTo || []).includes(staffName)) return jsonResp({ error: 'Not assigned to this task' }, 400);
-
   task.assignedTo = (task.assignedTo || []).filter(n => n !== staffName);
   if (task.assignedTo.length === 0 && task.status === 'inprogress') task.status = 'pending';
-
-  tasks[idx] = task;
-  await kvPut(env, 'tasks', tasks);
+  await jobsApi(env, `/jobs/${job.id}`, 'PUT', { tasks: tasks.map((t, i) => i === tIdx ? task : t) });
   return jsonResp({ ok: true, task });
 }
 
@@ -231,19 +260,67 @@ async function staffCompleteHandler(request, env) {
   const { taskId, staffName } = body;
   if (!taskId || !staffName) return jsonResp({ error: 'taskId and staffName required' }, 400);
 
-  const tasks = await kvGet(env, 'tasks', []);
-  const idx = tasks.findIndex(t => t.id === taskId);
-  if (idx === -1) return jsonResp({ error: 'Task not found' }, 404);
+  // Standalone tasks
+  const standalone = await kvGet(env, 'standalone_tasks', []);
+  const sIdx = standalone.findIndex(t => t.id === taskId);
+  if (sIdx !== -1) {
+    const task = { ...standalone[sIdx] };
+    if (!(task.assignedTo || []).includes(staffName)) return jsonResp({ error: 'Not assigned to this task' }, 400);
+    task.status = 'complete';
+    task.completedAt = Date.now();
+    standalone[sIdx] = task;
+    await kvPut(env, 'standalone_tasks', standalone);
+    return jsonResp({ ok: true, task });
+  }
 
-  const task = { ...tasks[idx] };
+  const job = await findJobForTask(env, taskId);
+  if (!job) return jsonResp({ error: 'Task not found' }, 404);
+
+  const tasks = job.tasks || [];
+  const tIdx = tasks.findIndex(t => t.id === taskId);
+  const task = { ...tasks[tIdx] };
   if (!(task.assignedTo || []).includes(staffName)) return jsonResp({ error: 'Not assigned to this task' }, 400);
-
   task.status = 'complete';
   task.completedAt = Date.now();
-
-  tasks[idx] = task;
-  await kvPut(env, 'tasks', tasks);
+  await jobsApi(env, `/jobs/${job.id}`, 'PUT', { tasks: tasks.map((t, i) => i === tIdx ? task : t) });
   return jsonResp({ ok: true, task });
+}
+
+// ── Job completion ───────────────────────────────────────────────────────────
+
+async function jobCompleteHandler(request, env, jobId) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+  const { name } = body;
+  if (!name) return jsonResp({ error: 'name required' }, 400);
+
+  const job = await jobsApi(env, `/jobs/${jobId}`);
+  if (!job) return jsonResp({ error: 'Job not found' }, 404);
+
+  const completions = job.completions || [];
+  if (completions.includes(name)) return jsonResp({ ok: true, job });
+
+  const updated = await jobsApi(env, `/jobs/${jobId}`, 'PUT', { completions: [...completions, name] });
+  const assigned = updated.assigned_staff || [];
+  if (assigned.length > 0 && (updated.completions || []).length === assigned.length) {
+    pushJobComplete(env, updated).catch(() => {});
+  }
+  return jsonResp({ ok: true, job: updated });
+}
+
+async function jobUncompleteHandler(request, env, jobId) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
+  const { name } = body;
+  if (!name) return jsonResp({ error: 'name required' }, 400);
+
+  const job = await jobsApi(env, `/jobs/${jobId}`);
+  if (!job) return jsonResp({ error: 'Job not found' }, 404);
+
+  const updated = await jobsApi(env, `/jobs/${jobId}`, 'PUT', {
+    completions: (job.completions || []).filter(n => n !== name),
+  });
+  return jsonResp({ ok: true, job: updated });
 }
 
 // ── Admin write API ──────────────────────────────────────────────────────────
@@ -253,37 +330,31 @@ async function adminJobSaveHandler(request, env) {
   if (job.startDate && job.endDate && job.endDate < job.startDate) {
     return jsonResp({ error: 'End date cannot be before start date' }, 400);
   }
-  const jobs = await kvGet(env, 'jobs', []);
 
+  let saved;
   if (!job.id) {
-    job.id = genId('job');
-    jobs.push(job);
+    saved = await jobsApi(env, '/jobs', 'POST', job);
   } else {
-    const idx = jobs.findIndex(j => j.id === job.id);
-    if (idx === -1) {
-      jobs.push(job);
+    const existing = await jobsApi(env, `/jobs/${job.id}`);
+    if (!existing) {
+      saved = await jobsApi(env, '/jobs', 'POST', job);
     } else {
-      // Preserve fields the admin form never sends back
-      if (jobs[idx].calendarEventId && !job.calendarEventId) {
-        job.calendarEventId = jobs[idx].calendarEventId;
-      }
-      if (!job.completions) job.completions = jobs[idx].completions || [];
-      jobs[idx] = job;
+      if (existing.calendarEventId && !job.calendarEventId) job.calendarEventId = existing.calendarEventId;
+      if (!job.completions) job.completions = existing.completions || [];
+      saved = await jobsApi(env, `/jobs/${job.id}`, 'PUT', job);
     }
   }
-  await kvPut(env, 'jobs', jobs);
 
+  const wJob = warehouseJob(saved);
   let warning = null;
-  if (job.startDate || job.date) {
+  if (wJob.startDate || wJob.date) {
     try {
-      const event = jobToEvent(job);
-      if (job.calendarEventId) {
-        await updateEvent(env, job.calendarEventId, event);
+      const event = jobToEvent(wJob);
+      if (wJob.calendarEventId) {
+        await updateEvent(env, wJob.calendarEventId, event);
       } else {
         const eventId = await createEvent(env, event);
-        job.calendarEventId = eventId;
-        const idx = jobs.findIndex(j => j.id === job.id);
-        if (idx !== -1) { jobs[idx] = job; await kvPut(env, 'jobs', jobs); }
+        saved = await jobsApi(env, `/jobs/${saved.id}`, 'PUT', { calendarEventId: eventId });
       }
     } catch (e) {
       console.error('Calendar sync failed:', e);
@@ -291,25 +362,79 @@ async function adminJobSaveHandler(request, env) {
     }
   }
 
-  return jsonResp({ ok: true, job, ...(warning ? { warning } : {}) });
+  return jsonResp({ ok: true, job: warehouseJob(saved), ...(warning ? { warning } : {}) });
 }
 
 async function adminJobDeleteHandler(request, env) {
   const { id } = await request.json();
-  let jobs = await kvGet(env, 'jobs', []);
-  const job = jobs.find(j => j.id === id);
+  const job = await jobsApi(env, `/jobs/${id}`);
   if (job && job.calendarEventId) {
     try { await deleteEvent(env, job.calendarEventId); } catch (e) { console.error('Calendar delete failed:', e); }
   }
-  jobs = jobs.filter(j => j.id !== id);
-  await kvPut(env, 'jobs', jobs);
+  await jobsApi(env, `/jobs/${id}`, 'DELETE');
   return jsonResp({ ok: true });
 }
 
 async function adminTaskSaveHandler(request, env) {
   const task = await request.json();
-  const [tasks, jobs] = await Promise.all([kvGet(env, 'tasks', []), kvGet(env, 'jobs', [])]);
+  const jobId = task.jobId || null;
+  const isStandalone = !jobId || jobId === 'none' || jobId === '';
 
+  if (isStandalone) {
+    const standalone = await kvGet(env, 'standalone_tasks', []);
+    let oldTask = null;
+    if (!task.id) {
+      task.id = genId('task');
+      task.createdAt = Date.now();
+      task.assignedTo = task.assignedTo || [];
+      task.status = task.status || 'pending';
+      task.completedAt = null;
+      standalone.push(task);
+    } else {
+      const idx = standalone.findIndex(t => t.id === task.id);
+      if (idx === -1) {
+        task.createdAt = task.createdAt || Date.now();
+        standalone.push(task);
+      } else {
+        oldTask = { ...standalone[idx] };
+        standalone[idx] = Object.assign({}, standalone[idx], task);
+        if (oldTask.calendarEventId && !standalone[idx].calendarEventId) {
+          standalone[idx].calendarEventId = oldTask.calendarEventId;
+        }
+      }
+    }
+    await kvPut(env, 'standalone_tasks', standalone);
+    let warning = null;
+    const shouldSync = task.addToCalendar && task.date;
+    const calRemoved = oldTask && oldTask.addToCalendar && !task.addToCalendar && oldTask.calendarEventId;
+    const existingEventId = (oldTask && oldTask.calendarEventId) || task.calendarEventId;
+    try {
+      if (calRemoved) {
+        await deleteEvent(env, oldTask.calendarEventId);
+        const idx = standalone.findIndex(t => t.id === task.id);
+        if (idx !== -1) { delete standalone[idx].calendarEventId; await kvPut(env, 'standalone_tasks', standalone); }
+      } else if (shouldSync) {
+        const event = taskToEvent(task, []);
+        if (existingEventId) {
+          await updateEvent(env, existingEventId, event);
+        } else {
+          const eventId = await createEvent(env, event);
+          const idx = standalone.findIndex(t => t.id === task.id);
+          if (idx !== -1) { standalone[idx].calendarEventId = eventId; await kvPut(env, 'standalone_tasks', standalone); }
+        }
+      }
+    } catch (e) {
+      console.error('Calendar sync failed:', e);
+      warning = 'Saved, but calendar sync failed';
+    }
+    return jsonResp({ ok: true, task, ...(warning ? { warning } : {}) });
+  }
+
+  // Task belongs to a job
+  const job = await jobsApi(env, `/jobs/${jobId}`);
+  if (!job) return jsonResp({ error: 'Job not found' }, 404);
+
+  const tasks = job.tasks || [];
   let oldTask = null;
   if (!task.id) {
     task.id = genId('task');
@@ -326,50 +451,61 @@ async function adminTaskSaveHandler(request, env) {
     } else {
       oldTask = { ...tasks[idx] };
       tasks[idx] = Object.assign({}, tasks[idx], task);
-      // preserve calendarEventId if the incoming payload doesn't carry it
       if (oldTask.calendarEventId && !tasks[idx].calendarEventId) {
         tasks[idx].calendarEventId = oldTask.calendarEventId;
       }
     }
   }
-  await kvPut(env, 'tasks', tasks);
+  await jobsApi(env, `/jobs/${jobId}`, 'PUT', { tasks });
 
   let warning = null;
-  const shouldSync     = task.addToCalendar && task.date;
-  const calRemoved     = oldTask && oldTask.addToCalendar && !task.addToCalendar && oldTask.calendarEventId;
+  const shouldSync = task.addToCalendar && task.date;
+  const calRemoved = oldTask && oldTask.addToCalendar && !task.addToCalendar && oldTask.calendarEventId;
   const existingEventId = (oldTask && oldTask.calendarEventId) || task.calendarEventId;
   try {
     if (calRemoved) {
       await deleteEvent(env, oldTask.calendarEventId);
-      const idx = tasks.findIndex(t => t.id === task.id);
-      if (idx !== -1) { delete tasks[idx].calendarEventId; await kvPut(env, 'tasks', tasks); }
+      const tIdx = tasks.findIndex(t => t.id === task.id);
+      if (tIdx !== -1) { delete tasks[tIdx].calendarEventId; await jobsApi(env, `/jobs/${jobId}`, 'PUT', { tasks }); }
     } else if (shouldSync) {
-      const event = taskToEvent(task, jobs);
+      const event = taskToEvent(task, [warehouseJob(job)]);
       if (existingEventId) {
         await updateEvent(env, existingEventId, event);
       } else {
         const eventId = await createEvent(env, event);
-        const idx = tasks.findIndex(t => t.id === task.id);
-        if (idx !== -1) { tasks[idx].calendarEventId = eventId; await kvPut(env, 'tasks', tasks); }
+        const tIdx = tasks.findIndex(t => t.id === task.id);
+        if (tIdx !== -1) { tasks[tIdx].calendarEventId = eventId; await jobsApi(env, `/jobs/${jobId}`, 'PUT', { tasks }); }
       }
     }
   } catch (e) {
     console.error('Calendar sync failed:', e);
     warning = 'Saved, but calendar sync failed';
   }
-
   return jsonResp({ ok: true, task, ...(warning ? { warning } : {}) });
 }
 
 async function adminTaskDeleteHandler(request, env) {
   const { id } = await request.json();
-  let tasks = await kvGet(env, 'tasks', []);
-  const task = tasks.find(t => t.id === id);
+
+  // Check standalone first
+  const standalone = await kvGet(env, 'standalone_tasks', []);
+  const sIdx = standalone.findIndex(t => t.id === id);
+  if (sIdx !== -1) {
+    const task = standalone[sIdx];
+    if (task.calendarEventId) {
+      try { await deleteEvent(env, task.calendarEventId); } catch (e) { console.error('Calendar delete failed:', e); }
+    }
+    await kvPut(env, 'standalone_tasks', standalone.filter(t => t.id !== id));
+    return jsonResp({ ok: true });
+  }
+
+  const job = await findJobForTask(env, id);
+  if (!job) return jsonResp({ ok: true }); // already gone
+  const task = (job.tasks || []).find(t => t.id === id);
   if (task && task.calendarEventId) {
     try { await deleteEvent(env, task.calendarEventId); } catch (e) { console.error('Calendar delete failed:', e); }
   }
-  tasks = tasks.filter(t => t.id !== id);
-  await kvPut(env, 'tasks', tasks);
+  await jobsApi(env, `/jobs/${job.id}`, 'PUT', { tasks: (job.tasks || []).filter(t => t.id !== id) });
   return jsonResp({ ok: true });
 }
 
@@ -389,6 +525,38 @@ async function adminConfigSaveHandler(request, env) {
 
   await kvPut(env, 'config', config);
   return jsonResp({ ok: true });
+}
+
+// ── One-time warehouse KV → jobs-api migration ───────────────────────────────
+
+async function adminMigrateWarehouseHandler(env) {
+  const [kvJobs, kvTasks] = await Promise.all([
+    kvGet(env, 'jobs', []),
+    kvGet(env, 'tasks', []),
+  ]);
+
+  const jobIds = new Set(kvJobs.map(j => j.id));
+  const migratedIds = [];
+  const skippedIds = [];
+
+  for (const job of kvJobs) {
+    const existing = await jobsApi(env, `/jobs/${job.id}`);
+    if (existing) { skippedIds.push(job.id); continue; }
+    const jobTasks = kvTasks.filter(t => t.jobId === job.id);
+    await jobsApi(env, '/jobs', 'POST', { ...job, tasks: jobTasks });
+    migratedIds.push(job.id);
+  }
+
+  // Tasks with no matching job go to standalone_tasks
+  const standalone = kvTasks.filter(t => !t.jobId || !jobIds.has(t.jobId));
+  if (standalone.length > 0) {
+    const existing = await kvGet(env, 'standalone_tasks', []);
+    const existingIds = new Set(existing.map(t => t.id));
+    const newStandalone = [...existing, ...standalone.filter(t => !existingIds.has(t.id))];
+    await kvPut(env, 'standalone_tasks', newStandalone);
+  }
+
+  return jsonResp({ ok: true, migrated: migratedIds.length, skipped: skippedIds.length, standalone: standalone.length });
 }
 
 // ── R2 document handlers ─────────────────────────────────────────────────────
@@ -435,16 +603,29 @@ async function adminDocDeleteHandler(request, env) {
   await env.WAREHOUSE_R2.delete(key);
 
   if (jobId) {
-    const jobs = await kvGet(env, 'jobs', []);
-    const idx = jobs.findIndex(j => j.id === jobId);
-    if (idx !== -1) { delete jobs[idx].documentKey; delete jobs[idx].documentName; }
-    await kvPut(env, 'jobs', jobs);
+    const job = await jobsApi(env, `/jobs/${jobId}`);
+    if (job) await jobsApi(env, `/jobs/${jobId}`, 'PUT', { documentKey: null, documentName: null });
   }
   if (taskId) {
-    const tasks = await kvGet(env, 'tasks', []);
-    const idx = tasks.findIndex(t => t.id === taskId);
-    if (idx !== -1) { delete tasks[idx].documentKey; delete tasks[idx].documentName; }
-    await kvPut(env, 'tasks', tasks);
+    const standalone = await kvGet(env, 'standalone_tasks', []);
+    const sIdx = standalone.findIndex(t => t.id === taskId);
+    if (sIdx !== -1) {
+      delete standalone[sIdx].documentKey;
+      delete standalone[sIdx].documentName;
+      await kvPut(env, 'standalone_tasks', standalone);
+    } else {
+      const job = await findJobForTask(env, taskId);
+      if (job) {
+        const newTasks = (job.tasks || []).map(t => {
+          if (t.id !== taskId) return t;
+          const nt = { ...t };
+          delete nt.documentKey;
+          delete nt.documentName;
+          return nt;
+        });
+        await jobsApi(env, `/jobs/${job.id}`, 'PUT', { tasks: newTasks });
+      }
+    }
   }
 
   return jsonResp({ ok: true });
@@ -518,7 +699,7 @@ async function notesDeleteHandler(env, id) {
 
 async function sendNoteEmail(env, note) {
   if (!env.RESEND_API_KEY) return;
-  const subject = '[Note] ' + note.type + ': ' + (note.ref_id || 'general') + ' \u2014 from ' + note.author;
+  const subject = '[Note] ' + note.type + ': ' + (note.ref_id || 'general') + ' — from ' + note.author;
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
@@ -531,53 +712,11 @@ async function sendNoteEmail(env, note) {
   });
 }
 
-async function jobCompleteHandler(request, env, jobId) {
-  let body;
-  try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
-  const { name } = body;
-  if (!name) return jsonResp({ error: 'name required' }, 400);
-
-  const jobs = await kvGet(env, 'jobs', []);
-  const idx = jobs.findIndex(j => j.id === jobId);
-  if (idx === -1) return jsonResp({ error: 'Job not found' }, 404);
-
-  const job = { ...jobs[idx] };
-  job.completions = job.completions || [];
-  if (!job.completions.includes(name)) job.completions = [...job.completions, name];
-  jobs[idx] = job;
-  await kvPut(env, 'jobs', jobs);
-
-  const assigned = job.assigned_staff || [];
-  if (assigned.length > 0 && job.completions.length === assigned.length) {
-    pushJobComplete(env, job).catch(() => {});
-  }
-
-  return jsonResp({ ok: true, job });
-}
-
-async function jobUncompleteHandler(request, env, jobId) {
-  let body;
-  try { body = await request.json(); } catch { return jsonResp({ error: 'Invalid JSON' }, 400); }
-  const { name } = body;
-  if (!name) return jsonResp({ error: 'name required' }, 400);
-
-  const jobs = await kvGet(env, 'jobs', []);
-  const idx = jobs.findIndex(j => j.id === jobId);
-  if (idx === -1) return jsonResp({ error: 'Job not found' }, 404);
-
-  const job = { ...jobs[idx] };
-  job.completions = (job.completions || []).filter(n => n !== name);
-  jobs[idx] = job;
-  await kvPut(env, 'jobs', jobs);
-
-  return jsonResp({ ok: true, job });
-}
-
 async function pushJobComplete(env, job) {
   await fetch('https://task-receiver.e-kean.workers.dev/push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-push-token': 'raven-push-2026' },
-    body: JSON.stringify({ lane: 'raven-ops', text: '[Job Complete] ' + job.title }),
+    body: JSON.stringify({ lane: 'raven-ops', text: '[Job Complete] ' + (job.title || job.name) }),
   });
 }
 

@@ -40,3 +40,34 @@ export function htmlResp(html, status) {
     headers: { 'Content-Type': 'text/html; charset=utf-8' }
   });
 }
+
+const JOBS_API_URL = 'https://jobs-api.e-kean.workers.dev';
+const JOBS_API_KEY = 'raven-jobs-2026';
+
+export async function jobsApi(env, path, method = 'GET', body = null) {
+  const req = new Request(JOBS_API_URL + path, {
+    method,
+    headers: { 'x-api-key': JOBS_API_KEY, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const res = await env.JOBS_API_SVC.fetch(req);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('jobs-api ' + method + ' ' + path + ' → ' + res.status);
+  return res.json();
+}
+
+export function warehouseJob(j) {
+  return {
+    ...j,
+    title:     j.title     || j.name      || '',
+    colorHex:  j.colorHex  || j.colour    || '#ffffff',
+    startDate: j.startDate || j.dateStart || null,
+    endDate:   j.endDate   || j.dateEnd   || null,
+  };
+}
+
+export async function findJobForTask(env, taskId) {
+  const jobs = await jobsApi(env, '/jobs');
+  if (!Array.isArray(jobs)) return null;
+  return jobs.find(j => Array.isArray(j.tasks) && j.tasks.some(t => t.id === taskId)) || null;
+}

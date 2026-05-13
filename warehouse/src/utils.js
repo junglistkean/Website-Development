@@ -59,15 +59,11 @@ export async function jobsApi(env, path, method = 'GET', body = null) {
 export function warehouseJob(j) {
   return {
     ...j,
-    title:     j.title     || j.name      || '',
-    colorHex:  j.colorHex  || j.colour    || '#ffffff',
-    startDate: j.startDate || j.dateStart || null,
-    endDate:   j.endDate   || j.dateEnd   || null,
+    title:      j.title      || j.name      || '',
+    colorHex:   j.colorHex   || j.colour    || '#ffffff',
+    startDate:  j.startDate  || j.dateStart || null,
+    endDate:    j.endDate    || j.dateEnd   || null,
+    adminNotes: j.adminNotes ?? '',
   };
 }
 
-export async function findJobForTask(env, taskId) {
-  const jobs = await jobsApi(env, '/jobs');
-  if (!Array.isArray(jobs)) return null;
-  return jobs.find(j => Array.isArray(j.tasks) && j.tasks.some(t => t.id === taskId)) || null;
-}

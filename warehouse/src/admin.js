@@ -256,8 +256,10 @@ input[type=file]:hover { border-color: #c9a84c; }
           <div class="field"><label>Time</label><input type="time" id="job-time"></div>
           <div class="field"><label>Status</label>
             <select id="job-status">
+              <option value="pending-quote">Pending Quote</option>
               <option value="provisional">Provisional</option>
               <option value="confirmed">Confirmed</option>
+              <option value="complete">Complete</option>
             </select>
           </div>
         </div>
@@ -707,7 +709,7 @@ input[type=file]:hover { border-color: #c9a84c; }
     document.getElementById('job-contact-email').value = j.contactEmail || '';
     document.getElementById('job-crew-size').value = j.crewSize || '';
     document.getElementById('job-desc').value = j.description || '';
-    document.getElementById('job-notes').value = j.notes || '';
+    document.getElementById('job-notes').value = j.adminNotes || '';
     document.getElementById('job-shift-start').value = j.shift_start || '';
     var assignedStaff = j.assigned_staff || [];
     document.querySelectorAll('#job-staff-checkboxes input').forEach(function(cb) {
@@ -778,7 +780,7 @@ input[type=file]:hover { border-color: #c9a84c; }
       contactEmail: document.getElementById('job-contact-email').value.trim() || null,
       crewSize: parseInt(document.getElementById('job-crew-size').value, 10) || null,
       description: document.getElementById('job-desc').value.trim(),
-      notes: document.getElementById('job-notes').value.trim() || null,
+      adminNotes: document.getElementById('job-notes').value.trim() || null,
       colorHex: document.getElementById('job-color').value || COLOURS[7],
       documentKey: documentKey,
       documentName: documentName,
@@ -1007,7 +1009,9 @@ input[type=file]:hover { border-color: #c9a84c; }
 
   window.deleteTask = async function(id) {
     if (!confirm('Delete this task?')) return;
-    var ok = await apiPost('/api/admin/tasks/delete', { id: id });
+    var task = appData.tasks.find(function(t) { return t.id === id; });
+    var jobId = (task && task.jobId) ? task.jobId : 'standalone';
+    var ok = await apiPost('/api/admin/tasks/delete', { taskId: id, jobId: jobId });
     if (ok) { loadData(); toast('Task deleted'); }
   };
 

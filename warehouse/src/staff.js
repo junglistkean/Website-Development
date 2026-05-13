@@ -656,12 +656,12 @@ html, body {
         var name = assigned[s];
         if (name) {
           if (name === myName) {
-            html += '<button class="slot-pill filled-mine unclaim-btn" data-task-id="' + esc(t.id) + '" data-name="' + esc(name) + '">' + esc(name) + ' \u2715</button>';
+            html += '<button class="slot-pill filled-mine unclaim-btn" data-task-id="' + esc(t.id) + '" data-job-id="' + esc(t.jobId || 'standalone') + '" data-name="' + esc(name) + '">' + esc(name) + ' \u2715</button>';
           } else {
             html += '<span class="slot-pill filled-other">' + esc(name) + '</span>';
           }
         } else if (canClaim && !assigned.includes(myName)) {
-          html += '<button class="slot-pill claimable claim-btn" data-task-id="' + esc(t.id) + '">Claim</button>';
+          html += '<button class="slot-pill claimable claim-btn" data-task-id="' + esc(t.id) + '" data-job-id="' + esc(t.jobId || 'standalone') + '">Claim</button>';
           canClaim = false;
         } else {
           html += '<span class="slot-pill open">Open</span>';
@@ -681,7 +681,7 @@ html, body {
         html += '<button class="btn btn-print" onclick="printDoc(\\'' + esc(t.documentKey) + '\\')">&#128196; Print</button>';
       }
       if (iAssigned) {
-        html += '<button class="btn btn-complete complete-btn" data-task-id="' + esc(t.id) + '">Mark Complete</button>';
+        html += '<button class="btn btn-complete complete-btn" data-task-id="' + esc(t.id) + '" data-job-id="' + esc(t.jobId || 'standalone') + '">Mark Complete</button>';
       }
       html += '<button class="btn btn-notes-toggle" onclick="toggleNotePanel(\\'task\\',\\'' + esc(t.id) + '\\')">Notes</button>';
       html += '<button class="btn btn-note" onclick="openNoteModal(\\'task\\',\\'' + esc(t.id) + '\\')">+ Note</button>';
@@ -740,14 +740,14 @@ html, body {
   function attachTaskListeners() {
     document.querySelectorAll('.claim-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        apiCall('/api/staff/claim', { taskId: btn.dataset.taskId, staffName: myName });
+        apiCall('/api/staff/claim', { taskId: btn.dataset.taskId, jobId: btn.dataset.jobId, staffName: myName });
       });
     });
 
     document.querySelectorAll('.unclaim-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         if (!confirm('Remove yourself from this task?')) return;
-        apiCall('/api/staff/unclaim', { taskId: btn.dataset.taskId, staffName: myName });
+        apiCall('/api/staff/unclaim', { taskId: btn.dataset.taskId, jobId: btn.dataset.jobId, staffName: myName });
       });
     });
 
@@ -769,7 +769,7 @@ html, body {
           }, 3000);
         } else {
           delete btn.dataset.confirming;
-          apiCall('/api/staff/complete', { taskId: btn.dataset.taskId, staffName: myName });
+          apiCall('/api/staff/complete', { taskId: btn.dataset.taskId, jobId: btn.dataset.jobId, staffName: myName });
         }
       });
     });

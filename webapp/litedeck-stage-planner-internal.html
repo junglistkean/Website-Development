@@ -8141,12 +8141,10 @@ async function submitQuote() {
     items,
   };
 
- // Write to localStorage so it survives the login redirect
-  try {
-    localStorage.setItem('raven_quote_prepopulate', JSON.stringify(prepopulate));
-  } catch(e) {}
-
-  window.open(QUOTE_BUILDER_URL, '_blank');
+  // Pass data as URL param — works cross-origin (ravenstaging.co.uk → quote-builder.e-kean.workers.dev)
+  // and is preserved through the auth redirect since the worker captures url.search on 302.
+  const _qbUrl = QUOTE_BUILDER_URL + '/?data=' + encodeURIComponent(JSON.stringify(prepopulate));
+  window.open(_qbUrl, '_blank');
 
   setQuoteStatus('success', '✅ <b>Quote builder opened in a new tab</b> with your layout pre-loaded.');
   document.getElementById('qm-submit').style.display = 'none';

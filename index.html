@@ -485,6 +485,7 @@
         <label for="message">Your Message</label>
         <textarea id="message" name="message" placeholder="Tell us about your project..."></textarea>
       </div>
+      <input type="hidden" name="reply_to" id="replyTo">
       <div class="form-feedback" id="formFeedback"></div>
       <button type="submit" class="btn-submit" id="submitBtn">
         <span class="btn-text">Send Message</span>
@@ -601,6 +602,7 @@
       btn.classList.add('loading');
       btn.disabled = true;
       feedback.className = 'form-feedback';
+      document.getElementById('replyTo').value = document.getElementById('email').value;
       emailjs.sendForm("service_l3t6n75", "template_os4z2yp", form)
         .then(function() {
           showFeedback('success', "Message sent — we'll be in touch within 24 hours.");

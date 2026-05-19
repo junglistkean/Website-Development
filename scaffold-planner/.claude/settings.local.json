@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx vite *)",
+      "Bash(npx wrangler *)",
+      "Bash(Select-String -Pattern \"add\\\\\\(\" -Context 1,0)"
+    ]
+  }
+}

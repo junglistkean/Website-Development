@@ -264,16 +264,6 @@ export default function Sidebar({ state, dispatch }) {
         </div>
       </SidebarSection>
 
-      {/* ── LADDER BEAM ──────────────────────────────────────────────────── */}
-      <SidebarSection title="Ladder Beam">
-        <button
-          className={`place-btn place-btn--full${activePlacement === 'ladder' ? ' active' : ''}`}
-          onClick={() => togglePlacement('ladder')}
-        >
-          ADD LADDER BEAM
-        </button>
-      </SidebarSection>
-
       {/* ── TOOL ─────────────────────────────────────────────────────────── */}
       <SidebarSection title="Tool">
         <div className="toggle-group">

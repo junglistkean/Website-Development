@@ -283,16 +283,6 @@ export default function Sidebar({ state, dispatch }) {
           >
             + PLACE
           </button>
-        </div>
-      </SidebarSection>
-
-      {/* ── ACTIONS ──────────────────────────────────────────────────────── */}
-      <SidebarSection title="Actions">
-
-        <div className="toggle-group" style={{ marginBottom: 6 }}>
-          <button className="tog-btn" disabled title="Coming soon">
-            ⟳ ROTATE
-          </button>
           <button
             className={`tog-btn tog-btn--danger${tool === 'delete' ? ' active' : ''}`}
             onClick={() => dispatch({ type: 'SET_TOOL', value: 'delete' })}
@@ -300,22 +290,6 @@ export default function Sidebar({ state, dispatch }) {
             ✕ DELETE
           </button>
         </div>
-
-        <div className="toggle-group">
-          <button
-            className="tog-btn tog-btn--danger"
-            onClick={() => {
-              if (window.confirm('Clear all? This cannot be undone.')) {
-                dispatch({ type: 'CLEAR' });
-              }
-            }}
-          >
-            ✕ CLEAR
-          </button>
-        </div>
-
-        <p className="key-hints">R = rotate · Del = delete · Esc = cancel</p>
-
       </SidebarSection>
 
       {/* ── FLAGS ────────────────────────────────────────────────────────── */}

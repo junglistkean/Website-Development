@@ -2008,8 +2008,9 @@ function snapHandrailAlong(edge, size) {
 // ── Steps placement ───────────────────────────────────────────────────────────
 function snapStepsAlong(edge) {
   // Mirror of snapHandrailAlong — finds the nearest edge panel and snaps the
-  // step start to a panel-aligned position, then clamps to the overall edge
+  // step CENTRE to a panel-aligned position, then clamps to the overall edge
   // span so the step never extends beyond the stage boundary.
+  const halfW = STEPS_WIDTH_GU / 2;
   const tp = panels.filter(p => p.category === 'panel' && p.tier === activeTierId);
   let bestPanel = null, bestDist = Infinity;
   for (const p of tp) {
@@ -2030,19 +2031,20 @@ function snapStepsAlong(edge) {
   const panelEnd   = bestPanel ? bestPanel.end   : edge.edgeStart + edge.edgeLen;
   const edgeEnd    = edge.edgeStart + edge.edgeLen;
   const snapped    = Math.round(edge.alongGu);
-  // Clamp within the nearest panel first (panel-aligned snap), then clamp to
-  // the full edge span so steps never overshoot the stage corner.
-  const withinPanel = Math.min(Math.max(snapped, panelStart), panelEnd - STEPS_WIDTH_GU);
-  return Math.min(Math.max(withinPanel, edge.edgeStart), edgeEnd - STEPS_WIDTH_GU);
+  // Clamp centre within the nearest panel first (panel-aligned snap), then
+  // clamp to the full edge span so steps never overshoot the stage corner.
+  const withinPanel = Math.min(Math.max(snapped, panelStart + halfW), panelEnd - halfW);
+  return Math.min(Math.max(withinPanel, edge.edgeStart + halfW), edgeEnd - halfW);
 }
 
 function placeSteps(edge) {
   const heightKey = stepsKeyForTier();
+  const halfW     = STEPS_WIDTH_GU / 2;
   const edgeEnd   = edge.edgeStart + edge.edgeLen;
   // Safety re-clamp: snapStepsAlong should already guarantee this, but guard
-  // here too so nothing off-stage can ever be stored.
-  const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart), edgeEnd - STEPS_WIDTH_GU);
-  const sSpan = [safeAlong, safeAlong + STEPS_WIDTH_GU];
+  // here too so nothing off-stage can ever be stored. alongGu is the CENTRE.
+  const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
+  const sSpan = [safeAlong - halfW, safeAlong + halfW];
   const stepsConflict = panels.find(p =>
     p.category === 'steps' && p.tier === activeTierId &&
     p.side === edge.side && p.edgeGu === edge.edgeGu &&
@@ -2076,7 +2078,7 @@ function placeSteps(edge) {
     alongGu: safeAlong, heightKey });
   recalcSchedule(); redraw();
 }
-function stepsSpan(s) { return [s.alongGu, s.alongGu + STEPS_WIDTH_GU]; }
+function stepsSpan(s) { const halfW = STEPS_WIDTH_GU / 2; return [s.alongGu - halfW, s.alongGu + halfW]; }
 function handrailSpan(alongGu, size, item) {
   const widthMm = (item && item.hrType === 'infill') ? item.infillMm : HR_WIDTHS[size];
   return [alongGu, alongGu + widthMm / FT2];
@@ -2650,8 +2652,9 @@ document.addEventListener('mouseup', () => {
       panels.push({ ...dragState.origItem, gx: ghost.gx, gy: ghost.gy });
     } else if (ghost.category === 'steps') {
       const edge = ghost.edge;
+      const halfW = STEPS_WIDTH_GU / 2;
       const edgeEnd  = edge.edgeStart + edge.edgeLen;
-      const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart), edgeEnd - STEPS_WIDTH_GU);
+      const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
       panels.push({ ...dragState.origItem,
         side: edge.side, edgeGu: edge.edgeGu,
         edgeStart: edge.edgeStart, edgeLen: edge.edgeLen,
@@ -2927,8 +2930,9 @@ canvas.addEventListener('touchend', e => {
         panels.push({ ...dragState.origItem, gx: ghost.gx, gy: ghost.gy });
       } else if (ghost.category === 'steps') {
         const edge = ghost.edge;
+        const halfW = STEPS_WIDTH_GU / 2;
         const edgeEnd  = edge.edgeStart + edge.edgeLen;
-        const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart), edgeEnd - STEPS_WIDTH_GU);
+        const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
         panels.push({ ...dragState.origItem, side: edge.side, edgeGu: edge.edgeGu,
           edgeStart: edge.edgeStart, edgeLen: edge.edgeLen, alongGu: safeAlong });
       } else if (ghost.category === 'handrail') {
@@ -3109,18 +3113,18 @@ function pickMoveTarget(gx, gy, curFx, curFy) {
   );
   if (hit) return hit;
 
-  // 2. Steps — visual bounding box with small buffer
-  // NOTE: client stores alongGu as left/top edge (not centre).
+  // 2. Steps — visual bounding box with small buffer (alongGu is the centre)
   const BUF = 0.5;
   hit = panels.slice().reverse().find(p => {
     if (p.tier !== activeTierId || p.category !== 'steps') return false;
     const dGu = (STEPS_DATA[p.heightKey].treads * TREAD_DEPTH_MM) / FT2;
+    const halfW = STEPS_WIDTH_GU / 2;
     let x1, y1, x2, y2;
     switch (p.side) {
-      case 'front': x1=p.alongGu; y1=p.edgeGu-dGu; x2=p.alongGu+STEPS_WIDTH_GU; y2=p.edgeGu;               break;
-      case 'back':  x1=p.alongGu; y1=p.edgeGu;     x2=p.alongGu+STEPS_WIDTH_GU; y2=p.edgeGu+dGu;           break;
-      case 'left':  x1=p.edgeGu-dGu; y1=p.alongGu; x2=p.edgeGu;                 y2=p.alongGu+STEPS_WIDTH_GU; break;
-      case 'right': x1=p.edgeGu;     y1=p.alongGu; x2=p.edgeGu+dGu;             y2=p.alongGu+STEPS_WIDTH_GU; break;
+      case 'front': x1=p.alongGu-halfW; y1=p.edgeGu-dGu; x2=p.alongGu+halfW; y2=p.edgeGu;     break;
+      case 'back':  x1=p.alongGu-halfW; y1=p.edgeGu;     x2=p.alongGu+halfW; y2=p.edgeGu+dGu; break;
+      case 'left':  x1=p.edgeGu-dGu; y1=p.alongGu-halfW; x2=p.edgeGu;        y2=p.alongGu+halfW; break;
+      case 'right': x1=p.edgeGu;     y1=p.alongGu-halfW; x2=p.edgeGu+dGu;   y2=p.alongGu+halfW; break;
     }
     return fx >= x1-BUF && fx <= x2+BUF && fy >= y1-BUF && fy <= y2+BUF;
   });
@@ -3152,7 +3156,7 @@ function pickMoveTarget(gx, gy, curFx, curFy) {
 
 // Recompute dragState.ghost from the current cursor grid position.
 // Uses the same validation/snapping logic as the Place tool.
-// NOTE: steps use left-edge convention (alongGu = left/top edge of step width).
+// NOTE: a step's alongGu is its centre; a handrail's is its left/top start.
 function resolveDragGhost(gx, gy) {
   if (!dragState) return;
   const item = dragState.origItem;
@@ -3170,9 +3174,10 @@ function resolveDragGhost(gx, gy) {
     const edge = detectEdge(gx, gy);
     if (!edge) { dragState.ghost = null; return; }
     edge.alongGu = snapStepsAlong(edge);
+    const halfW     = STEPS_WIDTH_GU / 2;
     const edgeEnd   = edge.edgeStart + edge.edgeLen;
-    const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart), edgeEnd - STEPS_WIDTH_GU);
-    const sSpan = [safeAlong, safeAlong + STEPS_WIDTH_GU];
+    const safeAlong = Math.min(Math.max(Math.round(edge.alongGu), edge.edgeStart + halfW), edgeEnd - halfW);
+    const sSpan = [safeAlong - halfW, safeAlong + halfW];
     const stepsConflict = panels.find(p =>
       p.category === 'steps' && p.tier === activeTierId &&
       p.side === edge.side && p.edgeGu === edge.edgeGu && spansOverlap(stepsSpan(p), sSpan)
@@ -3227,12 +3232,13 @@ function isNearEdgeItem(item, gx, gy) {
   if (item.category === 'steps') {
     const data = STEPS_DATA[item.heightKey];
     const depthGu = (data.treads * TREAD_DEPTH_MM) / FT2;
+    const halfW = STEPS_WIDTH_GU / 2;
     let x1, y1, x2, y2;
     switch (item.side) {
-      case 'front': x1=item.alongGu; y1=item.edgeGu-depthGu; x2=item.alongGu+STEPS_WIDTH_GU; y2=item.edgeGu; break;
-      case 'back':  x1=item.alongGu; y1=item.edgeGu;         x2=item.alongGu+STEPS_WIDTH_GU; y2=item.edgeGu+depthGu; break;
-      case 'left':  x1=item.edgeGu-depthGu; y1=item.alongGu; x2=item.edgeGu; y2=item.alongGu+STEPS_WIDTH_GU; break;
-      case 'right': x1=item.edgeGu; y1=item.alongGu; x2=item.edgeGu+depthGu; y2=item.alongGu+STEPS_WIDTH_GU; break;
+      case 'front': x1=item.alongGu-halfW; y1=item.edgeGu-depthGu; x2=item.alongGu+halfW; y2=item.edgeGu; break;
+      case 'back':  x1=item.alongGu-halfW; y1=item.edgeGu;         x2=item.alongGu+halfW; y2=item.edgeGu+depthGu; break;
+      case 'left':  x1=item.edgeGu-depthGu; y1=item.alongGu-halfW; x2=item.edgeGu; y2=item.alongGu+halfW; break;
+      case 'right': x1=item.edgeGu; y1=item.alongGu-halfW; x2=item.edgeGu+depthGu; y2=item.alongGu+halfW; break;
     }
     return gx >= x1-THRESH && gx <= x2+THRESH && gy >= y1-THRESH && gy <= y2+THRESH;
   }
@@ -4033,11 +4039,12 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       const treads = data.treads;
       const depthGu = (treads * TREAD_DEPTH_MM) / FT2;
       let x1, y1, w, h;
+      const ghHalfW = STEPS_WIDTH_GU / 2;
       switch (hoverEdge.side) {
-        case 'front': x1=hoverEdge.alongGu*CELL; y1=(hoverEdge.edgeGu-depthGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
-        case 'back':  x1=hoverEdge.alongGu*CELL; y1=hoverEdge.edgeGu*CELL; w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
-        case 'left':  x1=(hoverEdge.edgeGu-depthGu)*CELL; y1=hoverEdge.alongGu*CELL; w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
-        case 'right': x1=hoverEdge.edgeGu*CELL; y1=hoverEdge.alongGu*CELL; w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+        case 'front': x1=(hoverEdge.alongGu-ghHalfW)*CELL; y1=(hoverEdge.edgeGu-depthGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
+        case 'back':  x1=(hoverEdge.alongGu-ghHalfW)*CELL; y1=hoverEdge.edgeGu*CELL; w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
+        case 'left':  x1=(hoverEdge.edgeGu-depthGu)*CELL; y1=(hoverEdge.alongGu-ghHalfW)*CELL; w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+        case 'right': x1=hoverEdge.edgeGu*CELL; y1=(hoverEdge.alongGu-ghHalfW)*CELL; w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
       }
       ctx.globalAlpha = 0.6;
       ctx.fillStyle = 'rgba(245,158,11,0.25)'; ctx.fillRect(x1, y1, w, h);
@@ -4128,20 +4135,20 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
         p.tier === activeTierId && p.category === 'panel' &&
         fx >= p.gx && fx < p.gx + p.gw && fy >= p.gy && fy < p.gy + p.gh
       );
-      // 2. Steps — visual bounding box with small buffer
-      // NOTE: client stores alongGu as the left/top edge (not centre), matching drawStepsOnCanvas.
+      // 2. Steps — visual bounding box with small buffer (alongGu is the centre)
       if (!hit) {
         const BUF = 0.3;
         hit = panels.slice().reverse().find(p => {
           if (p.tier !== activeTierId || p.category !== 'steps') return false;
           const data = STEPS_DATA[p.heightKey];
           const dGu  = (data.treads * TREAD_DEPTH_MM) / FT2;
+          const halfW = STEPS_WIDTH_GU / 2;
           let x1, y1, x2, y2;
           switch (p.side) {
-            case 'front': x1=p.alongGu; y1=p.edgeGu-dGu; x2=p.alongGu+STEPS_WIDTH_GU; y2=p.edgeGu;               break;
-            case 'back':  x1=p.alongGu; y1=p.edgeGu;     x2=p.alongGu+STEPS_WIDTH_GU; y2=p.edgeGu+dGu;           break;
-            case 'left':  x1=p.edgeGu-dGu; y1=p.alongGu; x2=p.edgeGu;                 y2=p.alongGu+STEPS_WIDTH_GU; break;
-            case 'right': x1=p.edgeGu;     y1=p.alongGu; x2=p.edgeGu+dGu;             y2=p.alongGu+STEPS_WIDTH_GU; break;
+            case 'front': x1=p.alongGu-halfW; y1=p.edgeGu-dGu; x2=p.alongGu+halfW; y2=p.edgeGu;     break;
+            case 'back':  x1=p.alongGu-halfW; y1=p.edgeGu;     x2=p.alongGu+halfW; y2=p.edgeGu+dGu; break;
+            case 'left':  x1=p.edgeGu-dGu; y1=p.alongGu-halfW; x2=p.edgeGu;        y2=p.alongGu+halfW; break;
+            case 'right': x1=p.edgeGu;     y1=p.alongGu-halfW; x2=p.edgeGu+dGu;   y2=p.alongGu+halfW; break;
           }
           return fx >= x1-BUF && fx <= x2+BUF && fy >= y1-BUF && fy <= y2+BUF;
         });
@@ -4192,12 +4199,13 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       } else if (hit.category === 'steps') {
         const data  = STEPS_DATA[hit.heightKey];
         const dGu   = (data.treads * TREAD_DEPTH_MM) / FT2;
+        const halfW = STEPS_WIDTH_GU / 2;
         let x1, y1, w, h;
         switch (hit.side) {
-          case 'front': x1=hit.alongGu*CELL; y1=(hit.edgeGu-dGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;           break;
-          case 'back':  x1=hit.alongGu*CELL; y1=hit.edgeGu*CELL;       w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;           break;
-          case 'left':  x1=(hit.edgeGu-dGu)*CELL; y1=hit.alongGu*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL;           break;
-          case 'right': x1=hit.edgeGu*CELL;       y1=hit.alongGu*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL;           break;
+          case 'front': x1=(hit.alongGu-halfW)*CELL; y1=(hit.edgeGu-dGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;    break;
+          case 'back':  x1=(hit.alongGu-halfW)*CELL; y1=hit.edgeGu*CELL;       w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;    break;
+          case 'left':  x1=(hit.edgeGu-dGu)*CELL;   y1=(hit.alongGu-halfW)*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+          case 'right': x1=hit.edgeGu*CELL;          y1=(hit.alongGu-halfW)*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
         }
         ctx.fillRect(x1, y1, w, h);
         ctx.strokeRect(x1, y1, w, h);
@@ -4251,12 +4259,13 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
       ctx.strokeRect(orig.gx*CELL+1, orig.gy*CELL+1, orig.gw*CELL-2, orig.gh*CELL-2);
     } else if (orig.category === 'steps') {
       const dGu = (STEPS_DATA[orig.heightKey].treads * TREAD_DEPTH_MM) / FT2;
+      const halfW = STEPS_WIDTH_GU / 2;
       let ox, oy, ow, oh;
       switch (orig.side) {
-        case 'front': ox=orig.alongGu*CELL;       oy=(orig.edgeGu-dGu)*CELL; ow=STEPS_WIDTH_GU*CELL; oh=dGu*CELL;           break;
-        case 'back':  ox=orig.alongGu*CELL;       oy=orig.edgeGu*CELL;       ow=STEPS_WIDTH_GU*CELL; oh=dGu*CELL;           break;
-        case 'left':  ox=(orig.edgeGu-dGu)*CELL;  oy=orig.alongGu*CELL;      ow=dGu*CELL; oh=STEPS_WIDTH_GU*CELL;           break;
-        case 'right': ox=orig.edgeGu*CELL;         oy=orig.alongGu*CELL;      ow=dGu*CELL; oh=STEPS_WIDTH_GU*CELL;           break;
+        case 'front': ox=(orig.alongGu-halfW)*CELL; oy=(orig.edgeGu-dGu)*CELL; ow=STEPS_WIDTH_GU*CELL; oh=dGu*CELL;    break;
+        case 'back':  ox=(orig.alongGu-halfW)*CELL; oy=orig.edgeGu*CELL;       ow=STEPS_WIDTH_GU*CELL; oh=dGu*CELL;    break;
+        case 'left':  ox=(orig.edgeGu-dGu)*CELL;   oy=(orig.alongGu-halfW)*CELL; ow=dGu*CELL; oh=STEPS_WIDTH_GU*CELL; break;
+        case 'right': ox=orig.edgeGu*CELL;          oy=(orig.alongGu-halfW)*CELL; ow=dGu*CELL; oh=STEPS_WIDTH_GU*CELL; break;
       }
       ctx.strokeRect(ox, oy, ow, oh);
     } else if (orig.category === 'handrail') {
@@ -4290,12 +4299,13 @@ function redraw(hoverGx = -1, hoverGy = -1, hoverEdge = null) {
         ctx.fillText(PANEL_LABELS[ghost.type], (ghost.gx + ghost.gw/2)*CELL, (ghost.gy + ghost.gh/2)*CELL);
       } else if (ghost.category === 'steps') {
         const dGu  = (STEPS_DATA[ghost.heightKey].treads * TREAD_DEPTH_MM) / FT2;
+        const halfW = STEPS_WIDTH_GU / 2;
         let x1, y1, w, h;
         switch (ghost.edge.side) {
-          case 'front': x1=ghost.edge.alongGu*CELL;       y1=(ghost.edge.edgeGu-dGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;           break;
-          case 'back':  x1=ghost.edge.alongGu*CELL;       y1=ghost.edge.edgeGu*CELL;       w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;           break;
-          case 'left':  x1=(ghost.edge.edgeGu-dGu)*CELL;  y1=ghost.edge.alongGu*CELL;      w=dGu*CELL; h=STEPS_WIDTH_GU*CELL;           break;
-          case 'right': x1=ghost.edge.edgeGu*CELL;         y1=ghost.edge.alongGu*CELL;      w=dGu*CELL; h=STEPS_WIDTH_GU*CELL;           break;
+          case 'front': x1=(ghost.edge.alongGu-halfW)*CELL; y1=(ghost.edge.edgeGu-dGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;    break;
+          case 'back':  x1=(ghost.edge.alongGu-halfW)*CELL; y1=ghost.edge.edgeGu*CELL;       w=STEPS_WIDTH_GU*CELL; h=dGu*CELL;    break;
+          case 'left':  x1=(ghost.edge.edgeGu-dGu)*CELL;   y1=(ghost.edge.alongGu-halfW)*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+          case 'right': x1=ghost.edge.edgeGu*CELL;          y1=(ghost.edge.alongGu-halfW)*CELL; w=dGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
         }
         ctx.globalAlpha = 0.8;
         ctx.fillRect(x1, y1, w, h); ctx.strokeRect(x1, y1, w, h);
@@ -4321,12 +4331,14 @@ function drawStepsOnCanvas(s) {
   const data = STEPS_DATA[s.heightKey];
   const treads = data.treads;
   const depthGu = (treads * TREAD_DEPTH_MM) / FT2;
+  // Position: centred on alongGu, extending away from stage
+  const halfW = STEPS_WIDTH_GU / 2;
   let x1, y1, w, h;
   switch (s.side) {
-    case 'front': x1=s.alongGu*CELL; y1=(s.edgeGu-depthGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
-    case 'back':  x1=s.alongGu*CELL; y1=s.edgeGu*CELL;           w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
-    case 'left':  x1=(s.edgeGu-depthGu)*CELL; y1=s.alongGu*CELL; w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
-    case 'right': x1=s.edgeGu*CELL; y1=s.alongGu*CELL;           w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+    case 'front': x1=(s.alongGu-halfW)*CELL; y1=(s.edgeGu-depthGu)*CELL; w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
+    case 'back':  x1=(s.alongGu-halfW)*CELL; y1=s.edgeGu*CELL;           w=STEPS_WIDTH_GU*CELL; h=depthGu*CELL; break;
+    case 'left':  x1=(s.edgeGu-depthGu)*CELL; y1=(s.alongGu-halfW)*CELL; w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
+    case 'right': x1=s.edgeGu*CELL; y1=(s.alongGu-halfW)*CELL;           w=depthGu*CELL; h=STEPS_WIDTH_GU*CELL; break;
   }
   const isSelected = s.id === selectedId;
   ctx.fillStyle   = isSelected ? 'rgba(245,158,11,0.45)' : 'rgba(245,158,11,0.25)';
@@ -5732,7 +5744,7 @@ function setQuoteStatus(cls, msg) {
 }
 function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes) {
   return JSON.stringify({
-    version: 1, exportedAt: new Date().toISOString(),
+    version: 2, exportedAt: new Date().toISOString(),
     event: { eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes },
     tiers, panels, ramps, nextId, nextRampId,
     config: {

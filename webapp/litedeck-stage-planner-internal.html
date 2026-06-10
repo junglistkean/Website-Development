@@ -2802,7 +2802,7 @@ function resolveDragGhost(gx, gy) {
 // ── Save / Load ───────────────────────────────────────────────────────────────
 function saveLayout(){
   const data={
-    version:1,
+    version:2,
     tiers:tiers,
     panels:panels,
     ramps:ramps,
@@ -2826,6 +2826,18 @@ function saveLayout(){
   URL.revokeObjectURL(a.href);
 }
 
+// v2+ layouts store a step's alongGu as its CENTRE. v1 CLIENT exports
+// (identified by their exportedAt/config keys) stored the left/top start —
+// convert by adding half the step width. v1 internal saves (savedAt, no
+// config) are already centre-based and must not be shifted.
+function normaliseStepsConvention(data){
+  if((data.version||1)>=2)return;
+  if(!('exportedAt' in data)&&!('config' in data))return;
+  for(const p of data.panels||[]){
+    if(p.category==='steps')p.alongGu+=STEPS_WIDTH_GU/2;
+  }
+}
+
 function loadLayout(e){
   const file=e.target.files[0];
   if(!file)return;
@@ -2834,6 +2846,7 @@ function loadLayout(e){
     try{
       const data=JSON.parse(ev.target.result);
       if(!data.tiers||!data.panels)throw new Error('Invalid layout file');
+      normaliseStepsConvention(data);
       tiers=data.tiers;
       panels=data.panels;
       ramps=data.ramps||[];
@@ -7946,7 +7959,7 @@ function setQuoteStatus(cls, msg) {
 }
 function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes) {
   return JSON.stringify({
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     event: { eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes },
     tiers,
@@ -8170,6 +8183,8 @@ async function submitQuote() {
   const prepopulate = {
     eventName,
     eventDates,
+    dateStart: (!loadInTbc  && loadInDate)  ? loadInDate  : null,
+    dateEnd:   (!loadOutTbc && loadOutDate) ? loadOutDate : null,
     eventVenue: venue,
     companyName,
     clientName: contactName,
@@ -8190,6 +8205,7 @@ async function submitQuote() {
 }
 function importLayoutJson(jsonString) {
   const data = JSON.parse(jsonString);
+  normaliseStepsConvention(data);
   tiers        = data.tiers;
   panels       = data.panels;
   nextId       = data.nextId;

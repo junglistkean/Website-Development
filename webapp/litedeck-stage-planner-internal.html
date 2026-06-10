@@ -6916,26 +6916,43 @@ function calcBracing() {
   const tierPanels = panels.filter(p => p.category === 'panel');
   if (!tierPanels.length) return null;
   const jackMin = getCfgMm('jack');
+  // A leg qualifies for bracing at >= this ACTUAL length, measured from its
+  // true support (deck below or floor) — not the tier's finished height.
+  const BRACE_LEG_THRESHOLD_MM = 900;
+  // A tie run may bridge a gap only when every gap cell is covered overhead
+  // by deck of any tier AND the unsupported span stays within this limit.
+  const BRIDGE_SPAN_LIMIT_MM = 3000;
   const results = [];
 
   for (const tier of tiers) {
     const tp = tierPanels.filter(p => p.tier === tier.id);
     if (!tp.length) continue;
     const finH = tier.finishedHeight;
-    const repLeg = calcLeg(finH, 0, 'corner');
-    const legMm = repLeg.legMm > 0 ? repLeg.legMm : finH;
-    const exposedTube = legMm - PANEL_BODY_MM;
     const horizBraceH = jackMin;
 
-    if (finH < 900) {
+    if (finH < BRACE_LEG_THRESHOLD_MM) {
       results.push({ tier, finH, status: 'none', reason: `Finished height ${finH}mm — below 900mm. No bracing required.` });
       continue;
     }
-    const highStage = finH > 1600;
-    const needsPlan = finH > 1600;
 
     const nodes = computeNodes(tier.id);
     if (!nodes.size) continue;
+
+    // Per-leg qualification — actual leg length from true support
+    const legH       = n => finH - n.floorHeight;
+    const qualifying = n => legH(n) >= BRACE_LEG_THRESHOLD_MM;
+    let maxLegH = 0;
+    for (const [, n] of nodes) maxLegH = Math.max(maxLegH, legH(n));
+    if (maxLegH < BRACE_LEG_THRESHOLD_MM) {
+      results.push({ tier, finH, status: 'none', reason: `No leg position reaches 900mm — legs bear on deck below. No bracing required.` });
+      continue;
+    }
+
+    const repLeg = calcLeg(maxLegH, 0, 'corner');
+    const legMm = repLeg.legMm > 0 ? repLeg.legMm : maxLegH;
+    const exposedTube = legMm - PANEL_BODY_MM;
+    const highStage = maxLegH > 1600;
+    const needsPlan = maxLegH > 1600;
     const xSet = new Set(), ySet = new Set();
     for (const [, n] of nodes) { xSet.add(n.gx); ySet.add(n.gy); }
     const xs = [...xSet].sort((a,b) => a-b);
@@ -7002,12 +7019,26 @@ function calcBracing() {
     function xNodesInSpan(x0, x1) { return xs.filter(x => x >= x0 && x <= x1).length; }
     function yNodesInSpan(y0, y1) { return ys.filter(y => y >= y0 && y <= y1).length; }
 
+    // A face span qualifies for bracing only if at least one leg on its line
+    // is a qualifying leg — faces qualify independently, no mirroring.
+    function spanHasQualifyingLeg(side, span) {
+      const horiz = side === 'front' || side === 'back';
+      for (const [, n] of nodes) {
+        const onFace = horiz
+          ? (n.gy === span.edgeGu && n.gx >= span.start && n.gx <= span.end)
+          : (n.gx === span.edgeGu && n.gy >= span.start && n.gy <= span.end);
+        if (onFace && qualifying(n)) return true;
+      }
+      return false;
+    }
+
     // ── X-axis diagonal braces ────────────────────────────────────────────────
     const frontSpans = getOuterEdgeSpans('front', tp);
     const backSpans  = getOuterEdgeSpans('back',  tp);
 
-    function addXDiagBraces(spans, defaultLean) {
+    function addXDiagBraces(spans, defaultLean, face) {
       for (const span of spans) {
+        if (!spanHasQualifyingLeg(face, span)) continue;
         const spanMm = (span.end - span.start) * FT2;
         if (spanMm < 1) continue;
 
@@ -7019,7 +7050,7 @@ function calcBracing() {
           // Smaller than one bay — single diagonal
           const diag = bayDiag(spanMm, vertSpan);
           diagBraces.push({
-            axis: 'X', continuous: true,
+            axis: 'X', face, continuous: true,
             bayX: 0, spanBays: 1, yRow: 0, lean: defaultLean,
             x0: span.start, x1: span.end, y: span.edgeGu,
             bayWidthMm: spanMm, vertSpanMm: vertSpan,
@@ -7038,7 +7069,7 @@ function calcBracing() {
           const nXInSpan = xNodesInSpan(span.start, span.end);
           const swivelClamps = 2 + Math.max(0, nXInSpan - 2);
           diagBraces.push({
-            axis: 'X', continuous: true,
+            axis: 'X', face, continuous: true,
             bayX: 0, spanBays: spanBayCount, yRow: 0, lean: defaultLean,
             x0: span.start, x1: span.end, y: span.edgeGu,
             bayWidthMm: spanMm, vertSpanMm: vertSpan,
@@ -7080,7 +7111,7 @@ function calcBracing() {
             const lean = xBracedCount === 1 ? defaultLean : (gi < Math.ceil(xBracedCount / 2) ? 'right' : 'left');
             const swivelClamps = 2 + ((endBay + 1) - startBay - 1);
             diagBraces.push({
-              axis: 'X', continuous: false,
+              axis: 'X', face, continuous: false,
               bayX: startBay, spanBays: endBay - startBay + 1, yRow: 0, lean,
               x0, x1, y: span.edgeGu,
               bayWidthMm: spanW, vertSpanMm: vertSpan,
@@ -7093,15 +7124,16 @@ function calcBracing() {
         }
       }
     }
-    addXDiagBraces(frontSpans, 'right');
-    addXDiagBraces(backSpans, 'left');
+    addXDiagBraces(frontSpans, 'right', 'front');
+    addXDiagBraces(backSpans, 'left', 'back');
 
     // ── Y-axis diagonal braces ────────────────────────────────────────────────
     const leftSpans  = getOuterEdgeSpans('left',  tp);
     const rightSpans = getOuterEdgeSpans('right', tp);
 
-    function addYDiagBraces(spans, defaultLean) {
+    function addYDiagBraces(spans, defaultLean, face) {
       for (const span of spans) {
+        if (!spanHasQualifyingLeg(face, span)) continue;
         const spanMm = (span.end - span.start) * FT2;
         if (spanMm < 1) continue;
 
@@ -7114,7 +7146,7 @@ function calcBracing() {
           const diag = bayDiag(spanMm, vertSpan);
           const swivelClamps = 2;
           diagBraces.push({
-            axis: 'Y', continuous: true,
+            axis: 'Y', face, continuous: true,
             bayY: 0, spanBays: 1, xCol: 0, lean: defaultLean,
             x: span.edgeGu, y0: span.start, y1: span.end,
             bayWidthMm: spanMm, vertSpanMm: vertSpan,
@@ -7135,7 +7167,7 @@ function calcBracing() {
           const nYInSpan = yNodesInSpan(span.start, span.end);
           const swivelClamps = 2 + Math.max(0, nYInSpan - 2);
           diagBraces.push({
-            axis: 'Y', continuous: true,
+            axis: 'Y', face, continuous: true,
             bayY: 0, spanBays: spanBayCount, xCol: 0, lean: defaultLean,
             x: span.edgeGu, y0: span.start, y1: span.end,
             bayWidthMm: spanMm, vertSpanMm: vertSpan,
@@ -7180,7 +7212,7 @@ function calcBracing() {
             const lean = yBracedGroups.length === 1 ? defaultLean : (gi < Math.ceil(yBracedGroups.length / 2) ? 'down' : 'up');
             const swivelClamps = 2 + ((endBay + 1) - startBay - 1);
             diagBraces.push({
-              axis: 'Y', continuous: false,
+              axis: 'Y', face, continuous: false,
               bayY: startBay, spanBays: endBay - startBay + 1, xCol: 0, lean,
               x: span.edgeGu, y0, y1,
               bayWidthMm: spanD, vertSpanMm: vertSpan,
@@ -7193,28 +7225,48 @@ function calcBracing() {
         }
       }
     }
-    addYDiagBraces(leftSpans, 'down');
-    addYDiagBraces(rightSpans, 'up');
+    addYDiagBraces(leftSpans, 'down', 'left');
+    addYDiagBraces(rightSpans, 'up', 'right');
   
-    // ── Plan (horizontal) bracing ─────────────────────────────────────────────
-    function xSpanAtYRow(yGu) {
-      let x0 = Infinity, x1 = -Infinity;
-      for (const p of tp) {
-        if (p.gy === yGu || p.gy + p.gh === yGu) {
-          x0 = Math.min(x0, p.gx); x1 = Math.max(x1, p.gx + p.gw);
-        }
-      }
-      return (x0 === Infinity) ? null : { x0, x1 };
+    // ── Plan (horizontal) bracing — true-shape tie runs ───────────────────────
+    // A run follows contiguous legs under this tier's deck along a leg line.
+    // At a gap the run breaks, unless every gap cell is covered overhead by
+    // deck of ANY tier (tube hidden beneath a platform — no trip hazard) AND
+    // the unsupported leg-to-leg span is within BRIDGE_SPAN_LIMIT_MM.
+    // Does panel q cover unit cell [cell, cell+1) on the line at lineGu?
+    function coversCell(q, cell, lineGu, horiz) {
+      return horiz
+        ? (q.gx <= cell && cell + 1 <= q.gx + q.gw && q.gy <= lineGu && lineGu <= q.gy + q.gh)
+        : (q.gy <= cell && cell + 1 <= q.gy + q.gh && q.gx <= lineGu && lineGu <= q.gx + q.gw);
     }
 
-    function ySpanAtXCol(xGu) {
-      let y0 = Infinity, y1 = -Infinity;
-      for (const p of tp) {
-        if (p.gx === xGu || p.gx + p.gw === xGu) {
-          y0 = Math.min(y0, p.gy); y1 = Math.max(y1, p.gy + p.gh);
+    function buildTieRuns(legsAlong, lineGu, horiz) {
+      const runs = [];
+      let run = null;
+      for (const a of legsAlong) {
+        if (run) {
+          const prev = run.legs[run.legs.length - 1];
+          let solid = true, overhead = true;
+          for (let c = prev; c < a; c++) {
+            if (solid && !tp.some(q => coversCell(q, c, lineGu, horiz))) solid = false;
+            if (overhead && !panels.some(q => q.category === 'panel' && coversCell(q, c, lineGu, horiz))) overhead = false;
+            if (!solid && !overhead) break;
+          }
+          const joined = solid || (overhead && (a - prev) * FT2 <= BRIDGE_SPAN_LIMIT_MM);
+          if (joined) { run.legs.push(a); continue; }
+          runs.push(run); run = null;
         }
+        run = { legs: [a] };
       }
-      return (y0 === Infinity) ? null : { y0, y1 };
+      if (run) runs.push(run);
+      // A run needs >= 2 legs and at least one qualifying leg
+      return runs.filter(r => {
+        if (r.legs.length < 2) return false;
+        return r.legs.some(a => {
+          const n = nodes.get(horiz ? `${a},${lineGu}` : `${lineGu},${a}`);
+          return n && qualifying(n);
+        });
+      });
     }
 
     function planBracedPositions(total, everyOther) {
@@ -7238,6 +7290,16 @@ function calcBracing() {
     const bracedYPositions = planBracedPositions(nY, highStage);
     const bracedXPositions = planBracedPositions(nX, highStage);
 
+    // Braced lines = index-spaced selection PLUS every line carrying an
+    // exposed outer-face span with qualifying legs (crossbar edges, notch
+    // faces) — the diagonals on those faces need their feet tied.
+    const bracedYGus = new Set(bracedYPositions.map(i => ys[i]));
+    for (const s of frontSpans) if (spanHasQualifyingLeg('front', s)) bracedYGus.add(s.edgeGu);
+    for (const s of backSpans)  if (spanHasQualifyingLeg('back',  s)) bracedYGus.add(s.edgeGu);
+    const bracedXGus = new Set(bracedXPositions.map(i => xs[i]));
+    for (const s of leftSpans)  if (spanHasQualifyingLeg('left',  s)) bracedXGus.add(s.edgeGu);
+    for (const s of rightSpans) if (spanHasQualifyingLeg('right', s)) bracedXGus.add(s.edgeGu);
+
     const planBraces = [];
     const planLevels = needsPlan
       ? [{ name: 'Base level', height: horizBraceH },
@@ -7245,31 +7307,31 @@ function calcBracing() {
       : [{ name: 'Base level', height: horizBraceH }];
 
     for (const level of planLevels) {
-      for (const yIdx of bracedYPositions) {
-        const yGu = ys[yIdx];
-        const span = xSpanAtYRow(yGu);
-        if (!span) continue;
-        const spanMm = (span.x1 - span.x0) * FT2;
-        const nXInSpan = xNodesInSpan(span.x0, span.x1);
-        const sol = solveTubeCombination(Math.round(spanMm));
-        planBraces.push({ level: level.name, heightMm: level.height, axis: 'X',
-          edgeY: yGu, x0: span.x0, x1: span.x1,
-          calcLengthMm: Math.round(spanMm), solution: sol,
-          tubeCount: sol.tubes.length, rightAngleClamps: nXInSpan,
-          sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
+      for (const yGu of [...bracedYGus].sort((a,b) => a-b)) {
+        const rowLegs = [...nodes.values()].filter(n => n.gy === yGu).map(n => n.gx).sort((a,b) => a-b);
+        for (const run of buildTieRuns(rowLegs, yGu, true)) {
+          const x0 = run.legs[0], x1 = run.legs[run.legs.length - 1];
+          const spanMm = (x1 - x0) * FT2;
+          const sol = solveTubeCombination(Math.round(spanMm));
+          planBraces.push({ level: level.name, heightMm: level.height, axis: 'X',
+            edgeY: yGu, x0, x1,
+            calcLengthMm: Math.round(spanMm), solution: sol,
+            tubeCount: sol.tubes.length, rightAngleClamps: run.legs.length,
+            sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
+        }
       }
-      for (const xIdx of bracedXPositions) {
-        const xGu = xs[xIdx];
-        const span = ySpanAtXCol(xGu);
-        if (!span) continue;
-        const spanMm = (span.y1 - span.y0) * FT2;
-        const nYInSpan = yNodesInSpan(span.y0, span.y1);
-        const sol = solveTubeCombination(Math.round(spanMm));
-        planBraces.push({ level: level.name, heightMm: level.height, axis: 'Y',
-          edgeX: xGu, y0: span.y0, y1: span.y1,
-          calcLengthMm: Math.round(spanMm), solution: sol,
-          tubeCount: sol.tubes.length, rightAngleClamps: nYInSpan,
-          sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
+      for (const xGu of [...bracedXGus].sort((a,b) => a-b)) {
+        const colLegs = [...nodes.values()].filter(n => n.gx === xGu).map(n => n.gy).sort((a,b) => a-b);
+        for (const run of buildTieRuns(colLegs, xGu, false)) {
+          const y0 = run.legs[0], y1 = run.legs[run.legs.length - 1];
+          const spanMm = (y1 - y0) * FT2;
+          const sol = solveTubeCombination(Math.round(spanMm));
+          planBraces.push({ level: level.name, heightMm: level.height, axis: 'Y',
+            edgeX: xGu, y0, y1,
+            calcLengthMm: Math.round(spanMm), solution: sol,
+            tubeCount: sol.tubes.length, rightAngleClamps: run.legs.length,
+            sleeveClamps: sol.sleeveClamps, extraRAClamps: sol.extraRAClamps });
+        }
       }
     }
 
@@ -7636,18 +7698,33 @@ function drawBracingElev(r, face = 'front') {
     bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
   }
 
-  // Horizontal tie tube at horizBraceH — full width
+  // Horizontal tie tube at horizBraceH — drawn per actual tie run
   bctx.strokeStyle = '#22c55e99'; bctx.lineWidth = 3; bctx.lineCap = 'round';
-  bctx.beginPath(); bctx.moveTo(legXPxM[0], yPx(r.horizBraceH)); bctx.lineTo(legXPxM[nLegs-1], yPx(r.horizBraceH)); bctx.stroke();
+  for (const pb of r.planBraces) {
+    if (pb.axis !== 'X' || pb.level !== 'Base level') continue;
+    const ti0 = r.xs.indexOf(pb.x0), ti1 = r.xs.indexOf(pb.x1);
+    if (ti0 < 0 || ti1 < 0) continue;
+    bctx.beginPath(); bctx.moveTo(mxPx(legXPx[ti0]), yPx(r.horizBraceH)); bctx.lineTo(mxPx(legXPx[ti1]), yPx(r.horizBraceH)); bctx.stroke();
+  }
 
-  // Deck underside line
-  bctx.strokeStyle = '#3b82f655'; bctx.lineWidth = 2;
-  bctx.setLineDash([4,3]);
-  bctx.beginPath(); bctx.moveTo(legXPx[0], yPx(r.exposedTube)); bctx.lineTo(legXPx[nLegs-1], yPx(r.exposedTube)); bctx.stroke();
-  bctx.setLineDash([]);
-  // Deck body
-  bctx.fillStyle = '#3b82f622';
-  bctx.fillRect(legXPx[0], yPx(r.exposedTube + PANEL_BODY_MM), legXPx[nLegs-1]-legXPx[0], yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  // Deck underside + body — drawn per projected deck coverage (no deck over voids)
+  const tpDeck = panels.filter(p => p.category === 'panel' && p.tier === r.tier.id);
+  const deckIvals = [];
+  for (let x = r.minX; x < r.maxX; x++) {
+    if (!tpDeck.some(p => p.gx <= x && x + 1 <= p.gx + p.gw)) continue;
+    if (deckIvals.length && deckIvals[deckIvals.length-1].end === x) deckIvals[deckIvals.length-1].end = x + 1;
+    else deckIvals.push({ start: x, end: x + 1 });
+  }
+  for (const iv of deckIvals) {
+    const pxA = mxPx(xPx((iv.start - r.minX) * FT2)), pxB = mxPx(xPx((iv.end - r.minX) * FT2));
+    const dx0 = Math.min(pxA, pxB), dw = Math.abs(pxB - pxA);
+    bctx.strokeStyle = '#3b82f655'; bctx.lineWidth = 2;
+    bctx.setLineDash([4,3]);
+    bctx.beginPath(); bctx.moveTo(dx0, yPx(r.exposedTube)); bctx.lineTo(dx0 + dw, yPx(r.exposedTube)); bctx.stroke();
+    bctx.setLineDash([]);
+    bctx.fillStyle = '#3b82f622';
+    bctx.fillRect(dx0, yPx(r.exposedTube + PANEL_BODY_MM), dw, yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  }
 
   // Build xs→pixel lookup for multi-bay span support
   const xsToLegIdx = {};
@@ -7657,8 +7734,7 @@ function drawBracingElev(r, face = 'front') {
   const xBraceDrawn = new Set();
   for (const b of r.diagBraces) {
     if (b.axis !== 'X') continue;
-    const faceY = face === 'front' ? r.ys[0] : r.ys[r.ys.length - 1];
-    if (b.y !== faceY) continue;
+    if (b.face !== face) continue;
     const k = b.x0 + ',' + b.x1 + ',' + b.y + ',' + b.lean;
     if (xBraceDrawn.has(k)) continue; xBraceDrawn.add(k);
     // Map grid unit positions to canvas px via leg index
@@ -7706,7 +7782,7 @@ function drawBracingElev(r, face = 'front') {
 
   // Angle label per braced bay
   for (const b of r.diagBraces) {
-    if (b.axis !== 'X') continue;
+    if (b.axis !== 'X' || b.face !== face) continue;
     const lx0 = legXPx[b.bayX], lx1 = legXPx[b.bayX+1];
     const cx = (lx0+lx1)/2;
     const cy = (yPx(r.exposedTube)+yPx(r.horizBraceH))/2;
@@ -7798,16 +7874,32 @@ function drawBracingElevY(r, face = 'left') {
     bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
   }
 
-  // Horizontal tie
+  // Horizontal tie — drawn per actual tie run
   bctx.strokeStyle = '#22c55e99'; bctx.lineWidth = 3; bctx.lineCap = 'round';
-  bctx.beginPath(); bctx.moveTo(legXPxM[0], yPx(r.horizBraceH)); bctx.lineTo(legXPxM[nLegs-1], yPx(r.horizBraceH)); bctx.stroke();
+  for (const pb of r.planBraces) {
+    if (pb.axis !== 'Y' || pb.level !== 'Base level') continue;
+    const ti0 = r.ys.indexOf(pb.y0), ti1 = r.ys.indexOf(pb.y1);
+    if (ti0 < 0 || ti1 < 0) continue;
+    bctx.beginPath(); bctx.moveTo(mxPx(legXPx[ti0]), yPx(r.horizBraceH)); bctx.lineTo(mxPx(legXPx[ti1]), yPx(r.horizBraceH)); bctx.stroke();
+  }
 
-  // Deck
-  bctx.strokeStyle = '#3b82f655'; bctx.lineWidth = 2; bctx.setLineDash([4,3]);
-  bctx.beginPath(); bctx.moveTo(legXPxM[0], yPx(r.exposedTube)); bctx.lineTo(legXPxM[nLegs-1], yPx(r.exposedTube)); bctx.stroke();
-  bctx.setLineDash([]);
-  bctx.fillStyle = '#3b82f622';
-  bctx.fillRect(legXPxM[0], yPx(r.exposedTube + PANEL_BODY_MM), legXPxM[nLegs-1]-legXPxM[0], yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  // Deck underside + body — drawn per projected deck coverage (no deck over voids)
+  const tpDeck = panels.filter(p => p.category === 'panel' && p.tier === r.tier.id);
+  const deckIvals = [];
+  for (let y = r.minY; y < r.maxY; y++) {
+    if (!tpDeck.some(p => p.gy <= y && y + 1 <= p.gy + p.gh)) continue;
+    if (deckIvals.length && deckIvals[deckIvals.length-1].end === y) deckIvals[deckIvals.length-1].end = y + 1;
+    else deckIvals.push({ start: y, end: y + 1 });
+  }
+  for (const iv of deckIvals) {
+    const pxA = mxPx(xPx((iv.start - r.minY) * FT2)), pxB = mxPx(xPx((iv.end - r.minY) * FT2));
+    const dx0 = Math.min(pxA, pxB), dw = Math.abs(pxB - pxA);
+    bctx.strokeStyle = '#3b82f655'; bctx.lineWidth = 2; bctx.setLineDash([4,3]);
+    bctx.beginPath(); bctx.moveTo(dx0, yPx(r.exposedTube)); bctx.lineTo(dx0 + dw, yPx(r.exposedTube)); bctx.stroke();
+    bctx.setLineDash([]);
+    bctx.fillStyle = '#3b82f622';
+    bctx.fillRect(dx0, yPx(r.exposedTube + PANEL_BODY_MM), dw, yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  }
 
   // Build ys→leg-index lookup for multi-bay span support
   const ysToLegIdx = {};
@@ -7816,15 +7908,10 @@ function drawBracingElevY(r, face = 'left') {
   });
 
   // Y-axis diagonal braces — uses y0/y1 grid values mapped to canvas px
-  const tp = panels.filter(p => p.category === 'panel' && p.tier === r.tier.id);
   const drawn = new Set();
   for (const b of r.diagBraces) {
     if (b.axis !== 'Y') continue;
-    const spanPanels = tp.filter(p => p.gy < b.y1 && p.gy + p.gh > b.y0);
-    const faceX = face === 'left'
-      ? Math.min(...spanPanels.map(p => p.gx))
-      : Math.max(...spanPanels.map(p => p.gx + p.gw));
-    if (b.x !== faceX) continue;
+    if (b.face !== face) continue;
     const k = b.x + ',' + b.y0 + ',' + b.y1 + ',' + b.lean;
     if (drawn.has(k)) continue; drawn.add(k);
     const i0 = ysToLegIdx[b.y0] ?? 0;

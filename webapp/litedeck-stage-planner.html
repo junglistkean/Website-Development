@@ -900,8 +900,10 @@
         <div id="bracing-tier-btns" style="display:flex;gap:6px;"></div>
         <div style="margin-left:12px; display:flex; gap:4px;">
           <button class="tier-btn active-tier" id="bv-btn-plan"   onclick="setBracingSubView('plan')">Plan view</button>
-          <button class="tier-btn"             id="bv-btn-elevX"  onclick="setBracingSubView('elevX')">Elevation — width (X)</button>
-          <button class="tier-btn"             id="bv-btn-elevY"  onclick="setBracingSubView('elevY')">Elevation — depth (Y)</button>
+          <button class="tier-btn"             id="bv-btn-elevX"  onclick="setBracingSubView('elevX')">Elevation — front (X)</button>
+          <button class="tier-btn"             id="bv-btn-elevXB" onclick="setBracingSubView('elevXB')">Elevation — back (X)</button>
+          <button class="tier-btn"             id="bv-btn-elevY"  onclick="setBracingSubView('elevY')">Elevation — left (Y)</button>
+          <button class="tier-btn"             id="bv-btn-elevYR" onclick="setBracingSubView('elevYR')">Elevation — right (Y)</button>
         </div>
         <div id="bracing-legend" style="margin-left:auto; display:flex; gap:12px; align-items:center; font-size:11px; color:var(--muted);">
           <span id="leg-plan"><span style="display:inline-block;width:16px;height:3px;background:#22c55e;vertical-align:middle;border-radius:2px;margin-right:4px;"></span>Horizontal tie</span>
@@ -909,8 +911,10 @@
         </div>
       </div>
       <canvas id="bracingCanvasPlan" style="display:block; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
-      <canvas id="bracingCanvasElev"  style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
-      <canvas id="bracingCanvasElevY" style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <canvas id="bracingCanvasElev"   style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <canvas id="bracingCanvasElevXB" style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <canvas id="bracingCanvasElevY"  style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
+      <canvas id="bracingCanvasElevYR" style="display:none; border:1px solid var(--border); border-radius:4px; flex-shrink:0;"></canvas>
       <div id="bracing-content" style="max-width:900px;"></div>
     </div>
   </div>
@@ -5349,25 +5353,26 @@ function generateElevationImages() {
   const prevDisplay=bracingContainer.style.display;
   bracingContainer.style.display='flex';
   const firstBracingTier=tiers.find(t=>panels.some(p=>p.category==='panel'&&p.tier===t.id));
-  let bracingPlanUrl='',bracingElevXUrl='',bracingElevYUrl='';
+  let bracingPlanUrl='',bracingElevXUrl='',bracingElevXBUrl='',bracingElevYUrl='',bracingElevYRUrl='';
   if (firstBracingTier) {
+    // One render draws all five canvases; capture each directly
     setBracingSubView('plan'); renderBracingView();
-    const bPlan=document.getElementById('bracingCanvasPlan');
-    bracingPlanUrl=bPlan&&bPlan.width>0?bPlan.toDataURL('image/png'):'';
-    setBracingSubView('elevX'); renderBracingView();
-    const bElevX=document.getElementById('bracingCanvasElev');
-    bracingElevXUrl=bElevX&&bElevX.width>0?bElevX.toDataURL('image/png'):'';
-    setBracingSubView('elevY'); renderBracingView();
-    const bElevY=document.getElementById('bracingCanvasElevY');
-    bracingElevYUrl=bElevY&&bElevY.width>0?bElevY.toDataURL('image/png'):'';
+    const cap=id=>{const c=document.getElementById(id);return c&&c.width>0?c.toDataURL('image/png'):'';};
+    bracingPlanUrl  =cap('bracingCanvasPlan');
+    bracingElevXUrl =cap('bracingCanvasElev');
+    bracingElevXBUrl=cap('bracingCanvasElevXB');
+    bracingElevYUrl =cap('bracingCanvasElevY');
+    bracingElevYRUrl=cap('bracingCanvasElevYR');
   }
   bracingContainer.style.display=prevDisplay;
   setBracingSubView(savedSubView);
-  const hasBracing=bracingPlanUrl||bracingElevXUrl||bracingElevYUrl;
+  const hasBracing=bracingPlanUrl||bracingElevXUrl||bracingElevXBUrl||bracingElevYUrl||bracingElevYRUrl;
   const bracingImgHtml=hasBracing?`
     <div class="elevation-item"><p>Bracing — Plan View</p><img src="${bracingPlanUrl}" alt="Bracing plan"></div>
-    <div class="elevation-item"><p>Bracing — Elevation (Width)</p><img src="${bracingElevXUrl}" alt="Bracing elev X"></div>
-    <div class="elevation-item"><p>Bracing — Elevation (Depth)</p><img src="${bracingElevYUrl}" alt="Bracing elev Y"></div>`:'';
+    <div class="elevation-item"><p>Bracing — Elevation Front (X)</p><img src="${bracingElevXUrl}" alt="Bracing elev front"></div>
+    <div class="elevation-item"><p>Bracing — Elevation Back (X)</p><img src="${bracingElevXBUrl}" alt="Bracing elev back"></div>
+    <div class="elevation-item"><p>Bracing — Elevation Left (Y)</p><img src="${bracingElevYUrl}" alt="Bracing elev left"></div>
+    <div class="elevation-item"><p>Bracing — Elevation Right (Y)</p><img src="${bracingElevYRUrl}" alt="Bracing elev right"></div>`:'';
   return `<div class="elevation-section">
     <h2>Layout &amp; Bracing Views</h2>
     <div class="drawings-grid">
@@ -5417,6 +5422,10 @@ function tubeLengthLabel(mm){
 let bracingSubView='plan';
 function setBracingSubView(v){
   bracingSubView=v;
+  document.getElementById('bracingCanvasElevXB').style.display=v==='elevXB'?'block':'none';
+  document.getElementById('bracingCanvasElevYR').style.display=v==='elevYR'?'block':'none';
+  document.getElementById('bv-btn-elevXB').classList.toggle('active-tier',v==='elevXB');
+  document.getElementById('bv-btn-elevYR').classList.toggle('active-tier',v==='elevYR');
   document.getElementById('bracingCanvasPlan').style.display=v==='plan'?'block':'none';
   document.getElementById('bracingCanvasElev').style.display=v==='elevX'?'block':'none';
   document.getElementById('bracingCanvasElevY').style.display=v==='elevY'?'block':'none';
@@ -5424,25 +5433,36 @@ function setBracingSubView(v){
   document.getElementById('bv-btn-elevX').classList.toggle('active-tier',v==='elevX');
   document.getElementById('bv-btn-elevY').classList.toggle('active-tier',v==='elevY');
   document.getElementById('leg-plan').style.display=v==='plan'?'':'none';
-  document.getElementById('leg-elev').style.display=(v==='elevX'||v==='elevY')?'':'none';
+  document.getElementById('leg-elev').style.display=(v==='elevX'||v==='elevXB'||v==='elevY'||v==='elevYR')?'':'none';
 }
 function calcBracing(){
   const tierPanels=panels.filter(p=>p.category==='panel');
   if(!tierPanels.length)return null;
   const jackMin=getCfgMm('jack');
+  // A leg qualifies for bracing at >= this ACTUAL length, measured from its
+  // true support (deck below or floor) — not the tier's finished height.
+  const BRACE_LEG_THRESHOLD_MM=900;
+  // A tie run may bridge a gap only when every gap cell is covered overhead
+  // by deck of any tier AND the unsupported span stays within this limit.
+  const BRIDGE_SPAN_LIMIT_MM=3000;
   const results=[];
   for(const tier of tiers){
     const tp=tierPanels.filter(p=>p.tier===tier.id);
     if(!tp.length)continue;
     const finH=tier.finishedHeight;
-    const repLeg=calcLeg(finH,0,'corner');
-    const legMm=repLeg.legMm>0?repLeg.legMm:finH;
-    const exposedTube=legMm-PANEL_BODY_MM;
     const horizBraceH=jackMin;
-    if(finH<900){results.push({tier,finH,status:'none',reason:`Finished height ${finH}mm — below 900mm. No bracing required.`});continue;}
-    const highStage=finH>1600,needsPlan=finH>1600;
+    if(finH<BRACE_LEG_THRESHOLD_MM){results.push({tier,finH,status:'none',reason:`Finished height ${finH}mm — below 900mm. No bracing required.`});continue;}
     const nodes=computeNodes(tier.id);
     if(!nodes.size)continue;
+    // Per-leg qualification — actual leg length from true support
+    const legH=n=>finH-n.floorHeight;
+    const qualifying=n=>legH(n)>=BRACE_LEG_THRESHOLD_MM;
+    let maxLegH=0;for(const[,n]of nodes)maxLegH=Math.max(maxLegH,legH(n));
+    if(maxLegH<BRACE_LEG_THRESHOLD_MM){results.push({tier,finH,status:'none',reason:`No leg position reaches 900mm — legs bear on deck below. No bracing required.`});continue;}
+    const repLeg=calcLeg(maxLegH,0,'corner');
+    const legMm=repLeg.legMm>0?repLeg.legMm:maxLegH;
+    const exposedTube=legMm-PANEL_BODY_MM;
+    const highStage=maxLegH>1600,needsPlan=maxLegH>1600;
     const xSet=new Set(),ySet=new Set();
     for(const[,n]of nodes){xSet.add(n.gx);ySet.add(n.gy);}
     const xs=[...xSet].sort((a,b)=>a-b),ys=[...ySet].sort((a,b)=>a-b);
@@ -5473,41 +5493,99 @@ function calcBracing(){
     const stageXspanMm=(maxX-minX)*FT2,stageYspanMm=(maxY-minY)*FT2;
     function xNodesInSpan(x0,x1){return xs.filter(x=>x>=x0&&x<=x1).length;}
     function yNodesInSpan(y0,y1){return ys.filter(y=>y>=y0&&y<=y1).length;}
+    // A face span qualifies only if it contains a qualifying leg — faces
+    // qualify independently, no mirroring.
+    function spanHasQualifyingLeg(side,span){
+      const horiz=side==='front'||side==='back';
+      for(const[,n]of nodes){
+        const onFace=horiz?(n.gy===span.edgeGu&&n.gx>=span.start&&n.gx<=span.end):(n.gx===span.edgeGu&&n.gy>=span.start&&n.gy<=span.end);
+        if(onFace&&qualifying(n))return true;
+      }
+      return false;
+    }
     const frontSpans=getOuterEdgeSpans('front',tp),backSpans=getOuterEdgeSpans('back',tp);
-    function addXDiagBraces(spans,defaultLean){
+    function addXDiagBraces(spans,defaultLean,face){
       for(const span of spans){
+        if(!spanHasQualifyingLeg(face,span))continue;
         const spanMm=(span.end-span.start)*FT2;if(spanMm<1)continue;
         const spanXs=xs.filter(x=>x>=span.start&&x<=span.end);
         const spanBayCount=spanXs.length-1;
-        if(spanBayCount<=0){const diag=bayDiag(spanMm,vertSpan);diagBraces.push({axis:'X',continuous:true,bayX:0,spanBays:1,yRow:0,lean:defaultLean,x0:span.start,x1:span.end,y:span.edgeGu,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps:2});continue;}
+        if(spanBayCount<=0){const diag=bayDiag(spanMm,vertSpan);diagBraces.push({axis:'X',face,continuous:true,bayX:0,spanBays:1,yRow:0,lean:defaultLean,x0:span.start,x1:span.end,y:span.edgeGu,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps:2});continue;}
         const useContSpan=spanMm<=CONT_THRESHOLD_MM;
-        if(useContSpan){const diag=bayDiag(spanMm,vertSpan);const nXInSpan=xNodesInSpan(span.start,span.end);const swivelClamps=2+Math.max(0,nXInSpan-2);diagBraces.push({axis:'X',continuous:true,bayX:0,spanBays:spanBayCount,yRow:0,lean:defaultLean,x0:span.start,x1:span.end,y:span.edgeGu,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}
-        else{const xBayW=(spanXs[1]-spanXs[0])*FT2;const xSpan=optimalBaySpan(xBayW,spanBayCount,vertSpan);const xNumGroups=Math.ceil(spanBayCount/xSpan);const xBracedGroups=bracedGroups(xNumGroups,highStage);for(const g of xBracedGroups){const startBay=g*xSpan;const endBay=Math.min(startBay+xSpan-1,spanBayCount-1);const x0=spanXs[startBay];const x1=spanXs[endBay+1];const spanW=(x1-x0)*FT2;const diag=bayDiag(spanW,vertSpan);const lean=xNumGroups===1?defaultLean:(g<Math.ceil(xNumGroups/2)?'right':'left');const swivelClamps=2+((endBay+1)-startBay-1);diagBraces.push({axis:'X',continuous:false,bayX:startBay,spanBays:endBay-startBay+1,yRow:0,lean,x0,x1,y:span.edgeGu,bayWidthMm:spanW,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}}
+        if(useContSpan){const diag=bayDiag(spanMm,vertSpan);const nXInSpan=xNodesInSpan(span.start,span.end);const swivelClamps=2+Math.max(0,nXInSpan-2);diagBraces.push({axis:'X',face,continuous:true,bayX:0,spanBays:spanBayCount,yRow:0,lean:defaultLean,x0:span.start,x1:span.end,y:span.edgeGu,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}
+        else{const xBayW=(spanXs[1]-spanXs[0])*FT2;const xSpan=optimalBaySpan(xBayW,spanBayCount,vertSpan);const xNumGroups=Math.ceil(spanBayCount/xSpan);const xBracedGroups=bracedGroups(xNumGroups,highStage);for(const g of xBracedGroups){const startBay=g*xSpan;const endBay=Math.min(startBay+xSpan-1,spanBayCount-1);const x0=spanXs[startBay];const x1=spanXs[endBay+1];const spanW=(x1-x0)*FT2;const diag=bayDiag(spanW,vertSpan);const lean=xNumGroups===1?defaultLean:(g<Math.ceil(xNumGroups/2)?'right':'left');const swivelClamps=2+((endBay+1)-startBay-1);diagBraces.push({axis:'X',face,continuous:false,bayX:startBay,spanBays:endBay-startBay+1,yRow:0,lean,x0,x1,y:span.edgeGu,bayWidthMm:spanW,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}}
       }
     }
-    addXDiagBraces(frontSpans,'right');addXDiagBraces(backSpans,'left');
+    addXDiagBraces(frontSpans,'right','front');addXDiagBraces(backSpans,'left','back');
     const leftSpans=getOuterEdgeSpans('left',tp),rightSpans=getOuterEdgeSpans('right',tp);
-    function addYDiagBraces(spans,defaultLean){
+    function addYDiagBraces(spans,defaultLean,face){
       for(const span of spans){
+        if(!spanHasQualifyingLeg(face,span))continue;
         const spanMm=(span.end-span.start)*FT2;if(spanMm<1)continue;
         const spanYs=ys.filter(y=>y>=span.start&&y<=span.end);
         const spanBayCount=spanYs.length-1;
-        if(spanBayCount<=0){const diag=bayDiag(spanMm,vertSpan);diagBraces.push({axis:'Y',continuous:true,bayY:0,spanBays:1,xCol:0,lean:defaultLean,x:span.edgeGu,y0:span.start,y1:span.end,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps:2});continue;}
+        if(spanBayCount<=0){const diag=bayDiag(spanMm,vertSpan);diagBraces.push({axis:'Y',face,continuous:true,bayY:0,spanBays:1,xCol:0,lean:defaultLean,x:span.edgeGu,y0:span.start,y1:span.end,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps:2});continue;}
         const useContSpan=spanMm<=CONT_THRESHOLD_MM;
-        if(useContSpan){const diag=bayDiag(spanMm,vertSpan);const nYInSpan=yNodesInSpan(span.start,span.end);const swivelClamps=2+Math.max(0,nYInSpan-2);diagBraces.push({axis:'Y',continuous:true,bayY:0,spanBays:spanBayCount,xCol:0,lean:defaultLean,x:span.edgeGu,y0:span.start,y1:span.end,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}
-        else{const yBayW=(spanYs[1]-spanYs[0])*FT2;const ySpan=optimalBaySpan(yBayW,spanBayCount,vertSpan);const yNumGroups=Math.ceil(spanBayCount/ySpan);const yBracedGroups=bracedGroups(yNumGroups,highStage);for(const g of yBracedGroups){const startBay=g*ySpan;const endBay=Math.min(startBay+ySpan-1,spanBayCount-1);const y0=spanYs[startBay];const y1=spanYs[endBay+1];const spanD=(y1-y0)*FT2;const diag=bayDiag(spanD,vertSpan);const lean=yNumGroups===1?defaultLean:(g<Math.ceil(yNumGroups/2)?'down':'up');const swivelClamps=2+((endBay+1)-startBay-1);diagBraces.push({axis:'Y',continuous:false,bayY:startBay,spanBays:endBay-startBay+1,xCol:0,lean,x:span.edgeGu,y0,y1,bayWidthMm:spanD,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}}
+        if(useContSpan){const diag=bayDiag(spanMm,vertSpan);const nYInSpan=yNodesInSpan(span.start,span.end);const swivelClamps=2+Math.max(0,nYInSpan-2);diagBraces.push({axis:'Y',face,continuous:true,bayY:0,spanBays:spanBayCount,xCol:0,lean:defaultLean,x:span.edgeGu,y0:span.start,y1:span.end,bayWidthMm:spanMm,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}
+        else{const yBayW=(spanYs[1]-spanYs[0])*FT2;const ySpan=optimalBaySpan(yBayW,spanBayCount,vertSpan);const yNumGroups=Math.ceil(spanBayCount/ySpan);const yBracedGroups=bracedGroups(yNumGroups,highStage);for(const g of yBracedGroups){const startBay=g*ySpan;const endBay=Math.min(startBay+ySpan-1,spanBayCount-1);const y0=spanYs[startBay];const y1=spanYs[endBay+1];const spanD=(y1-y0)*FT2;const diag=bayDiag(spanD,vertSpan);const lean=yNumGroups===1?defaultLean:(g<Math.ceil(yNumGroups/2)?'down':'up');const swivelClamps=2+((endBay+1)-startBay-1);diagBraces.push({axis:'Y',face,continuous:false,bayY:startBay,spanBays:endBay-startBay+1,xCol:0,lean,x:span.edgeGu,y0,y1,bayWidthMm:spanD,vertSpanMm:vertSpan,calcLengthMm:diag.length,angleDeg:diag.angle,solution:solveTubeCombination(diag.length),stdTubeMm:diag.std,angleOk:diag.angle>=35&&diag.angle<=55,tubeCount:1,swivelClamps});}}
       }
     }
-    addYDiagBraces(leftSpans,'down');addYDiagBraces(rightSpans,'up');
-    function xSpanAtYRow(yGu){let x0=Infinity,x1=-Infinity;for(const p of tp){if(p.gy===yGu||p.gy+p.gh===yGu){x0=Math.min(x0,p.gx);x1=Math.max(x1,p.gx+p.gw);}}return x0===Infinity?null:{x0,x1};}
-    function ySpanAtXCol(xGu){let y0=Infinity,y1=-Infinity;for(const p of tp){if(p.gx===xGu||p.gx+p.gw===xGu){y0=Math.min(y0,p.gy);y1=Math.max(y1,p.gy+p.gh);}}return y0===Infinity?null:{y0,y1};}
+    addYDiagBraces(leftSpans,'down','left');addYDiagBraces(rightSpans,'up','right');
+    // True-shape tie runs: contiguous legs under this tier's deck. At a gap
+    // the run breaks, unless every gap cell has deck of ANY tier overhead AND
+    // the unsupported leg-to-leg span is within BRIDGE_SPAN_LIMIT_MM.
+    function coversCell(q,cell,lineGu,horiz){
+      return horiz?(q.gx<=cell&&cell+1<=q.gx+q.gw&&q.gy<=lineGu&&lineGu<=q.gy+q.gh):(q.gy<=cell&&cell+1<=q.gy+q.gh&&q.gx<=lineGu&&lineGu<=q.gx+q.gw);
+    }
+    function buildTieRuns(legsAlong,lineGu,horiz){
+      const runs=[];let run=null;
+      for(const a of legsAlong){
+        if(run){
+          const prev=run.legs[run.legs.length-1];
+          let solid=true,overhead=true;
+          for(let c=prev;c<a;c++){
+            if(solid&&!tp.some(q=>coversCell(q,c,lineGu,horiz)))solid=false;
+            if(overhead&&!panels.some(q=>q.category==='panel'&&coversCell(q,c,lineGu,horiz)))overhead=false;
+            if(!solid&&!overhead)break;
+          }
+          const joined=solid||(overhead&&(a-prev)*FT2<=BRIDGE_SPAN_LIMIT_MM);
+          if(joined){run.legs.push(a);continue;}
+          runs.push(run);run=null;
+        }
+        run={legs:[a]};
+      }
+      if(run)runs.push(run);
+      return runs.filter(r=>r.legs.length>=2&&r.legs.some(a=>{const n=nodes.get(horiz?`${a},${lineGu}`:`${lineGu},${a}`);return n&&qualifying(n);}));
+    }
     function planBracedPositions(total,everyOther){if(total<=0)return[];if(total===1)return[0];const maxGap=everyOther?1:3;const braced=new Set([0,total-1]);let lastBraced=0;for(let i=1;i<total;i++){if(braced.has(i)){lastBraced=i;continue;}if(i-lastBraced>maxGap){braced.add(i);const mirror=total-1-i;if(mirror>0&&mirror<total-1)braced.add(mirror);lastBraced=i;}}return[...braced].sort((a,b)=>a-b);}
     const bracedYPositions=planBracedPositions(nY,highStage),bracedXPositions=planBracedPositions(nX,highStage);
+    // Braced lines = index-spaced selection PLUS every line carrying an exposed
+    // outer-face span with qualifying legs (crossbar edges, notch faces).
+    const bracedYGus=new Set(bracedYPositions.map(i=>ys[i]));
+    for(const s of frontSpans)if(spanHasQualifyingLeg('front',s))bracedYGus.add(s.edgeGu);
+    for(const s of backSpans)if(spanHasQualifyingLeg('back',s))bracedYGus.add(s.edgeGu);
+    const bracedXGus=new Set(bracedXPositions.map(i=>xs[i]));
+    for(const s of leftSpans)if(spanHasQualifyingLeg('left',s))bracedXGus.add(s.edgeGu);
+    for(const s of rightSpans)if(spanHasQualifyingLeg('right',s))bracedXGus.add(s.edgeGu);
     const planBraces=[];
     const planLevels=needsPlan?[{name:'Base level',height:horizBraceH},{name:'Deck soffit',height:Math.max(horizBraceH,exposedTube-50)}]:[{name:'Base level',height:horizBraceH}];
     for(const level of planLevels){
-      for(const yIdx of bracedYPositions){const yGu=ys[yIdx];const span=xSpanAtYRow(yGu);if(!span)continue;const spanMm=(span.x1-span.x0)*FT2;const nXInSpan=xNodesInSpan(span.x0,span.x1);const sol=solveTubeCombination(Math.round(spanMm));planBraces.push({level:level.name,heightMm:level.height,axis:'X',edgeY:yGu,x0:span.x0,x1:span.x1,calcLengthMm:Math.round(spanMm),solution:sol,tubeCount:sol.tubes.length,rightAngleClamps:nXInSpan,sleeveClamps:sol.sleeveClamps,extraRAClamps:sol.extraRAClamps});}
-      for(const xIdx of bracedXPositions){const xGu=xs[xIdx];const span=ySpanAtXCol(xGu);if(!span)continue;const spanMm=(span.y1-span.y0)*FT2;const nYInSpan=yNodesInSpan(span.y0,span.y1);const sol=solveTubeCombination(Math.round(spanMm));planBraces.push({level:level.name,heightMm:level.height,axis:'Y',edgeX:xGu,y0:span.y0,y1:span.y1,calcLengthMm:Math.round(spanMm),solution:sol,tubeCount:sol.tubes.length,rightAngleClamps:nYInSpan,sleeveClamps:sol.sleeveClamps,extraRAClamps:sol.extraRAClamps});}
+      for(const yGu of [...bracedYGus].sort((a,b)=>a-b)){
+        const rowLegs=[...nodes.values()].filter(n=>n.gy===yGu).map(n=>n.gx).sort((a,b)=>a-b);
+        for(const run of buildTieRuns(rowLegs,yGu,true)){
+          const x0=run.legs[0],x1=run.legs[run.legs.length-1];
+          const spanMm=(x1-x0)*FT2;const sol=solveTubeCombination(Math.round(spanMm));
+          planBraces.push({level:level.name,heightMm:level.height,axis:'X',edgeY:yGu,x0,x1,calcLengthMm:Math.round(spanMm),solution:sol,tubeCount:sol.tubes.length,rightAngleClamps:run.legs.length,sleeveClamps:sol.sleeveClamps,extraRAClamps:sol.extraRAClamps});
+        }
+      }
+      for(const xGu of [...bracedXGus].sort((a,b)=>a-b)){
+        const colLegs=[...nodes.values()].filter(n=>n.gx===xGu).map(n=>n.gy).sort((a,b)=>a-b);
+        for(const run of buildTieRuns(colLegs,xGu,false)){
+          const y0=run.legs[0],y1=run.legs[run.legs.length-1];
+          const spanMm=(y1-y0)*FT2;const sol=solveTubeCombination(Math.round(spanMm));
+          planBraces.push({level:level.name,heightMm:level.height,axis:'Y',edgeX:xGu,y0,y1,calcLengthMm:Math.round(spanMm),solution:sol,tubeCount:sol.tubes.length,rightAngleClamps:run.legs.length,sleeveClamps:sol.sleeveClamps,extraRAClamps:sol.extraRAClamps});
+        }
+      }
     }
     const totalDiagTubes=diagBraces.reduce((a,b)=>a+(b.solution?b.solution.tubes.length:1),0);
     const totalSwivelClamps=diagBraces.reduce((a,b)=>a+b.swivelClamps,0);
@@ -5532,7 +5610,7 @@ function renderBracingView(){
   const results=calcBracing();
   if(!results||!results.length){
     container.innerHTML=`<div style="color:var(--muted);font-size:14px;padding:40px 0;text-align:center;">No panels placed.</div>`;
-    ['bracingCanvasPlan','bracingCanvasElev','bracingCanvasElevY'].forEach(id=>document.getElementById(id).style.display='none');
+    ['bracingCanvasPlan','bracingCanvasElev','bracingCanvasElevXB','bracingCanvasElevY','bracingCanvasElevYR'].forEach(id=>document.getElementById(id).style.display='none');
     document.getElementById('bracing-tier-btns').innerHTML='';
     return;
   }
@@ -5549,8 +5627,8 @@ function renderBracingView(){
     tierBtns.appendChild(btn);
   }
   const ar=results.find(r=>r.tier.id===bracingViewTierId);
-  if(ar&&ar.status==='calc'){drawBracingPlan(ar);drawBracingElev(ar);drawBracingElevY(ar);setBracingSubView(bracingSubView);}
-  else{['bracingCanvasPlan','bracingCanvasElev','bracingCanvasElevY'].forEach(id=>document.getElementById(id).style.display='none');}
+  if(ar&&ar.status==='calc'){drawBracingPlan(ar);drawBracingElev(ar,'front');drawBracingElev(ar,'back');drawBracingElevY(ar,'left');drawBracingElevY(ar,'right');setBracingSubView(bracingSubView);}
+  else{['bracingCanvasPlan','bracingCanvasElev','bracingCanvasElevXB','bracingCanvasElevY','bracingCanvasElevYR'].forEach(id=>document.getElementById(id).style.display='none');}
   let html='';
   for(const r of results){
     html+=`<div style="margin-bottom:24px;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">${r.tier.label} — ${r.finH}mm</div>`;
@@ -5598,8 +5676,8 @@ function drawBracingPlan(r){
   bctx.fillText(r.tier.label+'  PLAN — HORIZONTAL TIES  —  '+r.finH+'mm',PAD,6);
 }
 
-function drawBracingElev(r){
-  const bc=document.getElementById('bracingCanvasElev'),bctx=bc.getContext('2d');
+function drawBracingElev(r,face='front'){
+  const bc=document.getElementById(face==='front'?'bracingCanvasElev':'bracingCanvasElevXB'),bctx=bc.getContext('2d');
   const cW=Math.min(900,Math.max(400,document.getElementById('bracingViewContainer').clientWidth-48));
   const nLegs=r.xs.length;
   const legSpacingsMm=[];
@@ -5622,21 +5700,43 @@ function drawBracingElev(r){
   for(const hmm of[0,r.horizBraceH,r.exposedTube]){const py=yPx(hmm);bctx.strokeStyle='#2a2f3e';bctx.lineWidth=0.5;bctx.setLineDash([2,4]);bctx.beginPath();bctx.moveTo(LPAD,py);bctx.lineTo(LPAD+drawW,py);bctx.stroke();bctx.setLineDash([]);bctx.fillStyle='#6b7280';bctx.fillText(hmm+'mm',LPAD-4,py);}
   let cumMm=0;const legXPx=[xPx(0)];
   for(const sp of legSpacingsMm){cumMm+=sp;legXPx.push(xPx(cumMm));}
-  for(let i=0;i<nLegs;i++){const lx=legXPx[i];bctx.strokeStyle='#3b4150';bctx.lineWidth=6;bctx.beginPath();bctx.moveTo(lx,yPx(0));bctx.lineTo(lx,yPx(r.horizBraceH));bctx.stroke();bctx.strokeStyle='#6b7280';bctx.lineWidth=4;bctx.beginPath();bctx.moveTo(lx,yPx(r.horizBraceH));bctx.lineTo(lx,yPx(r.exposedTube));bctx.stroke();}
+  // Back view is mirrored — viewer stands behind the stage
+  const legSpacingsMmDraw=face==='back'?[...legSpacingsMm].reverse():legSpacingsMm;
+  function mxPx(px){return face==='back'?LPAD+(LPAD+drawW-px):px;}
+  const legXPxM=legXPx.map(mxPx);
+  for(let i=0;i<nLegs;i++){const lx=legXPxM[i];bctx.strokeStyle='#3b4150';bctx.lineWidth=6;bctx.beginPath();bctx.moveTo(lx,yPx(0));bctx.lineTo(lx,yPx(r.horizBraceH));bctx.stroke();bctx.strokeStyle='#6b7280';bctx.lineWidth=4;bctx.beginPath();bctx.moveTo(lx,yPx(r.horizBraceH));bctx.lineTo(lx,yPx(r.exposedTube));bctx.stroke();}
+  // Horizontal tie — drawn per actual tie run
   bctx.strokeStyle='#22c55e99';bctx.lineWidth=3;bctx.lineCap='round';
-  bctx.beginPath();bctx.moveTo(legXPx[0],yPx(r.horizBraceH));bctx.lineTo(legXPx[nLegs-1],yPx(r.horizBraceH));bctx.stroke();
-  bctx.strokeStyle='#3b82f655';bctx.lineWidth=2;bctx.setLineDash([4,3]);
-  bctx.beginPath();bctx.moveTo(legXPx[0],yPx(r.exposedTube));bctx.lineTo(legXPx[nLegs-1],yPx(r.exposedTube));bctx.stroke();
-  bctx.setLineDash([]);
-  bctx.fillStyle='#3b82f622';
-  bctx.fillRect(legXPx[0],yPx(r.exposedTube+PANEL_BODY_MM),legXPx[nLegs-1]-legXPx[0],yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  for(const pb of r.planBraces){
+    if(pb.axis!=='X'||pb.level!=='Base level')continue;
+    const ti0=r.xs.indexOf(pb.x0),ti1=r.xs.indexOf(pb.x1);if(ti0<0||ti1<0)continue;
+    bctx.beginPath();bctx.moveTo(mxPx(legXPx[ti0]),yPx(r.horizBraceH));bctx.lineTo(mxPx(legXPx[ti1]),yPx(r.horizBraceH));bctx.stroke();
+  }
+  // Deck underside + body — per projected deck coverage (no deck over voids)
+  const tpDeck=panels.filter(p=>p.category==='panel'&&p.tier===r.tier.id);
+  const deckIvals=[];
+  for(let x=r.minX;x<r.maxX;x++){
+    if(!tpDeck.some(p=>p.gx<=x&&x+1<=p.gx+p.gw))continue;
+    if(deckIvals.length&&deckIvals[deckIvals.length-1].end===x)deckIvals[deckIvals.length-1].end=x+1;
+    else deckIvals.push({start:x,end:x+1});
+  }
+  for(const iv of deckIvals){
+    const pxA=mxPx(xPx((iv.start-r.minX)*FT2)),pxB=mxPx(xPx((iv.end-r.minX)*FT2));
+    const dx0=Math.min(pxA,pxB),dw=Math.abs(pxB-pxA);
+    bctx.strokeStyle='#3b82f655';bctx.lineWidth=2;bctx.setLineDash([4,3]);
+    bctx.beginPath();bctx.moveTo(dx0,yPx(r.exposedTube));bctx.lineTo(dx0+dw,yPx(r.exposedTube));bctx.stroke();
+    bctx.setLineDash([]);
+    bctx.fillStyle='#3b82f622';
+    bctx.fillRect(dx0,yPx(r.exposedTube+PANEL_BODY_MM),dw,yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  }
   const xsToLegIdx={};r.xs.forEach((gx,i)=>{xsToLegIdx[gx]=i;});
   const xBraceDrawn=new Set();
   for(const b of r.diagBraces){
-    if(b.axis!=='X')continue;if(b.y!==r.ys[0])continue;
+    if(b.axis!=='X')continue;
+    if(b.face!==face)continue;
     const k=b.x0+','+b.x1+','+b.y+','+b.lean;if(xBraceDrawn.has(k))continue;xBraceDrawn.add(k);
     const i0=xsToLegIdx[b.x0]??0,i1=xsToLegIdx[b.x1]??(nLegs-1);
-    const lx0=legXPx[i0],lx1=legXPx[i1];
+    const lx0=mxPx(legXPx[i0]),lx1=mxPx(legXPx[i1]);
     const yTop=yPx(r.exposedTube),yBot=yPx(r.horizBraceH);
     bctx.strokeStyle=b.angleOk?'#f5a623cc':'#ef4444cc';bctx.lineWidth=2;bctx.lineCap='round';
     if(b.lean==='right'){bctx.beginPath();bctx.moveTo(lx0,yTop);bctx.lineTo(lx1,yBot);bctx.stroke();}
@@ -5648,19 +5748,19 @@ function drawBracingElev(r){
     bctx.fillStyle='rgba(15,17,23,0.82)';bctx.fillRect(cx-tw/2-2,cy-6,tw+4,12);
     bctx.fillStyle=col;bctx.textAlign='center';bctx.textBaseline='middle';bctx.fillText(label,cx,cy);
   }
-  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPx[i],yPx(r.exposedTube),4,0,Math.PI*2);bctx.fillStyle='#ef4444';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1.5;bctx.stroke();}
-  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPx[i],yPx(r.horizBraceH),3,0,Math.PI*2);bctx.fillStyle='#22c55e';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1;bctx.stroke();}
+  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPxM[i],yPx(r.exposedTube),4,0,Math.PI*2);bctx.fillStyle='#ef4444';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1.5;bctx.stroke();}
+  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPxM[i],yPx(r.horizBraceH),3,0,Math.PI*2);bctx.fillStyle='#22c55e';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1;bctx.stroke();}
   bctx.fillStyle='#6b7280';bctx.font='9px DM Mono,monospace';bctx.textAlign='center';bctx.textBaseline='top';
-  for(let i=0;i<nLegs-1;i++)bctx.fillText(Math.round(legSpacingsMm[i])+'mm',(legXPx[i]+legXPx[i+1])/2,yPx(0)+6);
+  for(let i=0;i<nLegs-1;i++)bctx.fillText(Math.round(legSpacingsMmDraw[i])+'mm',(legXPx[i]+legXPx[i+1])/2,yPx(0)+6);
   bctx.textAlign='left';bctx.textBaseline='middle';
   bctx.fillStyle='#22c55e88';bctx.fillText('↔ horiz tie',LPAD+drawW+4,yPx(r.horizBraceH));
   bctx.fillStyle='#3b82f688';bctx.fillText('↔ deck soffit',LPAD+drawW+4,yPx(r.exposedTube));
   bctx.fillStyle='#f5a623';bctx.font='bold 11px Barlow Condensed,sans-serif';bctx.textAlign='left';bctx.textBaseline='top';
-  bctx.fillText(r.tier.label+'  ELEVATION X — WIDTH (diagonal bracing)  —  '+r.finH+'mm',LPAD,6);
+  bctx.fillText(r.tier.label+'  ELEVATION X — '+(face==='front'?'FRONT':'BACK')+' (diagonal bracing)  —  '+r.finH+'mm',LPAD,6);
 }
 
-function drawBracingElevY(r){
-  const bc=document.getElementById('bracingCanvasElevY'),bctx=bc.getContext('2d');
+function drawBracingElevY(r,face='left'){
+  const bc=document.getElementById(face==='left'?'bracingCanvasElevY':'bracingCanvasElevYR'),bctx=bc.getContext('2d');
   const cW=Math.min(900,Math.max(400,document.getElementById('bracingViewContainer').clientWidth-48));
   const nLegs=r.ys.length;
   const legSpacingsMm=[];for(let i=0;i<nLegs-1;i++)legSpacingsMm.push((r.ys[i+1]-r.ys[i])*FT2);
@@ -5676,21 +5776,41 @@ function drawBracingElevY(r){
   bctx.strokeStyle='#2a2f3e';bctx.lineWidth=1;bctx.beginPath();bctx.moveTo(LPAD,yPx(0));bctx.lineTo(LPAD+drawW,yPx(0));bctx.stroke();
   for(const hmm of[0,r.horizBraceH,r.exposedTube]){const py=yPx(hmm);bctx.strokeStyle='#2a2f3e';bctx.lineWidth=0.5;bctx.setLineDash([2,4]);bctx.beginPath();bctx.moveTo(LPAD,py);bctx.lineTo(LPAD+drawW,py);bctx.stroke();bctx.setLineDash([]);bctx.fillStyle='#6b7280';bctx.font='9px DM Mono,monospace';bctx.textAlign='right';bctx.textBaseline='middle';bctx.fillText(hmm+'mm',LPAD-4,py);}
   let cumMm=0;const legXPx=[xPx(0)];for(const sp of legSpacingsMm){cumMm+=sp;legXPx.push(xPx(cumMm));}
-  for(let i=0;i<nLegs;i++){const lx=legXPx[i];bctx.strokeStyle='#3b4150';bctx.lineWidth=6;bctx.beginPath();bctx.moveTo(lx,yPx(0));bctx.lineTo(lx,yPx(r.horizBraceH));bctx.stroke();bctx.strokeStyle='#6b7280';bctx.lineWidth=4;bctx.beginPath();bctx.moveTo(lx,yPx(r.horizBraceH));bctx.lineTo(lx,yPx(r.exposedTube));bctx.stroke();}
-  bctx.strokeStyle='#22c55e99';bctx.lineWidth=3;bctx.lineCap='round';bctx.beginPath();bctx.moveTo(legXPx[0],yPx(r.horizBraceH));bctx.lineTo(legXPx[nLegs-1],yPx(r.horizBraceH));bctx.stroke();
-  bctx.strokeStyle='#3b82f655';bctx.lineWidth=2;bctx.setLineDash([4,3]);bctx.beginPath();bctx.moveTo(legXPx[0],yPx(r.exposedTube));bctx.lineTo(legXPx[nLegs-1],yPx(r.exposedTube));bctx.stroke();bctx.setLineDash([]);
-  bctx.fillStyle='#3b82f622';bctx.fillRect(legXPx[0],yPx(r.exposedTube+PANEL_BODY_MM),legXPx[nLegs-1]-legXPx[0],yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  // Right view is mirrored — viewer stands stage right
+  const legSpacingsMmDraw=face==='right'?[...legSpacingsMm].reverse():legSpacingsMm;
+  function mxPx(px){return face==='right'?LPAD+(LPAD+drawW-px):px;}
+  const legXPxM=legXPx.map(mxPx);
+  for(let i=0;i<nLegs;i++){const lx=legXPxM[i];bctx.strokeStyle='#3b4150';bctx.lineWidth=6;bctx.beginPath();bctx.moveTo(lx,yPx(0));bctx.lineTo(lx,yPx(r.horizBraceH));bctx.stroke();bctx.strokeStyle='#6b7280';bctx.lineWidth=4;bctx.beginPath();bctx.moveTo(lx,yPx(r.horizBraceH));bctx.lineTo(lx,yPx(r.exposedTube));bctx.stroke();}
+  // Horizontal tie — drawn per actual tie run
+  bctx.strokeStyle='#22c55e99';bctx.lineWidth=3;bctx.lineCap='round';
+  for(const pb of r.planBraces){
+    if(pb.axis!=='Y'||pb.level!=='Base level')continue;
+    const ti0=r.ys.indexOf(pb.y0),ti1=r.ys.indexOf(pb.y1);if(ti0<0||ti1<0)continue;
+    bctx.beginPath();bctx.moveTo(mxPx(legXPx[ti0]),yPx(r.horizBraceH));bctx.lineTo(mxPx(legXPx[ti1]),yPx(r.horizBraceH));bctx.stroke();
+  }
+  // Deck underside + body — per projected deck coverage (no deck over voids)
+  const tpDeck=panels.filter(p=>p.category==='panel'&&p.tier===r.tier.id);
+  const deckIvals=[];
+  for(let y=r.minY;y<r.maxY;y++){
+    if(!tpDeck.some(p=>p.gy<=y&&y+1<=p.gy+p.gh))continue;
+    if(deckIvals.length&&deckIvals[deckIvals.length-1].end===y)deckIvals[deckIvals.length-1].end=y+1;
+    else deckIvals.push({start:y,end:y+1});
+  }
+  for(const iv of deckIvals){
+    const pxA=mxPx(xPx((iv.start-r.minY)*FT2)),pxB=mxPx(xPx((iv.end-r.minY)*FT2));
+    const dx0=Math.min(pxA,pxB),dw=Math.abs(pxB-pxA);
+    bctx.strokeStyle='#3b82f655';bctx.lineWidth=2;bctx.setLineDash([4,3]);
+    bctx.beginPath();bctx.moveTo(dx0,yPx(r.exposedTube));bctx.lineTo(dx0+dw,yPx(r.exposedTube));bctx.stroke();bctx.setLineDash([]);
+    bctx.fillStyle='#3b82f622';bctx.fillRect(dx0,yPx(r.exposedTube+PANEL_BODY_MM),dw,yPx(r.exposedTube)-yPx(r.exposedTube+PANEL_BODY_MM));
+  }
   const ysToLegIdx={};r.ys.forEach((gy,i)=>{ysToLegIdx[gy]=i;});
-  const tp=panels.filter(p=>p.category==='panel'&&p.tier===r.tier.id);
   const drawn=new Set();
   for(const b of r.diagBraces){
     if(b.axis!=='Y')continue;
-    const spanPanels=tp.filter(p=>p.gy<b.y1&&p.gy+p.gh>b.y0);
-    const leftmostX=Math.min(...spanPanels.map(p=>p.gx));
-    if(b.x!==leftmostX)continue;
+    if(b.face!==face)continue;
     const k=b.x+','+b.y0+','+b.y1+','+b.lean;if(drawn.has(k))continue;drawn.add(k);
     const i0=ysToLegIdx[b.y0]??0,i1=ysToLegIdx[b.y1]??(nLegs-1);
-    const lx0=legXPx[i0],lx1=legXPx[i1];
+    const lx0=mxPx(legXPx[i0]),lx1=mxPx(legXPx[i1]);
     const yTop=yPx(r.exposedTube),yBot=yPx(r.horizBraceH);
     bctx.strokeStyle=b.angleOk?'#f5a623cc':'#ef4444cc';bctx.lineWidth=2;bctx.lineCap='round';
     if(b.lean==='down'){bctx.beginPath();bctx.moveTo(lx0,yTop);bctx.lineTo(lx1,yBot);bctx.stroke();}
@@ -5702,15 +5822,15 @@ function drawBracingElevY(r){
     bctx.fillStyle='rgba(15,17,23,0.82)';bctx.fillRect(cx-tw/2-2,cy-6,tw+4,12);
     bctx.fillStyle=col;bctx.textAlign='center';bctx.textBaseline='middle';bctx.fillText(label,cx,cy);
   }
-  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPx[i],yPx(r.exposedTube),4,0,Math.PI*2);bctx.fillStyle='#ef4444';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1.5;bctx.stroke();}
-  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPx[i],yPx(r.horizBraceH),3,0,Math.PI*2);bctx.fillStyle='#22c55e';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1;bctx.stroke();}
+  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPxM[i],yPx(r.exposedTube),4,0,Math.PI*2);bctx.fillStyle='#ef4444';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1.5;bctx.stroke();}
+  for(let i=0;i<nLegs;i++){bctx.beginPath();bctx.arc(legXPxM[i],yPx(r.horizBraceH),3,0,Math.PI*2);bctx.fillStyle='#22c55e';bctx.fill();bctx.strokeStyle='#0f1117';bctx.lineWidth=1;bctx.stroke();}
   bctx.fillStyle='#6b7280';bctx.font='9px DM Mono,monospace';bctx.textAlign='center';bctx.textBaseline='top';
-  for(let i=0;i<nLegs-1;i++)bctx.fillText(Math.round(legSpacingsMm[i])+'mm',(legXPx[i]+legXPx[i+1])/2,yPx(0)+6);
+  for(let i=0;i<nLegs-1;i++)bctx.fillText(Math.round(legSpacingsMmDraw[i])+'mm',(legXPx[i]+legXPx[i+1])/2,yPx(0)+6);
   bctx.textAlign='left';bctx.textBaseline='middle';
   bctx.fillStyle='#22c55e88';bctx.fillText('horiz tie',LPAD+drawW+6,yPx(r.horizBraceH));
   bctx.fillStyle='#3b82f688';bctx.fillText('deck soffit',LPAD+drawW+6,yPx(r.exposedTube));
   bctx.fillStyle='#f5a623';bctx.font='bold 11px Barlow Condensed,sans-serif';bctx.textAlign='left';bctx.textBaseline='top';
-  bctx.fillText(r.tier.label+'  ELEVATION Y — DEPTH (diagonal bracing)  —  '+r.finH+'mm',LPAD,6);
+  bctx.fillText(r.tier.label+'  ELEVATION Y — '+(face==='left'?'LEFT':'RIGHT')+' (diagonal bracing)  —  '+r.finH+'mm',LPAD,6);
 }
 
 function metric(label,val){return `<div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:10px 12px;border:1px solid var(--border);"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:3px;">${label}</div><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text);">${val}</div></div>`;}

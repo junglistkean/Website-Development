@@ -4023,14 +4023,16 @@ function computeNodes(tierId = activeTierId) {
   const nodes = new Map();
   for (const key of nodeSet) {
     const [gx, gy] = key.split(',').map(Number);
-    let count = 0;
+    const owners = [];
     for (const p of tierPanels) {
-      if ((p.gx === gx || p.gx+p.gw === gx) && (p.gy === gy || p.gy+p.gh === gy)) count++;
+      if ((p.gx === gx || p.gx+p.gw === gx) && (p.gy === gy || p.gy+p.gh === gy)) owners.push(p);
     }
-    if (!count) continue;
+    if (!owners.length) continue;
 
-    // Find the highest lower-tier panel whose area contains this node point.
-    // A panel contains a node if the node is within its grid bounds (corners inclusive).
+    // Find the highest lower-tier panel that actually supports this node.
+    // The node must lie within the panel's grid bounds (corners inclusive) AND
+    // an owning upper-tier panel must rest on it with genuine area overlap —
+    // edge-touching (tiers butted side-by-side) is not support.
     let floorHeight = 0;
     for (const q of panels) {
       if (q.category !== 'panel') continue;
@@ -4039,13 +4041,16 @@ function computeNodes(tierId = activeTierId) {
       if (qh >= thisHeight) continue;
       // Node point (gx,gy) must be within the panel's grid bounds
       if (gx >= q.gx && gx <= q.gx + q.gw && gy >= q.gy && gy <= q.gy + q.gh) {
-        floorHeight = Math.max(floorHeight, qh);
+        const restsOn = owners.some(p =>
+          Math.min(p.gx + p.gw, q.gx + q.gw) > Math.max(p.gx, q.gx) &&
+          Math.min(p.gy + p.gh, q.gy + q.gh) > Math.max(p.gy, q.gy));
+        if (restsOn) floorHeight = Math.max(floorHeight, qh);
       }
     }
 
     nodes.set(key, {
       gx, gy,
-      type: count >= 3 ? 'internal' : count === 2 ? 'edge' : 'corner',
+      type: owners.length >= 3 ? 'internal' : owners.length === 2 ? 'edge' : 'corner',
       floorHeight
     });
   }

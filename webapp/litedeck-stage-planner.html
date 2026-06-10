@@ -4384,21 +4384,27 @@ function computeNodes(tierId = activeTierId) {
   const nodes = new Map();
   for (const key of nodeSet) {
     const [gx, gy] = key.split(',').map(Number);
-    let count = 0;
+    const owners = [];
     for (const p of tierPanels) {
-      if ((p.gx === gx || p.gx+p.gw === gx) && (p.gy === gy || p.gy+p.gh === gy)) count++;
+      if ((p.gx === gx || p.gx+p.gw === gx) && (p.gy === gy || p.gy+p.gh === gy)) owners.push(p);
     }
-    if (!count) continue;
+    if (!owners.length) continue;
     let floorHeight = 0;
     for (const q of panels) {
       if (q.category !== 'panel') continue;
       if (q.tier === tierId) continue;
       const qh = getTierHeight(q.tier);
       if (qh >= thisHeight) continue;
-      if (gx >= q.gx && gx <= q.gx + q.gw && gy >= q.gy && gy <= q.gy + q.gh)
-        floorHeight = Math.max(floorHeight, qh);
+      // Lower panel only counts as support if an owning panel rests on it with
+      // genuine area overlap — edge-touching (butted tiers) is not support.
+      if (gx >= q.gx && gx <= q.gx + q.gw && gy >= q.gy && gy <= q.gy + q.gh) {
+        const restsOn = owners.some(p =>
+          Math.min(p.gx + p.gw, q.gx + q.gw) > Math.max(p.gx, q.gx) &&
+          Math.min(p.gy + p.gh, q.gy + q.gh) > Math.max(p.gy, q.gy));
+        if (restsOn) floorHeight = Math.max(floorHeight, qh);
+      }
     }
-    nodes.set(key, { gx, gy, type: count >= 3 ? 'internal' : count === 2 ? 'edge' : 'corner', floorHeight });
+    nodes.set(key, { gx, gy, type: owners.length >= 3 ? 'internal' : owners.length === 2 ? 'edge' : 'corner', floorHeight });
   }
   return nodes;
 }

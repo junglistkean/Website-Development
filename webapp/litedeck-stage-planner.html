@@ -2290,7 +2290,8 @@ function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, force
             const rGu = HR_WIDTHS[removeSz] / FT2;
             if (rGu > segGu - 0.01) continue;
             const p2 = tryPack(segGu - rGu);
-            if (p2.infGu > 0.01) { packed = { n8: p2.n8, n4: p2.n4, infGu: p2.infGu }; break; }
+            const newInf = segGu - p2.n8 * s8 - p2.n4 * s4;
+            if (newInf > 0.01) { packed = { n8: p2.n8, n4: p2.n4, infGu: newInf }; break; }
           }
           if (packed.infGu < 0.01) packed = { n8: 0, n4: 0, infGu: segGu };
         }
@@ -2299,13 +2300,15 @@ function placeHandrailsOnSpan(side, edgeGu, spanStart, spanEnd, stepItems, force
       } else {
         let packed = tryPack(segGu);
         if (packed.infGu < 0.01) {
+          let stripped = false;
           for (const removeSz of ['4ft', '8ft']) {
             const rGu = HR_WIDTHS[removeSz] / FT2;
             if (rGu > segGu - 0.01) continue;
             const p2 = tryPack(segGu - rGu);
-            if (p2.infGu > 0.01) { packed = { n8: p2.n8, n4: p2.n4, infGu: p2.infGu }; break; }
+            const newInf = segGu - p2.n8 * s8 - p2.n4 * s4;
+            if (newInf > 0.01) { packed = { n8: p2.n8, n4: p2.n4, infGu: newInf }; stripped = true; break; }
           }
-          if (packed.infGu < 0.01) packed = { n8: 0, n4: 0, infGu: segGu };
+          if (!stripped && packed.infGu < 0.01) packed = { n8: 0, n4: 0, infGu: segGu };
         }
         n8 = packed.n8; n4 = packed.n4;
         if (forceStart) infillStartGu = packed.infGu; else infillEndGu = packed.infGu;

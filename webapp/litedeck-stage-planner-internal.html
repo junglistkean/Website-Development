@@ -1643,8 +1643,6 @@ function placeSteps(edge) {
     spansOverlap(sSpan, handrailSpan(p.alongGu, p.hrType === 'infill' ? null : p.size, p))
   );
 
-  console.log('placeSteps edge:', JSON.stringify(edge));
-  console.log('ramps on this tier:', JSON.stringify(ramps.filter(r => r.tierId === activeTierId)));
   const rampHingeConflict = ramps.some(r => {
     if (r.tierId !== activeTierId) return false;
     const rEdgeGu = (r.direction === 'south' || r.direction === 'north') ? r.anchorGy : r.anchorGx;

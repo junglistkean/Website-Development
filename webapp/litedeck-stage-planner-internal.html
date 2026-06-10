@@ -741,6 +741,8 @@
     <button class="btn btn-primary" onclick="printSchedule()">Print Schedule</button>
     
     <button class="btn btn-ghost" id="btn-send-quote" onclick="openQuoteModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x2709; Send Quote</button>
+    <button class="btn btn-ghost" id="btn-qb-push" onclick="openQbPushModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x21EA; Send to QB</button>
+    <button class="btn btn-ghost" id="btn-qb-layouts" onclick="openQbLayoutsModal()">&#x1F5C2; Sent Layouts</button>
   </div>
 </header>
 
@@ -1179,6 +1181,51 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="qm-cancel" onclick="closeQuoteModal()">Cancel</button>
       <button class="btn btn-primary" id="qm-submit" onclick="submitQuote()">Send Quote &#x2709;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Send-to-Quote-Builder modal ── -->
+<div class="modal-overlay" id="qb-push-modal">
+  <div class="modal" style="width:420px">
+    <h3>Send Layout to Quote Builder</h3>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+      Pushes this layout (component list + full save state) to the Quote Builder, where it
+      sits <strong>pending</strong> against the chosen job until injected into a quote.
+      Re-sending after edits creates a new pending record — amendments are resolved in
+      the Quote Builder.
+    </div>
+    <div class="qm-status" id="qb-push-status" style="display:none;margin-top:10px"></div>
+    <div class="qm-field" style="margin-top:12px">
+      <label>Layout name *</label>
+      <input type="text" id="qb-push-name" placeholder="e.g. Main stage — two tier 24x16">
+    </div>
+    <div class="qm-field">
+      <label>Job</label>
+      <select id="qb-push-job" style="width:100%;background:var(--surface2,#1a1a1a);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:9px 10px;font-size:13px;outline:none">
+        <option value="">— Unassigned —</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="qb-push-cancel" onclick="closeQbPushModal()">Cancel</button>
+      <button class="btn btn-primary" id="qb-push-submit" onclick="submitQbPush()">Send &#x21EA;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sent-layouts modal ── -->
+<div class="modal-overlay" id="qb-layouts-modal">
+  <div class="modal" style="width:560px">
+    <h3>Sent Layouts</h3>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+      Layouts previously sent to the Quote Builder. Load one back onto the canvas to
+      amend it, then re-send — a new pending record is created each time.
+    </div>
+    <div class="qm-status" id="qb-layouts-status" style="display:none;margin-top:10px"></div>
+    <div id="qb-layouts-list" style="max-height:380px;overflow-y:auto;margin:12px 0;font-size:13px">Loading…</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="refreshQbLayouts()">Refresh</button>
+      <button class="btn btn-ghost" onclick="closeQbLayoutsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -8290,6 +8337,195 @@ async function submitQuote() {
   document.getElementById('qm-cancel').textContent = 'Close';
   document.getElementById('qm-cancel').disabled = false;
 }
+
+// ── Send to Quote Builder (pending layouts) ──────────────────────────────────
+// Pushes the layout to the quote-builder Worker's planner-layout endpoints,
+// where it sits pending against a job until injected/merged into a quote.
+// The planner only sends — all quote-structure decisions live in QB.
+//
+// Auth: served from quote-builder.e-kean.workers.dev/litedeck the page is
+// same-origin and the qb_auth cookie covers it. Anywhere else (Pages copy,
+// local file) the low-privilege planner key is required — prompted once and
+// kept in localStorage. The key is never embedded in this file because the
+// file is published verbatim by Cloudflare Pages.
+const QB_SAME_ORIGIN = location.host === 'quote-builder.e-kean.workers.dev';
+const QB_KEY_STORAGE = 'qb_planner_key';
+
+async function qbFetch(path, opts = {}) {
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if (!QB_SAME_ORIGIN) {
+    let key = (localStorage.getItem(QB_KEY_STORAGE) || '').trim();
+    if (!key) {
+      key = (prompt('Enter the Quote Builder planner key (saved in this browser):') || '').trim();
+      if (!key) throw new Error('Planner key required.');
+      localStorage.setItem(QB_KEY_STORAGE, key);
+    }
+    headers['x-planner-key'] = key;
+  }
+  const base = QB_SAME_ORIGIN ? '' : QUOTE_BUILDER_URL;
+  const res = await fetch(base + path, Object.assign({}, opts, { headers }));
+  if (res.status === 401) {
+    if (!QB_SAME_ORIGIN) localStorage.removeItem(QB_KEY_STORAGE);
+    throw new Error('Unauthorised — planner key rejected (re-enter it on the next attempt).');
+  }
+  return res.json();
+}
+
+function setQbStatus(elId, cls, msg) {
+  const el = document.getElementById(elId);
+  if (!msg) { el.style.display = 'none'; return; }
+  el.className = 'qm-status' + (cls ? ' ' + cls : '');
+  el.style.display = 'block'; el.innerHTML = msg;
+}
+
+function buildLayoutState() {
+  const g = id => document.getElementById(id)?.value || '';
+  return JSON.parse(exportLayoutJson(
+    g('qm-event-name'), g('qm-venue'), g('qm-date'), g('qm-time'),
+    g('qm-contact-name'), g('qm-contact-email'), g('qm-notes')
+  ));
+}
+
+async function openQbPushModal() {
+  const has = panels.some(p => p.category === 'panel');
+  if (!has) { alert('Nothing to send — place some panels on the stage first.'); return; }
+  setQbStatus('qb-push-status', '', '');
+  const nameEl = document.getElementById('qb-push-name');
+  if (!nameEl.value.trim()) {
+    const ev = document.getElementById('qm-event-name')?.value.trim();
+    nameEl.value = ev ? ev + ' — layout' : 'Layout ' + new Date().toISOString().slice(0, 10);
+  }
+  document.getElementById('qb-push-modal').classList.add('active');
+  // Populate the job picker from QB's planner jobs-list endpoint
+  const sel = document.getElementById('qb-push-job');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Unassigned —</option>';
+  try {
+    const jobs = await qbFetch('/api/planner-jobs');
+    if (Array.isArray(jobs)) {
+      for (const j of jobs) {
+        const o = document.createElement('option');
+        o.value = j.id;
+        o.textContent = j.name + (j.client ? ' — ' + j.client : '') + (j.dateStart ? ' (' + j.dateStart + ')' : '');
+        sel.appendChild(o);
+      }
+      if (prev) sel.value = prev;
+    }
+  } catch (e) {
+    setQbStatus('qb-push-status', 'error', '<b>Could not load jobs:</b> ' + e.message + ' You can still send as Unassigned.');
+  }
+}
+function closeQbPushModal() {
+  document.getElementById('qb-push-modal').classList.remove('active');
+  document.getElementById('qb-push-submit').disabled = false;
+}
+
+async function submitQbPush() {
+  const name = document.getElementById('qb-push-name').value.trim();
+  if (!name) { setQbStatus('qb-push-status', 'error', '<b>Layout name is required.</b>'); return; }
+  let components;
+  try {
+    components = buildQuoteItems().map(i => ({ category: i.category, description: i.description, qty: i.qty }));
+  } catch (e) {
+    setQbStatus('qb-push-status', 'error', '<b>Error building component list:</b> ' + e.message);
+    return;
+  }
+  if (!components.length) { setQbStatus('qb-push-status', 'error', '<b>No components to send.</b>'); return; }
+  const btn = document.getElementById('qb-push-submit');
+  btn.disabled = true;
+  setQbStatus('qb-push-status', 'sending', 'Sending layout…');
+  try {
+    const d = await qbFetch('/api/planner-layouts', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        jobId: document.getElementById('qb-push-job').value || null,
+        components,
+        layoutState: buildLayoutState(),
+      }),
+    });
+    if (d && d.ok) {
+      setQbStatus('qb-push-status', 'success', '✅ <b>Sent.</b> Layout is pending in the Quote Builder (' + components.length + ' component lines).');
+    } else {
+      setQbStatus('qb-push-status', 'error', '<b>Send failed:</b> ' + ((d && d.error) || 'unknown error'));
+    }
+  } catch (e) {
+    setQbStatus('qb-push-status', 'error', '<b>Send failed:</b> ' + e.message);
+  }
+  btn.disabled = false;
+}
+
+// ── Sent layouts: list + load back onto the canvas ───────────────────────────
+function openQbLayoutsModal() {
+  document.getElementById('qb-layouts-modal').classList.add('active');
+  refreshQbLayouts();
+}
+function closeQbLayoutsModal() {
+  document.getElementById('qb-layouts-modal').classList.remove('active');
+}
+
+async function refreshQbLayouts() {
+  const el = document.getElementById('qb-layouts-list');
+  setQbStatus('qb-layouts-status', '', '');
+  el.textContent = 'Loading…';
+  let list;
+  try {
+    list = await qbFetch('/api/planner-layouts');
+  } catch (e) {
+    el.textContent = '';
+    setQbStatus('qb-layouts-status', 'error', '<b>Could not load layouts:</b> ' + e.message);
+    return;
+  }
+  if (!Array.isArray(list)) {
+    el.textContent = '';
+    setQbStatus('qb-layouts-status', 'error', '<b>Could not load layouts:</b> ' + ((list && list.error) || 'unknown error'));
+    return;
+  }
+  if (!list.length) { el.textContent = 'No layouts sent yet.'; return; }
+  el.innerHTML = '';
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  for (const l of list) {
+    const dt = l.created_at ? new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    const status = l.status === 'used'
+      ? '<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);padding:1px 6px;margin-left:8px">USED</span>'
+      : '<span style="font-size:10px;color:var(--accent2);border:1px solid var(--accent2);padding:1px 6px;margin-left:8px">PENDING</span>';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;flex-wrap:wrap';
+    row.innerHTML = '<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">' + esc(l.name) + status + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">Sent ' + dt + ' · ' + (l.component_count || 0) + ' component lines'
+      + (l.job_id ? '' : ' · unassigned') + '</div></div>';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost';
+    btn.textContent = '↙ Load';
+    btn.onclick = () => qbLoadLayout(l.id);
+    row.appendChild(btn);
+    el.appendChild(row);
+  }
+}
+
+async function qbLoadLayout(id) {
+  let full;
+  try {
+    full = await qbFetch('/api/planner-layouts/' + id);
+  } catch (e) {
+    setQbStatus('qb-layouts-status', 'error', '<b>Could not load layout:</b> ' + e.message);
+    return;
+  }
+  if (!full || !full.layoutState) {
+    setQbStatus('qb-layouts-status', 'error', '<b>This record has no layout state to load.</b>');
+    return;
+  }
+  if (panels.length && !confirm('Replace the current canvas with "' + (full.name || id) + '"?')) return;
+  try {
+    saveHistory();
+    importLayoutJson(JSON.stringify(full.layoutState));
+    closeQbLayoutsModal();
+    document.getElementById('qb-push-name').value = full.name || '';
+  } catch (e) {
+    setQbStatus('qb-layouts-status', 'error', '<b>Failed to apply layout:</b> ' + e.message);
+  }
+}
+
 function importLayoutJson(jsonString) {
   const data = JSON.parse(jsonString);
   normaliseStepsConvention(data);

@@ -8101,21 +8101,21 @@ function buildQuoteItems() {
   for (const [type, qty] of Object.entries(d.panelCounts)) {
     if (!qty) continue;
     const p = PANEL_PRICES[type];
-    if (p) items.push({ category: 'equipment', description: p.name, qty, unitPrice: p.price });
+    if (p) items.push({ category: 'equipment', description: p.name, qty });
   }
 
-  if (d.splitter2way) items.push({ category: 'equipment', description: '2-way leg splitter', qty: d.splitter2way, unitPrice: 0.66 });
-  if (d.splitter4way) items.push({ category: 'equipment', description: '4-way leg splitter', qty: d.splitter4way, unitPrice: 0.66 });
-  if (d.screwjacks)      items.push({ category: 'equipment', description: 'Screw jack (standard)', qty: d.screwjacks, unitPrice: 0.66 });
-  if (d.smallScrewjacks) items.push({ category: 'equipment', description: 'Screw jack (short — 1.6ft/2ft legs)', qty: d.smallScrewjacks, unitPrice: 0.66 });
+  if (d.splitter2way) items.push({ category: 'equipment', description: '2-way leg splitter', qty: d.splitter2way });
+  if (d.splitter4way) items.push({ category: 'equipment', description: '4-way leg splitter', qty: d.splitter4way });
+  if (d.screwjacks)      items.push({ category: 'equipment', description: 'Screw jack (standard)', qty: d.screwjacks });
+  if (d.smallScrewjacks) items.push({ category: 'equipment', description: 'Screw jack (short — 1.6ft/2ft legs)', qty: d.smallScrewjacks });
 
   for (const mm of [18, 12, 9, 6]) {
     const qty = d.plateCounts?.[mm] || 0;
     if (qty) items.push({ category: 'equipment', description: `${mm}mm base plate`, qty, unitPrice: 0.00 });
   }
 
-  if (totalHinges)      items.push({ category: 'equipment', description: 'Ramp hinge',  qty: totalHinges,      unitPrice: 16.50 });
-  if (totalRampBottoms) items.push({ category: 'equipment', description: 'Ramp bottom', qty: totalRampBottoms, unitPrice: 16.50 });
+  if (totalHinges)      items.push({ category: 'equipment', description: 'Ramp hinge',  qty: totalHinges });
+  if (totalRampBottoms) items.push({ category: 'equipment', description: 'Ramp bottom', qty: totalRampBottoms });
 
   const LEG_TUBE_PRICES = {
     '1ft': 0.33, "1'6\"": 0.33,
@@ -8130,7 +8130,7 @@ function buildQuoteItems() {
     if (!qty) continue;
     const lenPrefix = label.split(' leg ')[0];
     const price = LEG_TUBE_PRICES[lenPrefix] ?? 0.00;
-    items.push({ category: 'equipment', description: label, qty, unitPrice: price });
+    items.push({ category: 'equipment', description: label, qty });
   }
 
   if (d.stepsItemsPrint?.length) {
@@ -8138,7 +8138,7 @@ function buildQuoteItems() {
     for (const s of d.stepsItemsPrint) stepCounts[s.heightKey] = (stepCounts[s.heightKey] || 0) + 1;
     for (const [key, qty] of Object.entries(stepCounts)) {
       const label = STEPS_DATA[key]?.label || key;
-      items.push({ category: 'equipment', description: label, qty, unitPrice: 22.00 });
+      items.push({ category: 'equipment', description: label, qty });
     }
   }
 
@@ -8154,10 +8154,10 @@ function buildQuoteItems() {
         infillGroups[cutMm].tubes += 2;
       }
     }
-    if (qty8ft) items.push({ category: 'equipment', description: "8' handrail", qty: qty8ft, unitPrice: 13.20 });
-    if (qty4ft) items.push({ category: 'equipment', description: "4' handrail", qty: qty4ft, unitPrice: 9.90 });
+    if (qty8ft) items.push({ category: 'equipment', description: "8' handrail", qty: qty8ft });
+    if (qty4ft) items.push({ category: 'equipment', description: "4' handrail", qty: qty4ft });
     for (const [cutMm, g] of Object.entries(infillGroups)) {
-      items.push({ category: 'equipment', description: `Scaffold infill tube — cut to ${cutMm}mm`, qty: g.tubes, unitPrice: 11.00 });
+      items.push({ category: 'equipment', description: `Scaffold infill tube — cut to ${cutMm}mm`, qty: g.tubes });
     }
   }
 
@@ -8213,7 +8213,7 @@ function buildQuoteItems() {
     for (const [label, qty] of Object.entries(tubeLengthTotals)) {
       if (!qty) continue;
       const price = SCAFFOLD_TUBE_PRICES[label] ?? 2.20;
-      items.push({ category: 'equipment', description: `Scaffold tube — ${label}`, qty, unitPrice: price });
+      items.push({ category: 'equipment', description: `Scaffold tube — ${label}`, qty });
     }
 
     const bTotalSwivelClamps = d.bracingCalc.reduce((a, r) => a + r.totalSwivelClamps, 0);
@@ -8221,9 +8221,9 @@ function buildQuoteItems() {
     const bTotalRAClamps     = d.bracingCalc.reduce((a, r) => a + r.totalRAClamps, 0);
     const bTotalExtraRA      = d.bracingCalc.reduce((a, r) => a + (r.totalExtraRAClamps || 0), 0);
 
-    if (bTotalSwivelClamps) items.push({ category: 'equipment', description: 'Scaffold swivel clamps (diagonal braces)', qty: bTotalSwivelClamps, unitPrice: 0.33 });
-    if (bTotalSleeveClamps) items.push({ category: 'equipment', description: 'Scaffold sleeve clamps (tube joins)', qty: bTotalSleeveClamps, unitPrice: 0.33 });
-    if (bTotalRAClamps + bTotalExtraRA) items.push({ category: 'equipment', description: 'Scaffold right-angle clamps (horizontal ties)', qty: bTotalRAClamps + bTotalExtraRA, unitPrice: 0.33 });
+    if (bTotalSwivelClamps) items.push({ category: 'equipment', description: 'Scaffold swivel clamps (diagonal braces)', qty: bTotalSwivelClamps });
+    if (bTotalSleeveClamps) items.push({ category: 'equipment', description: 'Scaffold sleeve clamps (tube joins)', qty: bTotalSleeveClamps });
+    if (bTotalRAClamps + bTotalExtraRA) items.push({ category: 'equipment', description: 'Scaffold right-angle clamps (horizontal ties)', qty: bTotalRAClamps + bTotalExtraRA });
   }
 
   return items;

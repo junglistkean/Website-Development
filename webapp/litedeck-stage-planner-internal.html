@@ -2263,6 +2263,14 @@ function updateZoomDisplay() {
   if (el) el.textContent = Math.round(viewZoom * 100) + '%';
 }
 
+// Scroll the plan viewport so grid point (gx, gy) sits at the centre of the view
+function scrollToGridPoint(gx, gy) {
+  const pad = 24; // .canvas-scroll padding
+  const scrollR = scrollEl.getBoundingClientRect();
+  scrollEl.scrollLeft = Math.max(0, pad + gx * CELL * viewZoom - scrollR.width  / 2);
+  scrollEl.scrollTop  = Math.max(0, pad + gy * CELL * viewZoom - scrollR.height / 2);
+}
+
 // Wheel zoom (toward cursor)
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -5932,6 +5940,9 @@ function autoFill() {
   else                { w = w / 2;             d = d / 2;             } // ft → 2ft units
 
   const gw = Math.round(w), gh = Math.round(d);
+  // Centre the generated footprint on the grid (whole grid units; clamped to 0 if oversize)
+  const offX = Math.max(0, Math.floor((GRID_W - gw) / 2));
+  const offY = Math.max(0, Math.floor((GRID_H - gh) / 2));
   const tierPanels = panels.filter(p => p.category === 'panel' && p.tier !== activeTierId);
 
   // Build fresh panels for this tier using 8x4 priority
@@ -5940,6 +5951,7 @@ function autoFill() {
 
   const colFloor = new Array(gw).fill(0);
   while (colFloor.some(f => f < gh)) {
+    let placedAny = false;
     for (let col = 0; col < gw; ) {
       const row = colFloor[col];
       if (row >= gh) { col++; continue; }
@@ -5951,10 +5963,10 @@ function autoFill() {
           if (colFloor[cx] !== row) footprintClear = false;
         }
         if (!footprintClear) continue;
-        const candidate = { id: id++, category: 'panel', type, tier: activeTierId, gx: col, gy: row, gw: pw, gh: ph };
+        const candidate = { id: id++, category: 'panel', type, tier: activeTierId, gx: offX + col, gy: offY + row, gw: pw, gh: ph };
         let blocked = false;
         for (const p of tierPanels) {
-          const overlaps = col < p.gx+p.gw && col+pw > p.gx && row < p.gy+p.gh && row+ph > p.gy;
+          const overlaps = candidate.gx < p.gx+p.gw && candidate.gx+pw > p.gx && candidate.gy < p.gy+p.gh && candidate.gy+ph > p.gy;
           if (overlaps) {
             const hA = getTierHeight(activeTierId);
             const hB = getTierHeight(p.tier);
@@ -5966,11 +5978,13 @@ function autoFill() {
           for (let cx = col; cx < col + pw; cx++) colFloor[cx] = row + ph;
           col += pw;
           placed = true;
+          placedAny = true;
           break;
         }
       }
       if (!placed) col++;
     }
+    if (!placedAny) break; // remainder cells no panel variant can fill — stop, don't spin forever
   }
 
   // Remove existing active-tier stage panels only (preserve steps/handrails), add new
@@ -5979,6 +5993,7 @@ function autoFill() {
   nextId = id;
   selectedId = null;
   recalcSchedule(); redraw();
+  scrollToGridPoint(offX + gw / 2, offY + gh / 2);
   }
 function buildScheduleData() {
   function legMmToFtLabel(mm) {

@@ -2798,6 +2798,14 @@ function updateZoomDisplay() {
   if (el) el.textContent = Math.round(viewZoom * 100) + '%';
 }
 
+// Scroll the plan viewport so grid point (gx, gy) sits at the centre of the view
+function scrollToGridPoint(gx, gy) {
+  const pad = 24; // .canvas-scroll padding
+  const scrollR = canvasScroll.getBoundingClientRect();
+  canvasScroll.scrollLeft = Math.max(0, pad + gx * CELL * viewZoom - scrollR.width  / 2);
+  canvasScroll.scrollTop  = Math.max(0, pad + gy * CELL * viewZoom - scrollR.height / 2);
+}
+
 // Wheel zoom (toward cursor)
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -4825,7 +4833,8 @@ function autoFill() {
   if (!confirm(`Generate ${wFt.toFixed(0)}ft × ${dFt.toFixed(0)}ft layout? This will replace the current layout.`)) return;
   saveHistory();
   panels = panels.filter(p => p.category !== 'panel' || p.tier !== activeTierId);
-  const startX = Math.floor((GRID_W-wGu)/2), startY = Math.floor((GRID_H-dGu)/2);
+  // Centre the footprint on the grid (whole grid units; clamped to 0 if oversize)
+  const startX = Math.max(0, Math.floor((GRID_W-wGu)/2)), startY = Math.max(0, Math.floor((GRID_H-dGu)/2));
   for (let x=startX; x<startX+wGu; x+=4) {
     for (let y=startY; y<startY+dGu; y+=2) {
       const remW=startX+wGu-x, remD=startY+dGu-y;
@@ -4839,6 +4848,7 @@ function autoFill() {
     }
   }
   recalcSchedule(); redraw();
+  scrollToGridPoint(startX + wGu / 2, startY + dGu / 2);
 }
 
 // ── Colour per tier ───────────────────────────────────────────────────────────

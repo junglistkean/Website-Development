@@ -1,0 +1,8 @@
+# Cloudflare Pages publishes this repo verbatim — anything committed is publicly
+# readable at ravenstaging.co.uk. Keep internal/secret files listed here.
+.cloudflare-purge.txt
+webapp/CLAUDE.md
+_archive/
+BACKLOG.md
+.claude/
+node_modules/

@@ -1192,12 +1192,24 @@
     <div style="font-size:12px;color:var(--muted);line-height:1.6;">
       Pushes this layout (component list + full save state) to the Quote Builder, where it
       sits <strong>pending</strong> against the chosen job until injected into a quote.
-      Re-sending after edits creates a new pending record — amendments are resolved in
-      the Quote Builder.
+      A layout sent for the first time is assigned a <strong>stage ID</strong>; re-sending an
+      edited layout can <strong>replace</strong> that stage (retiring the old version) or be
+      saved as a <strong>new</strong> stage.
     </div>
     <div class="qm-status" id="qb-push-status" style="display:none;margin-top:10px"></div>
+    <div class="qm-field" id="qb-push-mode-field" style="display:none;margin-top:12px">
+      <label>This layout is stage <span id="qb-push-idlabel" style="color:var(--accent2)"></span> — re-sending</label>
+      <div style="display:flex;gap:18px;font-size:13px;color:var(--text);margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400">
+          <input type="radio" name="qb-push-mode" value="replace" checked> Replace this stage
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400">
+          <input type="radio" name="qb-push-mode" value="duplicate"> Save as new stage
+        </label>
+      </div>
+    </div>
     <div class="qm-field" style="margin-top:12px">
-      <label>Layout name *</label>
+      <label>Layout name * <span id="qb-push-nameprefix" style="color:var(--muted)"></span></label>
       <input type="text" id="qb-push-name" placeholder="e.g. Main stage — two tier 24x16">
     </div>
     <div class="qm-field">
@@ -1320,6 +1332,12 @@ const rakeConfig = {
 let tiers        = [{ id:1, label:'T1', finishedHeight:600 }];
 let activeTierId = 1;
 let nextTierId   = 2;
+
+// Stage identity (Phase 1). null until this layout has been sent to QB at least
+// once (or loaded from a QB record). Same value across a stage's amendments —
+// it rides inside the saved layout state and back to QB on re-send.
+let currentRunningId = null;
+function fmtRunningId(n) { return (n == null) ? '' : String(n).padStart(5, '0'); }
 
 const STEPS_DATA = {
   '1ft':   { heightMm: 305,  treads: 2,  label: "1ft steps (305mm)" },
@@ -8111,6 +8129,7 @@ function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName,
     version: 2,
     exportedAt: new Date().toISOString(),
     event: { eventName, venue, loadInDate, loadInTime, contactName, contactEmail, notes },
+    runningId: currentRunningId,
     tiers,
     panels,
     nextId,
@@ -8410,6 +8429,18 @@ async function openQbPushModal() {
     const ev = document.getElementById('qm-event-name')?.value.trim();
     nameEl.value = ev ? ev + ' — layout' : 'Layout ' + new Date().toISOString().slice(0, 10);
   }
+  // Replace/Duplicate choice only applies once a layout already has a stage id.
+  const modeField = document.getElementById('qb-push-mode-field');
+  if (currentRunningId != null) {
+    document.getElementById('qb-push-idlabel').textContent = fmtRunningId(currentRunningId);
+    document.getElementById('qb-push-nameprefix').textContent = '(stage ' + fmtRunningId(currentRunningId) + ')';
+    const r = document.querySelector('input[name="qb-push-mode"][value="replace"]');
+    if (r) r.checked = true;
+    modeField.style.display = 'block';
+  } else {
+    document.getElementById('qb-push-nameprefix').textContent = '';
+    modeField.style.display = 'none';
+  }
   document.getElementById('qb-push-modal').classList.add('active');
   // Populate the job picker from QB's planner jobs-list endpoint
   const sel = document.getElementById('qb-push-job');
@@ -8446,6 +8477,13 @@ async function submitQbPush() {
     return;
   }
   if (!components.length) { setQbStatus('qb-push-status', 'error', '<b>No components to send.</b>'); return; }
+  // Replace keeps the stage lineage and retires the prior version; duplicate (or a
+  // from-scratch layout with no id) mints a new stage server-side.
+  let intent = 'duplicate';
+  if (currentRunningId != null) {
+    const m = document.querySelector('input[name="qb-push-mode"]:checked');
+    intent = (m && m.value === 'replace') ? 'replace' : 'duplicate';
+  }
   const btn = document.getElementById('qb-push-submit');
   btn.disabled = true;
   setQbStatus('qb-push-status', 'sending', 'Sending layout…');
@@ -8457,10 +8495,14 @@ async function submitQbPush() {
         jobId: document.getElementById('qb-push-job').value || null,
         components,
         layoutState: buildLayoutState(),
+        intent,
+        runningId: (intent === 'replace') ? currentRunningId : null,
       }),
     });
     if (d && d.ok) {
-      setQbStatus('qb-push-status', 'success', '✅ <b>Sent.</b> Layout is pending in the Quote Builder (' + components.length + ' component lines).');
+      if (typeof d.runningId === 'number') currentRunningId = d.runningId;
+      const idTxt = (typeof d.runningId === 'number') ? ' as stage <b>' + fmtRunningId(d.runningId) + '</b>' : '';
+      setQbStatus('qb-push-status', 'success', '✅ <b>Sent</b>' + idTxt + '. Pending in the Quote Builder (' + components.length + ' component lines).');
     } else {
       setQbStatus('qb-push-status', 'error', '<b>Send failed:</b> ' + ((d && d.error) || 'unknown error'));
     }
@@ -8503,10 +8545,15 @@ async function refreshQbLayouts() {
     const dt = l.created_at ? new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
     const status = l.status === 'used'
       ? '<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);padding:1px 6px;margin-left:8px">USED</span>'
+      : l.status === 'superseded'
+      ? '<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);padding:1px 6px;margin-left:8px">SUPERSEDED</span>'
       : '<span style="font-size:10px;color:var(--accent2);border:1px solid var(--accent2);padding:1px 6px;margin-left:8px">PENDING</span>';
+    const idPrefix = (typeof l.running_id === 'number')
+      ? '<span style="color:var(--muted);font-variant-numeric:tabular-nums">' + fmtRunningId(l.running_id) + '</span> — '
+      : '';
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;flex-wrap:wrap';
-    row.innerHTML = '<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">' + esc(l.name) + status + '</div>'
+    row.innerHTML = '<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">' + idPrefix + esc(l.name) + status + '</div>'
       + '<div style="font-size:11px;color:var(--muted)">Sent ' + dt + ' · ' + (l.component_count || 0) + ' component lines'
       + (l.job_id ? '' : ' · unassigned') + '</div></div>';
     const btn = document.createElement('button');
@@ -8534,6 +8581,9 @@ async function qbLoadLayout(id) {
   try {
     saveHistory();
     importLayoutJson(JSON.stringify(full.layoutState));
+    // The DB column is authoritative for identity — it covers legacy backfilled
+    // rows whose layout_state_json predates Phase 1 and has no runningId copy.
+    if (typeof full.runningId === 'number') currentRunningId = full.runningId;
     closeQbLayoutsModal();
     document.getElementById('qb-push-name').value = full.name || '';
   } catch (e) {
@@ -8550,6 +8600,10 @@ function importLayoutJson(jsonString) {
   ramps        = data.ramps      || [];
   nextRampId   = data.nextRampId || 1;
   activeTierId = tiers[0].id;
+  // Stage identity rides inside the saved state (file exports and post-Phase-1 QB
+  // records). Legacy QB records have no copy here — qbLoadLayout sets it from the
+  // DB column instead.
+  currentRunningId = (typeof data.runningId === 'number') ? data.runningId : null;
   if (data.config) {
     document.getElementById('cfg-socket').value    = data.config.socket;
     document.getElementById('cfg-splitter').value  = data.config.splitter;

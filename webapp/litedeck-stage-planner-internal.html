@@ -875,6 +875,15 @@
         <label for="cfg-levelground" style="cursor:pointer;flex:1">Level-ground build <span style="color:var(--muted);font-size:10px">(legs only — no splitters/jacks)</span></label>
         <input type="checkbox" id="cfg-levelground" onchange="toggleLevelGround(this.checked)" style="width:auto;cursor:pointer">
       </div>
+      <div class="config-row" id="cfg-nobracing-row" style="margin-top:6px;align-items:center;gap:8px;display:none">
+        <label for="cfg-nobracing" style="cursor:pointer;flex:1">No bracing <span style="color:var(--muted);font-size:10px">(legs &amp; baseplates only — skip all bracing)</span></label>
+        <input type="checkbox" id="cfg-nobracing" onchange="toggleNoBracing(this.checked)" style="width:auto;cursor:pointer">
+      </div>
+      <div id="cfg-nobracing-note" style="display:none;margin-top:4px;padding:6px 10px;background:#fff6e0;
+        border-left:3px solid #c9a84c;font-size:10px;line-height:1.5;color:#5a4a00;border-radius:0 4px 4px 0">
+        No bracing &mdash; suitable for low, non-load-bearing decks (e.g. bar decks, typically up to ~4ft).
+        For taller or load-bearing builds, bracing is recommended.
+      </div>
       <div id="config-advanced">
         <div class="config-grid" style="margin-top:10px">
           <div class="config-row">
@@ -1294,6 +1303,20 @@ const BP_SIZES = [18, 12, 9];  // available baseplate shims mm
 // build, ramp legs and load schedule already use — capped at the tallest stock
 // leg (8ft). No bespoke or generated lengths. See computeLevelGroundBuild().
 let levelGroundMode = false;
+// Combined load schedule state — declared here (early) because initCombinedSchedule()
+// runs in the init sequence below, ahead of the combined-schedule code block, so these
+// bindings must already exist (avoids a TDZ at load that silently dropped the ?job=
+// pre-fill). combinedJob* = the job selected in the modal; the other two are pre-fill
+// sources. See openCombinedScheduleModal / csLoadJob further down.
+let combinedJobId = null, combinedJobName = null, combinedStagesCache = null;
+let urlJobId = null;            // ?job=<id> the planner was opened with
+let currentLayoutJobId = null;  // job_id of the layout last loaded from QB (qbLoadLayout)
+// No-bracing opt-out — only meaningful inside level-ground mode. When ON, all
+// bracing is skipped: calcBracing() returns every tier as status:'none', so
+// bracing drops out of the on-screen schedule, load/print schedule and QB quote
+// automatically (everything downstream gates on the 'calc' rows). Default OFF —
+// braced is always the deliberate default; no-bracing is an explicit choice.
+let noBracingMode = false;
 const LG_MAX_LEG_MM = 2438.4;   // 8ft — tallest stock leg; BRACE_STOCK_MM entries above this are bracing-only tubes
 
 const PANEL_SIZES = { '8x4':[4,2], '8x2':[4,1], '4x4':[2,2], '4x2':[2,1] };
@@ -1434,9 +1457,28 @@ function toggleLevelGround(on) {
     const el = document.getElementById(id);
     if (el) el.style.opacity = levelGroundMode ? '0.4' : '1';
   }
+  // No-bracing is a level-ground-only opt-out: hide and clear it when legs-only off.
+  if (!levelGroundMode) noBracingMode = false;
+  syncNoBracingUI();
   updateLegendForMode();
   recalcSchedule();
   if (activeView === 'bracing') renderBracingView();
+}
+function toggleNoBracing(on) {
+  noBracingMode = !!on;
+  syncNoBracingUI();
+  recalcSchedule();
+  if (activeView === 'bracing') renderBracingView();
+}
+// Reflect the current flags into the no-bracing row (only visible in level-ground
+// mode), its checkbox, and the advisory note (only when no-bracing is on).
+function syncNoBracingUI() {
+  const row  = document.getElementById('cfg-nobracing-row');
+  const cb   = document.getElementById('cfg-nobracing');
+  const note = document.getElementById('cfg-nobracing-note');
+  if (row)  row.style.display  = levelGroundMode ? 'flex' : 'none';
+  if (cb)   cb.checked         = noBracingMode;
+  if (note) note.style.display = (levelGroundMode && noBracingMode) ? 'block' : 'none';
 }
 function updateLegendForMode() {
   const el = document.getElementById('node-legend');
@@ -6763,6 +6805,10 @@ function printSchedule() {
         border-left:4px solid #c9a84c;font-size:10pt;font-weight:700;">
         LEVEL-GROUND BUILD — legs only (no splitters, no jacks). Baseplates shared at junction
         points; heights rounded down to leg + whole baseplates.</div>` : ''}
+      ${(levelGroundMode && noBracingMode) ? `<div style="margin:8px 0 4px;padding:6px 10px;background:#fff6e0;
+        border-left:4px solid #c9a84c;font-size:10pt;font-weight:700;">
+        NO BRACING — none supplied or fitted. Suitable for low, non-load-bearing decks
+        (e.g. bar decks, typically up to ~4ft). For taller or load-bearing builds, bracing is recommended.</div>` : ''}
       <h2>Equipment Totals</h2>
       <table><tbody>${totalsRows}</tbody></table>
       <div class="build-section">
@@ -7252,6 +7298,17 @@ function setBracingSubView(v) {
 function calcBracing() {
   const tierPanels = panels.filter(p => p.category === 'panel');
   if (!tierPanels.length) return null;
+  // No-bracing opt-out (level-ground only): report every populated tier as
+  // status:'none' so nothing downstream counts, schedules or quotes bracing.
+  // status:'none' rows render a clean per-tier note in the bracing view and are
+  // filtered out everywhere bracing 'calc' rows are consumed (schedule, load
+  // totals, QB quote). Drawings draw no braces by the same path — left as-is.
+  if (levelGroundMode && noBracingMode) {
+    return tiers
+      .filter(tier => tierPanels.some(p => p.tier === tier.id))
+      .map(tier => ({ tier, finH: tier.finishedHeight, status: 'none',
+        reason: 'No bracing selected (level-ground build). Suitable for low, non-load-bearing decks (typically up to ~4ft); for taller or load-bearing builds, bracing is recommended.' }));
+  }
   const jackMin = getCfgMm('jack');
   // A leg qualifies for bracing at >= this ACTUAL length, measured from its
   // true support (deck below or floor) — not the tier's finished height.
@@ -8431,6 +8488,7 @@ function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName,
       baseplate: parseFloat(document.getElementById('cfg-baseplate').value),
       jack:      parseFloat(document.getElementById('cfg-jack').value),
       levelGround: levelGroundMode,
+      noBracing: noBracingMode,
     }
   });
 }
@@ -8893,13 +8951,10 @@ async function qbLoadLayout(id) {
 // next imported; the user's canvas is snapshotted and restored around the loop.
 // Reached via /litedeck?job=<id> from the jobs-api job page; same-origin to QB so
 // the qb_auth cookie covers the calls.
-// combinedJobId/Name/Stages describe the job currently SELECTED in the modal
-// (set by csLoadJob). urlJobId / currentLayoutJobId are pre-fill sources only.
-let combinedJobId = null;
-let combinedJobName = null;
-let combinedStagesCache = null;
-let urlJobId = null;            // ?job=<id> the planner was opened with
-let currentLayoutJobId = null; // job_id of the layout last loaded from QB (qbLoadLayout)
+// combinedJobId/Name/Stages (the job SELECTED in the modal, set by csLoadJob) and
+// urlJobId / currentLayoutJobId (pre-fill sources) are declared up in the state section
+// near levelGroundMode — they must exist before initCombinedSchedule() runs in the init
+// sequence, which is above this block (declaring them here caused a load-time TDZ).
 
 function initCombinedSchedule() {
   // The toolbar button is always visible now; this only captures the URL job
@@ -9337,6 +9392,9 @@ function importLayoutJson(jsonString) {
       const el = document.getElementById(id);
       if (el) el.style.opacity = levelGroundMode ? '0.4' : '1';
     }
+    // No-bracing only applies inside level-ground mode.
+    noBracingMode = levelGroundMode && !!data.config.noBracing;
+    syncNoBracingUI();
     updateLegendForMode();
   }
   // Backwards compat: ramps saved before flights field was added.

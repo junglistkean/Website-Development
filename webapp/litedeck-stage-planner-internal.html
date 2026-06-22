@@ -743,7 +743,7 @@
     <button class="btn btn-ghost" id="btn-send-quote" onclick="openQuoteModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x2709; Send Quote</button>
     <button class="btn btn-ghost" id="btn-qb-push" onclick="openQbPushModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x21EA; Send to QB</button>
     <button class="btn btn-ghost" id="btn-qb-layouts" onclick="openQbLayoutsModal()">&#x1F5C2; Sent Layouts</button>
-    <button class="btn btn-ghost" id="btn-combined-schedule" onclick="openCombinedScheduleModal()" style="display:none;border-color:var(--accent2);color:var(--accent2);">&#x1F4CB; Combined load schedule</button>
+    <button class="btn btn-ghost" id="btn-combined-schedule" onclick="openCombinedScheduleModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x1F4CB; Combined load schedule</button>
   </div>
 </header>
 
@@ -1250,15 +1250,21 @@
   <div class="modal" style="width:600px">
     <h3>Combined load schedule</h3>
     <div style="font-size:12px;color:var(--muted);line-height:1.6;">
-      Builds one printable load schedule for <b id="cs-job-name">this job</b> — a grand
-      total across every current stage (the warehouse pick list) plus a per-stage
-      breakdown — and saves it to the job's files. Each generation replaces the
-      previous one.
+      Builds one printable load schedule for the chosen job — a grand total across every
+      current stage (the warehouse pick list) plus a per-stage breakdown — and saves it to
+      the job's files. Reads the job's stored stages, so it doesn't depend on what's on the
+      canvas. Each generation replaces the previous one.
     </div>
-    <div id="cs-stages" style="margin:12px 0;font-size:13px;max-height:300px;overflow-y:auto">Loading stages…</div>
+    <div style="margin-top:12px">
+      <label for="cs-job" style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Job to combine</label>
+      <select id="cs-job" onchange="csLoadJob(this.value)" style="width:100%;background:var(--surface2,#1a1a1a);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:9px 10px;font-size:13px;outline:none">
+        <option value="">— Select a job —</option>
+      </select>
+    </div>
+    <div id="cs-stages" style="margin:12px 0;font-size:13px;max-height:280px;overflow-y:auto"></div>
     <div class="qm-status" id="cs-status" style="display:none;margin-top:10px"></div>
     <div class="modal-actions">
-      <button class="btn btn-primary" id="cs-generate" onclick="generateCombinedSchedule()">Generate combined load schedule</button>
+      <button class="btn btn-primary" id="cs-generate" onclick="generateCombinedSchedule()" disabled>Generate combined load schedule</button>
       <button class="btn btn-ghost" onclick="closeCombinedScheduleModal()">Close</button>
     </div>
   </div>
@@ -8626,6 +8632,9 @@ async function qbLoadLayout(id) {
     // The DB column is authoritative for identity — it covers legacy backfilled
     // rows whose layout_state_json predates Phase 1 and has no runningId copy.
     if (typeof full.runningId === 'number') currentRunningId = full.runningId;
+    // Remember which job this layout belongs to so the combined load schedule can
+    // pre-fill its job picker from the currently-open layout.
+    currentLayoutJobId = full.jobId || null;
     closeQbLayoutsModal();
     document.getElementById('qb-push-name').value = full.name || '';
   } catch (e) {
@@ -8641,20 +8650,22 @@ async function qbLoadLayout(id) {
 // next imported; the user's canvas is snapshotted and restored around the loop.
 // Reached via /litedeck?job=<id> from the jobs-api job page; same-origin to QB so
 // the qb_auth cookie covers the calls.
+// combinedJobId/Name/Stages describe the job currently SELECTED in the modal
+// (set by csLoadJob). urlJobId / currentLayoutJobId are pre-fill sources only.
 let combinedJobId = null;
 let combinedJobName = null;
 let combinedStagesCache = null;
+let urlJobId = null;            // ?job=<id> the planner was opened with
+let currentLayoutJobId = null; // job_id of the layout last loaded from QB (qbLoadLayout)
 
 function initCombinedSchedule() {
+  // The toolbar button is always visible now; this only captures the URL job
+  // (for pre-fill) and, when present, flags the button if the saved sheet is stale.
   try {
-    const job = new URLSearchParams(location.search).get('job');
-    if (!job) return;
-    combinedJobId = job;
+    urlJobId = new URLSearchParams(location.search).get('job') || null;
+    if (!urlJobId) return;
     const btn = document.getElementById('btn-combined-schedule');
-    if (btn) btn.style.display = '';
-    // Advisory staleness check — non-blocking, flags the button if an existing
-    // sheet no longer matches the job's live current stages.
-    qbFetch('/api/planner-layouts/schedule-status?job_id=' + encodeURIComponent(job))
+    qbFetch('/api/planner-layouts/schedule-status?job_id=' + encodeURIComponent(urlJobId))
       .then(s => {
         if (s && s.exists && !s.upToDate && btn) {
           btn.innerHTML = '&#x1F4CB; Combined load schedule &#9888;';
@@ -8666,18 +8677,55 @@ function initCombinedSchedule() {
 }
 
 async function openCombinedScheduleModal() {
-  if (!combinedJobId) {
-    alert('Open this planner from a job (the "Combined load schedule" button on the job page) to use this.');
-    return;
-  }
   document.getElementById('combined-schedule-modal').classList.add('active');
   setQbStatus('cs-status', '', '');
-  const listEl = document.getElementById('cs-stages');
-  listEl.textContent = 'Loading stages…';
   document.getElementById('cs-generate').disabled = true;
+  document.getElementById('cs-stages').innerHTML = '';
+  combinedJobId = null; combinedJobName = null; combinedStagesCache = null;
+
+  // Populate the job picker (same endpoint as Send to QB). Resolve the pre-select
+  // in order: URL ?job= → the loaded layout's job → none (user chooses).
+  const sel = document.getElementById('cs-job');
+  sel.innerHTML = '<option value="">— Select a job —</option>';
+  const preselect = urlJobId || currentLayoutJobId || '';
+  try {
+    const jobs = await qbFetch('/api/planner-jobs');
+    if (Array.isArray(jobs)) {
+      for (const j of jobs) {
+        const o = document.createElement('option');
+        o.value = j.id;
+        o.textContent = j.name + (j.client ? ' — ' + j.client : '') + (j.dateStart ? ' (' + j.dateStart + ')' : '');
+        sel.appendChild(o);
+      }
+    }
+    // A pre-selected job may not be in the active-jobs list (e.g. a different
+    // status); add it so it can still be selected and combined.
+    if (preselect && !Array.from(sel.options).some(o => o.value === preselect)) {
+      const o = document.createElement('option');
+      o.value = preselect; o.textContent = '(opened job) ' + preselect;
+      sel.appendChild(o);
+    }
+  } catch (e) {
+    setQbStatus('cs-status', 'error', '<b>Could not load jobs:</b> ' + e.message);
+  }
+  if (preselect) { sel.value = preselect; csLoadJob(preselect); }
+  else { document.getElementById('cs-stages').innerHTML = '<div style="color:var(--muted)">Pick a job to combine.</div>'; }
+}
+
+// Load + display the current stages for the chosen job; gates the Generate button.
+async function csLoadJob(jobId) {
+  const listEl = document.getElementById('cs-stages');
+  const genBtn = document.getElementById('cs-generate');
+  setQbStatus('cs-status', '', '');
+  genBtn.disabled = true;
+  combinedJobId = jobId || null;
+  combinedJobName = null;
+  combinedStagesCache = null;
+  if (!jobId) { listEl.innerHTML = '<div style="color:var(--muted)">Pick a job to combine.</div>'; return; }
+  listEl.textContent = 'Loading stages…';
   let data;
   try {
-    data = await qbFetch('/api/planner-layouts/current?job_id=' + encodeURIComponent(combinedJobId));
+    data = await qbFetch('/api/planner-layouts/current?job_id=' + encodeURIComponent(jobId));
   } catch (e) {
     listEl.textContent = '';
     setQbStatus('cs-status', 'error', '<b>Could not load stages:</b> ' + e.message);
@@ -8690,16 +8738,16 @@ async function openCombinedScheduleModal() {
   }
   combinedStagesCache = data.stages || [];
   combinedJobName = (data.job && data.job.name) || null;
-  document.getElementById('cs-job-name').textContent = combinedJobName || ('job ' + combinedJobId);
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const jobLabel = combinedJobName ? esc(combinedJobName) : ('job ' + esc(jobId));
   if (!combinedStagesCache.length) {
-    listEl.innerHTML = '<div style="color:var(--muted)">No layouts found for this job.</div>';
-    document.getElementById('cs-generate').disabled = true;
+    listEl.innerHTML = '<div style="font-weight:600;margin-bottom:4px">' + jobLabel + '</div>'
+      + '<div style="color:var(--muted)">No layouts found for this job.</div>';
     return;
   }
   let anyLegacy = false;
-  let html = '<div style="font-weight:600;margin-bottom:6px">' + combinedStagesCache.length
-    + ' stage' + (combinedStagesCache.length > 1 ? 's' : '') + ' to include:</div>';
+  let html = '<div style="font-weight:600;margin-bottom:6px">' + jobLabel + ' — '
+    + combinedStagesCache.length + ' stage' + (combinedStagesCache.length > 1 ? 's' : '') + ' to combine:</div>';
   for (const s of combinedStagesCache) {
     if (s.legacy) anyLegacy = true;
     const usedBadge = s.status === 'used'
@@ -8714,7 +8762,7 @@ async function openCombinedScheduleModal() {
   if (anyLegacy) {
     setQbStatus('cs-status', 'error', '&#9888; <b>This job has layouts from before stage versioning</b> — check for duplicates before trusting the totals.');
   }
-  document.getElementById('cs-generate').disabled = false;
+  genBtn.disabled = false;
 }
 
 function closeCombinedScheduleModal() {

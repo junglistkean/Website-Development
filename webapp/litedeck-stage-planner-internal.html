@@ -6607,8 +6607,10 @@ function printSchedule() {
   } catch(e) { alert('Print error: ' + e.message); console.error(e); }
 }
 
-function generateElevationImages() {
-  if (!panels.some(p => p.category === 'panel')) return '';
+// returnData=true → returns the raw {planDataUrl, bracing*Url} dataURLs (for the
+// combined load schedule PDF); otherwise returns the print-window HTML (unchanged).
+function generateElevationImages(returnData) {
+  if (!panels.some(p => p.category === 'panel')) return returnData ? null : '';
 
   // ── Bounding box ──
   let minGx = Infinity, maxGx = -Infinity, minGy = Infinity, maxGy = -Infinity;
@@ -6800,6 +6802,9 @@ function generateElevationImages() {
 
   // Build bracing image HTML — only include if we have bracing data
   const hasBracing = bracingPlanUrl || bracingElevXUrl || bracingElevYUrl;
+  if (returnData) {
+    return { planDataUrl, bracingPlanUrl, bracingElevXUrl, bracingElevXBUrl, bracingElevYUrl, bracingElevYRUrl };
+  }
   const bracingImgHtml = hasBracing ? `
       <div class="elevation-item">
         <p>Bracing — Plan View</p>
@@ -8785,6 +8790,24 @@ function csTokensToBody(tokens) {
   return body;
 }
 
+// Place a captured drawing into the PDF, scaled to the content width (capped
+// height), with a caption above it, breaking to a new page when it won't fit.
+// Returns the new y cursor.
+function csPlaceImage(doc, dataUrl, caption, ctx, y) {
+  if (!dataUrl) return y;
+  let props;
+  try { props = doc.getImageProperties(dataUrl); } catch { return y; }
+  if (!props || !props.width || !props.height) return y;
+  const availW = ctx.pageW - 2 * ctx.marginX;
+  let w = availW, h = w * props.height / props.width;
+  if (h > ctx.maxImgH) { h = ctx.maxImgH; w = h * props.width / props.height; }
+  if (y + 5 + h > ctx.pageH - ctx.marginX) { doc.addPage(); y = ctx.marginX; }
+  doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(caption, ctx.marginX, y); y += 4;
+  doc.addImage(dataUrl, 'PNG', ctx.marginX, y, w, h);
+  return y + h + 6;
+}
+
 async function generateCombinedSchedule() {
   if (!combinedJobId) return;
   const stages = combinedStagesCache;
@@ -8821,7 +8844,11 @@ async function generateCombinedSchedule() {
         importLayoutJson(JSON.stringify(s.layoutState));
         if (!panels.some(p => p.category === 'panel')) throw new Error('no panels in layout');
         const d = buildScheduleData();
-        perStage.push({ runningId: s.runningId, name: s.name, createdAt: s.createdAt, tokens: buildLoadTotals(d) });
+        // Capture this stage's plan + bracing drawings (same renderer as the
+        // standard single-layout schedule), to embed under its breakdown.
+        let images = null;
+        try { images = generateElevationImages(true); } catch (e) { images = null; }
+        perStage.push({ runningId: s.runningId, name: s.name, createdAt: s.createdAt, tokens: buildLoadTotals(d), images });
       } catch (e) {
         failed.push({ runningId: s.runningId, name: s.name, error: e.message });
       }
@@ -8933,6 +8960,19 @@ async function generateCombinedSchedule() {
         columnStyles: { 0: { cellWidth: 24, fontStyle: 'bold' } },
         theme: 'grid',
       });
+      // Plan + bracing drawings for this stage (as in the standard schedule).
+      if (st.images) {
+        const ctx = { marginX: 14, pageW: doc.internal.pageSize.getWidth(),
+          pageH: doc.internal.pageSize.getHeight(), maxImgH: 105 };
+        let iy = doc.lastAutoTable.finalY + 8;
+        const tag = fmtRunningId(st.runningId) + ' — ';
+        iy = csPlaceImage(doc, st.images.planDataUrl,      tag + 'Plan View', ctx, iy);
+        iy = csPlaceImage(doc, st.images.bracingPlanUrl,   tag + 'Bracing — Plan', ctx, iy);
+        iy = csPlaceImage(doc, st.images.bracingElevXUrl,  tag + 'Bracing — Elevation Front (X)', ctx, iy);
+        iy = csPlaceImage(doc, st.images.bracingElevXBUrl, tag + 'Bracing — Elevation Back (X)', ctx, iy);
+        iy = csPlaceImage(doc, st.images.bracingElevYUrl,  tag + 'Bracing — Elevation Left (Y)', ctx, iy);
+        iy = csPlaceImage(doc, st.images.bracingElevYRUrl, tag + 'Bracing — Elevation Right (Y)', ctx, iy);
+      }
     }
 
     const safeRef = (combinedJobName || combinedJobId)

@@ -9044,18 +9044,25 @@ async function csLoadJob(jobId) {
     return;
   }
   let anyLegacy = false;
-  let html = '<div style="font-weight:600;margin-bottom:6px">' + jobLabel + ' — '
-    + combinedStagesCache.length + ' stage' + (combinedStagesCache.length > 1 ? 's' : '') + ' to combine:</div>';
-  for (const s of combinedStagesCache) {
+  let html = '<div style="font-weight:600;margin-bottom:4px">' + jobLabel + ' — '
+    + combinedStagesCache.length + ' stage' + (combinedStagesCache.length > 1 ? 's' : '') + ' on this job:</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Untick a stage to leave it out of <i>this</i> schedule · Remove takes it off the job (recoverable).</div>';
+  // Per-stage row: tick box (default ticked — included in this run) + a Remove
+  // control that discards THIS layout row (by per-send PK) off the job.
+  combinedStagesCache.forEach((s, i) => {
     if (s.legacy) anyLegacy = true;
     const usedBadge = s.status === 'used'
       ? '<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);padding:1px 6px;margin-left:6px">USED</span>' : '';
     const legacyBadge = s.legacy
       ? '<span style="font-size:10px;color:#c60;border:1px solid #c60;padding:1px 6px;margin-left:6px">PRE-VERSIONING</span>' : '';
-    html += '<div style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px">'
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px">'
+      + '<input type="checkbox" class="cs-stage-tick" data-idx="' + i + '" checked title="Include this stage in the schedule" style="width:auto;cursor:pointer;flex-shrink:0">'
+      + '<div style="flex:1;min-width:0">'
       + '<span style="font-variant-numeric:tabular-nums;color:var(--muted)">' + fmtRunningId(s.runningId) + '</span> — '
-      + esc(s.name) + usedBadge + legacyBadge + '</div>';
-  }
+      + esc(s.name) + usedBadge + legacyBadge + '</div>'
+      + '<button class="btn btn-ghost" onclick="csRemoveStage(' + i + ')" title="Remove this layout from the job (hidden, not deleted)" style="flex-shrink:0;font-size:11px;padding:3px 9px;color:#f87171;border-color:#f8717140">&#10005; Remove</button>'
+      + '</div>';
+  });
   listEl.innerHTML = html;
   if (anyLegacy) {
     setQbStatus('cs-status', 'error', '&#9888; <b>This job has layouts from before stage versioning</b> — check for duplicates before trusting the totals.');
@@ -9065,6 +9072,27 @@ async function csLoadJob(jobId) {
 
 function closeCombinedScheduleModal() {
   document.getElementById('combined-schedule-modal').classList.remove('active');
+}
+
+// Remove an accidentally-submitted layout from the job for good (recoverable):
+// discards THIS specific layout row by its per-send PK, so the same design on any
+// other job is untouched. The current-stages query excludes 'discarded', so it
+// drops out of the combine; we re-fetch to refresh the list + count.
+async function csRemoveStage(idx) {
+  const s = combinedStagesCache && combinedStagesCache[idx];
+  if (!s) return;
+  if (!confirm('Remove ' + fmtRunningId(s.runningId) + ' — ' + (s.name || '') + ' from this job?\n\n'
+    + 'It is hidden from the job, not deleted (recoverable). The same layout on any other job is unaffected.')) return;
+  setQbStatus('cs-status', 'sending', 'Removing ' + fmtRunningId(s.runningId) + '…');
+  try {
+    const r = await qbFetch('/api/planner-layouts/' + encodeURIComponent(s.id) + '/discard', { method: 'POST' });
+    if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
+  } catch (e) {
+    setQbStatus('cs-status', 'error', '<b>Could not remove:</b> ' + e.message);
+    return;
+  }
+  setQbStatus('cs-status', '', '');
+  await csLoadJob(combinedJobId); // refresh list + count; removed stage is gone
 }
 
 // Convert a buildLoadTotals() token list into jspdf-autotable body rows. Section
@@ -9130,9 +9158,20 @@ function csCompressImage(dataUrl, maxW, quality) {
 
 async function generateCombinedSchedule() {
   if (!combinedJobId) return;
-  const stages = combinedStagesCache;
-  if (!stages || !stages.length) {
+  if (!combinedStagesCache || !combinedStagesCache.length) {
     setQbStatus('cs-status', 'error', '<b>No layouts found for this job.</b>');
+    return;
+  }
+  // Use only the ticked stages (default all ticked) for both the grand total and
+  // the per-stage breakdown. Unticking is per-generation, non-destructive,
+  // purely client-side — no persistence, no writes.
+  const tickedIdx = new Set(
+    Array.from(document.querySelectorAll('#cs-stages .cs-stage-tick'))
+      .filter(c => c.checked).map(c => Number(c.dataset.idx))
+  );
+  const stages = combinedStagesCache.filter((s, i) => tickedIdx.has(i));
+  if (!stages.length) {
+    setQbStatus('cs-status', 'error', '<b>Nothing selected</b> — tick at least one stage to generate.');
     return;
   }
   const btn = document.getElementById('cs-generate');

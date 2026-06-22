@@ -871,6 +871,10 @@
   </div>
 </div>
       <div class="tier-summary" id="tier-summary"></div>
+      <div class="config-row" style="margin-top:10px;align-items:center;gap:8px">
+        <label for="cfg-levelground" style="cursor:pointer;flex:1">Level-ground build <span style="color:var(--muted);font-size:10px">(legs only — no splitters/jacks)</span></label>
+        <input type="checkbox" id="cfg-levelground" onchange="toggleLevelGround(this.checked)" style="width:auto;cursor:pointer">
+      </div>
       <div id="config-advanced">
         <div class="config-grid" style="margin-top:10px">
           <div class="config-row">
@@ -925,9 +929,9 @@
         <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-8x2)"></div> 8′ × 2′ panel</div>
         <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-4x4)"></div> 4′ × 4′ panel</div>
         <div class="legend-item"><div class="legend-swatch" style="background:var(--panel-4x2)"></div> 4′ × 2′ panel</div>
-        <div class="legend-item" style="margin-top:6px"><div class="legend-dot" style="background:var(--node-corner)"></div> Corner — no splitter</div>
+        <span id="node-legend"><div class="legend-item" style="margin-top:6px"><div class="legend-dot" style="background:var(--node-corner)"></div> Corner — no splitter</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--node-edge)"></div> Edge — 2-way splitter</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--node-internal)"></div> Internal — 4-way splitter</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--node-internal)"></div> Internal — 4-way splitter</div></span>
         <div class="legend-item" style="margin-top:6px"><div class="legend-swatch" style="background:var(--steps)"></div> Steps / treads</div>
         <div class="legend-item"><div class="legend-swatch" style="background:var(--handrail)"></div> Handrail (off-the-shelf)</div>
         <div class="legend-item"><div class="legend-swatch" style="background:var(--infill)"></div> Handrail infill (scaffold)</div>
@@ -1281,6 +1285,17 @@ const LEG_1FT_MM    = 304.8;
 const LEG_1_6FT_MM  = 487.68;
 const BP_SIZES = [18, 12, 9];  // available baseplate shims mm
 
+// ── Level-ground (legs-only) build mode ──────────────────────────────────────
+// Whole-layout toggle. When ON: every deck corner socket gets its own leg (no
+// splitters, no jacks); height = leg + a shared baseplate stack, rounded DOWN.
+// Baseplates are shared at junction points (counted once per support point);
+// legs are counted one per deck corner socket. Legs are drawn from the canonical
+// stock list `BRACE_STOCK_MM` (defined ~line 7057) — the same stock the standard
+// build, ramp legs and load schedule already use — capped at the tallest stock
+// leg (8ft). No bespoke or generated lengths. See computeLevelGroundBuild().
+let levelGroundMode = false;
+const LG_MAX_LEG_MM = 2438.4;   // 8ft — tallest stock leg; BRACE_STOCK_MM entries above this are bracing-only tubes
+
 const PANEL_SIZES = { '8x4':[4,2], '8x2':[4,1], '4x4':[2,2], '4x2':[2,1] };
 const PANEL_COLORS = { '8x4':'#3b5bdb', '8x2':'#2f9e44', '4x4':'#e67700', '4x2':'#9c36b5' };
 const PANEL_LABELS = { '8x4':"8' × 4'", '8x2':"8' × 2'", '4x4':"4' × 4'", '4x2':"4' × 2'" };
@@ -1407,6 +1422,32 @@ function setView(v) {
   if (v === 'bracing') renderBracingView();
   const wm = document.getElementById('wm-img');
   if (wm) wm.style.display = (v === 'bracing') ? 'none' : (wmMode !== 'none' ? 'block' : 'none');
+}
+
+// ── Level-ground (legs-only) mode toggle ──────────────────────────────────────
+function toggleLevelGround(on) {
+  levelGroundMode = !!on;
+  const cb = document.getElementById('cfg-levelground');
+  if (cb) cb.checked = levelGroundMode;
+  // Splitter/jack config rows are irrelevant in legs-only mode — dim them.
+  for (const id of ['lbl-splitter', 'lbl-jack']) {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = levelGroundMode ? '0.4' : '1';
+  }
+  updateLegendForMode();
+  recalcSchedule();
+  if (activeView === 'bracing') renderBracingView();
+}
+function updateLegendForMode() {
+  const el = document.getElementById('node-legend');
+  if (!el) return;
+  el.innerHTML = levelGroundMode
+    ? `<div class="legend-item" style="margin-top:6px"><div class="legend-dot" style="background:var(--node-corner)"></div> 1-leg point (outer corner)</div>
+       <div class="legend-item"><div class="legend-dot" style="background:var(--node-edge)"></div> 2-leg point — shared baseplate</div>
+       <div class="legend-item"><div class="legend-dot" style="background:var(--node-internal)"></div> 4-leg point — shared baseplate</div>`
+    : `<div class="legend-item" style="margin-top:6px"><div class="legend-dot" style="background:var(--node-corner)"></div> Corner — no splitter</div>
+       <div class="legend-item"><div class="legend-dot" style="background:var(--node-edge)"></div> Edge — 2-way splitter</div>
+       <div class="legend-item"><div class="legend-dot" style="background:var(--node-internal)"></div> Internal — 4-way splitter</div>`;
 }
 
 
@@ -4165,6 +4206,7 @@ function computeNodes(tierId = activeTierId) {
     nodes.set(key, {
       gx, gy,
       type: owners.length >= 3 ? 'internal' : owners.length === 2 ? 'edge' : 'corner',
+      ownerCount: owners.length,   // exact deck corners meeting here (1–4) — legs-only leg count
       floorHeight
     });
   }
@@ -4291,6 +4333,93 @@ function greedyStack(target) {
   }
   if (remaining >= 9) result.push(remaining); // discard sub-9mm remainder — within physical tolerance
   return result;
+}
+
+// ── Level-ground (legs-only) build ───────────────────────────────────────────
+// Largest STOCK leg ≤ budget, taken from the canonical `BRACE_STOCK_MM` list and
+// capped at the tallest stock leg (LG_MAX_LEG_MM = 8ft). Never exceeds; returns 0
+// if nothing fits. Legs are ordinary stock tube — labelled by the shared
+// `rampLegLabel` so legs-only references are identical in kind to standard/ramp
+// legs and flow to the load schedule by the same path. (BRACE_STOCK_MM is sorted
+// ascending, so we can stop once we pass the leg cap.)
+function lgPickLeg(budgetMm) {
+  let best = 0;
+  for (const L of BRACE_STOCK_MM) {
+    if (L > LG_MAX_LEG_MM) break;            // above 8ft → bracing tube, not a stock leg
+    if (L <= budgetMm + 0.01 && L > best) best = L;
+  }
+  return best;
+}
+// Build the whole layout as legs + shared baseplate stacks (no splitters/jacks).
+// Reuses the splitter junction map (computeNodes) per tier, then merges decks that
+// meet at the same (gx,gy) across tiers so a tier-boundary point shares ONE stack
+// while the legs differ in length. Returns aggregate counts plus per-point detail.
+//   legCounts  : { legLabel: qty }   qty = Σ ownerCount (one leg per deck corner)
+//   plateCounts: { mm: qty }         counted once per unique support point
+//   points     : [{ gx, gy, plates[], stackMm, decks:[{...,legMm,legLabel,achievedMm}] }]
+function computeLevelGroundBuild() {
+  const socket  = getCfgMm('socket');
+  const minLeg  = BRACE_STOCK_MM[0];   // shortest stock leg (304.8mm / 1ft)
+
+  // 1. Gather every deck corner meeting at each unique support point.
+  const pointMap = new Map();   // "gx,gy" -> { gx, gy, decks: [] }
+  for (const tier of tiers) {
+    const tierPanels = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
+    if (!tierPanels.length) continue;
+    const nodes = computeNodes(tier.id);
+    for (const [, node] of nodes) {
+      const rakeOffset = getRakeOffsetMm(node.gx, node.gy, tierPanels);
+      const effectiveH = tier.finishedHeight - rakeOffset - node.floorHeight;
+      const key = `${node.gx},${node.gy}`;
+      if (!pointMap.has(key)) pointMap.set(key, { gx: node.gx, gy: node.gy, decks: [] });
+      pointMap.get(key).decks.push({
+        tierId: tier.id, tierLabel: tier.label, finishedHeight: tier.finishedHeight,
+        effectiveH, ownerCount: node.ownerCount || 1, nodeType: node.type,
+        floorHeight: node.floorHeight,
+      });
+    }
+  }
+
+  // 2. Per support point: size one shared baseplate stack from the LOWEST deck,
+  //    then stand each deck's leg on that stack. Round DOWN throughout.
+  const legCounts = {}, plateCounts = {}, points = [];
+  for (const [, pt] of pointMap) {
+    const minEffH   = Math.min(...pt.decks.map(d => d.effectiveH));
+    const lowBudget = minEffH - socket;
+    let sharedPlates, lowHasLeg;
+    if (lowBudget >= minLeg) {
+      const lowLeg = lgPickLeg(lowBudget);
+      sharedPlates = greedyStack(Math.max(lowBudget - lowLeg, 0));
+      lowHasLeg = true;
+    } else {
+      // Lowest deck too short for any leg: shared base is a baseplate-only stack
+      // (panel sits straight on plates — mirrors calcLeg's bp-only branch).
+      sharedPlates = greedyStack(Math.max(minEffH - PANEL_BODY_MM, 0));
+      lowHasLeg = false;
+    }
+    const stackMm = sharedPlates.reduce((a, b) => a + b, 0);
+    for (const mm of sharedPlates) plateCounts[mm] = (plateCounts[mm] || 0) + 1;  // once per point
+
+    const decks = [];
+    for (const d of pt.decks) {
+      const budget = d.effectiveH - socket - stackMm;
+      let legMm, achievedMm, legLabel;
+      if (budget >= minLeg) {
+        legMm      = lgPickLeg(budget);
+        achievedMm = Math.round(socket + stackMm + legMm);
+        legLabel   = rampLegLabel(legMm);   // shared stock-leg labeller (same as standard/ramp)
+        legCounts[legLabel] = (legCounts[legLabel] || 0) + d.ownerCount;
+      } else {
+        // Deck rests directly on the shared stack — no leg here.
+        legMm      = 0;
+        achievedMm = Math.round(PANEL_BODY_MM + stackMm);
+        legLabel   = '— (baseplate only)';
+      }
+      decks.push({ ...d, legMm, legLabel, achievedMm, shortfallMm: Math.max(0, Math.round(d.effectiveH - achievedMm)) });
+    }
+    points.push({ gx: pt.gx, gy: pt.gy, plates: sharedPlates, stackMm, lowHasLeg, decks });
+  }
+  return { points, legCounts, plateCounts };
 }
 
 function mmToLabel(mm) {
@@ -5634,6 +5763,56 @@ function recalcSchedule() {
 
   let html = '';
 
+  if (levelGroundMode) {
+    // ── Legs-only schedule: leg per deck corner, baseplates shared per point ──
+    const lg = computeLevelGroundBuild();
+    const byTier = new Map();   // tierId -> { tier, counts, legRows }
+    for (const tier of tiers) {
+      const tp = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
+      if (!tp.length) continue;
+      totalPanels += tp.length;
+      const counts = { '8x4':0,'8x2':0,'4x4':0,'4x2':0 };
+      for (const p of tp) counts[p.type]++;
+      byTier.set(tier.id, { tier, counts, legRows: new Map() });
+    }
+    for (const pt of lg.points) {
+      for (const dk of pt.decks) {
+        const b = byTier.get(dk.tierId);
+        if (!b) continue;
+        if (dk.legMm > 0) totalLegs += dk.ownerCount;
+        const key = `${dk.legLabel}|${dk.achievedMm}|${dk.floorHeight}`;
+        if (!b.legRows.has(key)) b.legRows.set(key, { legLabel: dk.legLabel, achievedMm: dk.achievedMm, floorHeight: dk.floorHeight, qty: 0 });
+        b.legRows.get(key).qty += dk.ownerCount;
+      }
+    }
+    for (const [, b] of byTier) {
+      html += `<div class="tier-schedule-block">
+        <div class="tier-schedule-label">${b.tier.label} — ${b.tier.finishedHeight}mm <span style="color:var(--muted);font-size:10px">· legs only</span></div>
+        <table class="schedule-table">
+          <thead><tr><th>Leg</th><th>Achieved</th><th>Qty</th></tr></thead>
+          <tbody>`;
+      const rows = [...b.legRows.values()].sort((a, c) => c.achievedMm - a.achievedMm);
+      for (const g of rows) {
+        const floorLabel = g.floorHeight > 0 ? ` <span style="color:var(--muted);font-size:10px">(on ${g.floorHeight}mm deck)</span>` : '';
+        html += `<tr><td>${g.legLabel}${floorLabel}</td><td>${g.achievedMm}mm</td><td>${g.qty}</td></tr>`;
+      }
+      const panelRows = Object.entries(b.counts).filter(([,c]) => c > 0)
+        .map(([t,c]) => `<tr><td colspan="2" style="color:var(--muted)">${PANEL_LABELS[t]}</td><td>${c}</td></tr>`).join('');
+      html += `</tbody></table>
+        ${panelRows ? `<table class="schedule-table" style="margin-top:6px"><tbody>${panelRows}</tbody></table>` : ''}
+      </div>`;
+    }
+    const totalPlates = Object.values(lg.plateCounts).reduce((a, b) => a + b, 0);
+    const plateLine = Object.entries(lg.plateCounts).sort((a, c) => Number(c[0]) - Number(a[0]))
+      .map(([mm, q]) => `${q}× ${mm}mm`).join(', ');
+    html += `<div class="tier-schedule-block">
+      <div class="tier-schedule-label">Baseplates — shared across ${lg.points.length} support point${lg.points.length === 1 ? '' : 's'}</div>
+      <table class="schedule-table"><tbody>
+        <tr><td>Baseplates total</td><td colspan="2">${totalPlates}</td></tr>
+        ${plateLine ? `<tr><td colspan="3" style="color:var(--muted);font-size:11px">${plateLine}</td></tr>` : ''}
+      </tbody></table>
+    </div>`;
+  } else
   for (const tier of tiers) {
     const tierPanels = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
     if (!tierPanels.length) continue;
@@ -6085,6 +6264,28 @@ function buildScheduleData() {
   let splitter2way = 0, splitter4way = 0, screwjacks = 0, smallScrewjacks = 0;
   const legCounts = {}, plateCounts = {}, buildRows = [];
 
+  if (levelGroundMode) {
+    // Legs-only: no splitters, no jacks. Legs counted per deck corner socket;
+    // baseplates counted once per shared support point. See computeLevelGroundBuild().
+    for (const p of panels) if (p.category === 'panel') panelCounts[p.type]++;
+    const lg = computeLevelGroundBuild();
+    Object.assign(legCounts, lg.legCounts);
+    Object.assign(plateCounts, lg.plateCounts);
+    const lgRowMap = new Map();
+    for (const pt of lg.points) {
+      const platesDesc = pt.plates.length ? pt.plates.join(' + ') + 'mm' : '—';
+      for (const dk of pt.decks) {
+        const key = `${dk.tierLabel}|${dk.legLabel}|${dk.achievedMm}|${platesDesc}`;
+        if (!lgRowMap.has(key)) lgRowMap.set(key, {
+          tier: dk.tierLabel, nodeGroup: 'Leg point', legLabel: dk.legLabel,
+          splitterDesc: '—', platesDesc, jackDesc: '—', smallJackDesc: '—',
+          floorNote: dk.floorHeight > 0 ? ` (on ${dk.floorHeight}mm deck)` : '',
+          achievedMm: dk.achievedMm, qty: 0 });
+        lgRowMap.get(key).qty += dk.ownerCount;
+      }
+    }
+    for (const row of lgRowMap.values()) buildRows.push(row);
+  } else
   for (const tier of tiers) {
     const tierPanels = panels.filter(p => p.category === 'panel' && p.tier === tier.id);
     if (!tierPanels.length) continue;
@@ -6380,7 +6581,7 @@ function printSchedule() {
         buildHtml += `<tr>
           <td class="qty">${r.qty} no.</td>
           <td>${r.nodeGroup}</td>
-          <td>${r.legLabel}${r.floorNote ? `<br><span style="color:#888;font-size:9pt">${r.floorNote}</span>` : ''}</td>
+          <td>${r.legLabel}${r.achievedMm != null ? `<br><span style="color:#888;font-size:9pt">${r.achievedMm}mm achieved</span>` : ''}${r.floorNote ? `<br><span style="color:#888;font-size:9pt">${r.floorNote}</span>` : ''}</td>
           <td>${r.splitterDesc}</td>
           <td>${r.platesDesc}</td>
           <td>${r.jackDesc}</td>
@@ -6558,10 +6759,14 @@ function printSchedule() {
       <div class="meta">Raven Staging &middot; Generated ${d.now}</div>
       <div class="dims">Litedeck platform &mdash; ${d.ftpW}' &times; ${d.ftpD}' (${d.ftpWm}m &times; ${d.ftpDm}m)</div>
       <div class="tiers">${d.tierSummary}</div>
+      ${levelGroundMode ? `<div style="margin:8px 0 4px;padding:6px 10px;background:#fff6e0;
+        border-left:4px solid #c9a84c;font-size:10pt;font-weight:700;">
+        LEVEL-GROUND BUILD — legs only (no splitters, no jacks). Baseplates shared at junction
+        points; heights rounded down to leg + whole baseplates.</div>` : ''}
       <h2>Equipment Totals</h2>
       <table><tbody>${totalsRows}</tbody></table>
       <div class="build-section">
-        <h2>Build Reference — Leg Combinations</h2>
+        <h2>Build Reference — ${levelGroundMode ? 'Legs &amp; Baseplate Stacks' : 'Leg Combinations'}</h2>
         <table>
           <thead><tr>
             <th>Qty</th><th>Node</th><th>Leg</th><th>Splitter</th>
@@ -7753,7 +7958,20 @@ function drawBracingPlan(r) {
   for (let yi = 0; yi < r.ys.length-1; yi++) bctx.fillText(Math.round((r.ys[yi+1]-r.ys[yi])*FT2)+'mm', PAD+drawW+8, (gyPx(r.ys[yi])+gyPx(r.ys[yi+1]))/2);
   bctx.fillStyle='#f5a623'; bctx.font='bold 11px Barlow Condensed,sans-serif';
   bctx.textAlign='left'; bctx.textBaseline='top';
-  bctx.fillText(r.tier.label+'  PLAN — HORIZONTAL TIES  —  '+r.finH+'mm', PAD, 6);
+  bctx.fillText(bracingTitlePrefix()+r.tier.label+'  PLAN — HORIZONTAL TIES  —  '+r.finH+'mm', PAD, 6);
+  if (levelGroundMode) {
+    bctx.fillStyle = '#9aa3b2'; bctx.font = '9px DM Mono,monospace';
+    bctx.fillText('Dots = leg points (shared baseplate stack) — no splitters', PAD, 20);
+  }
+}
+
+// Drawing title prefix — tags legs-only mode and the stage running-id so every
+// bracing drawing is unambiguous about which layout/build it depicts.
+function bracingTitlePrefix() {
+  const lg  = levelGroundMode ? 'LEVEL-GROUND · ' : '';
+  const sid = (typeof currentRunningId !== 'undefined' && currentRunningId != null)
+    ? '#' + fmtRunningId(currentRunningId) + ' · ' : '';
+  return lg + sid;
 }
 
 // ── Elevation view — shows diagonal brace geometry in true elevation ──────────
@@ -7822,12 +8040,22 @@ function drawBracingElev(r, face = 'front') {
   // Draw each leg as a vertical line
   for (let i = 0; i < nLegs; i++) {
     const lx = legXPxM[i];
-    // Screwjack zone (ground to horizBraceH) — muted
-    bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 6;
-    bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(r.horizBraceH)); bctx.stroke();
-    // Exposed scaffold tube (horizBraceH to exposedTube) — bright
-    bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
-    bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+    if (levelGroundMode) {
+      // Legs-only: one continuous leg tube standing on a short shared baseplate
+      // stack — no splitter/jack zone. (Schematic; stack shown representative.)
+      const bpTopMm = Math.min(54, r.exposedTube);
+      bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 7; bctx.lineCap = 'butt';
+      bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(bpTopMm)); bctx.stroke();
+      bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
+      bctx.beginPath(); bctx.moveTo(lx, yPx(bpTopMm)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+    } else {
+      // Screwjack zone (ground to horizBraceH) — muted
+      bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 6;
+      bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(r.horizBraceH)); bctx.stroke();
+      // Exposed scaffold tube (horizBraceH to exposedTube) — bright
+      bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
+      bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+    }
   }
 
   // Horizontal tie tube at horizBraceH — drawn per actual tie run
@@ -7941,7 +8169,7 @@ function drawBracingElev(r, face = 'front') {
   bctx.fillStyle = '#f5a623'; bctx.font = 'bold 11px Barlow Condensed,sans-serif';
   bctx.textAlign = 'left'; bctx.textBaseline = 'top';
   const faceLabel = face === 'front' ? 'FRONT' : 'BACK';
-  bctx.fillText(`${r.tier.label}  ELEVATION X — ${faceLabel}  —  ${r.finH}mm`, LPAD, 6);
+  bctx.fillText(`${bracingTitlePrefix()}${r.tier.label}  ELEVATION X — ${faceLabel}  —  ${r.finH}mm`, LPAD, 6);
 }
 
 // ── Elevation Y view — depth axis (Y), shows Y-axis diagonal braces ──────────
@@ -8000,10 +8228,19 @@ function drawBracingElevY(r, face = 'left') {
   // Draw legs
   for (let i = 0; i < nLegs; i++) {
     const lx = legXPxM[i];
-    bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 6;
-    bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(r.horizBraceH)); bctx.stroke();
-    bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
-    bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+    if (levelGroundMode) {
+      // Legs-only: continuous leg tube on a short shared baseplate stack.
+      const bpTopMm = Math.min(54, r.exposedTube);
+      bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 7; bctx.lineCap = 'butt';
+      bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(bpTopMm)); bctx.stroke();
+      bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
+      bctx.beginPath(); bctx.moveTo(lx, yPx(bpTopMm)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+    } else {
+      bctx.strokeStyle = '#3b4150'; bctx.lineWidth = 6;
+      bctx.beginPath(); bctx.moveTo(lx, yPx(0)); bctx.lineTo(lx, yPx(r.horizBraceH)); bctx.stroke();
+      bctx.strokeStyle = '#6b7280'; bctx.lineWidth = 4;
+      bctx.beginPath(); bctx.moveTo(lx, yPx(r.horizBraceH)); bctx.lineTo(lx, yPx(r.exposedTube)); bctx.stroke();
+    }
   }
 
   // Horizontal tie — drawn per actual tie run
@@ -8095,7 +8332,7 @@ function drawBracingElevY(r, face = 'left') {
   bctx.fillStyle = '#f5a623'; bctx.font = 'bold 11px Barlow Condensed,sans-serif';
   bctx.textAlign = 'left'; bctx.textBaseline = 'top';
   const faceLabel = face === 'left' ? 'LEFT' : 'RIGHT';
-  bctx.fillText(`${r.tier.label}  ELEVATION Y — ${faceLabel}  —  ${r.finH}mm`, LPAD, 6);
+  bctx.fillText(`${bracingTitlePrefix()}${r.tier.label}  ELEVATION Y — ${faceLabel}  —  ${r.finH}mm`, LPAD, 6);
 }
 
 function metric(label, val) {
@@ -8193,6 +8430,7 @@ function exportLayoutJson(eventName, venue, loadInDate, loadInTime, contactName,
       splitter:  parseFloat(document.getElementById('cfg-splitter').value),
       baseplate: parseFloat(document.getElementById('cfg-baseplate').value),
       jack:      parseFloat(document.getElementById('cfg-jack').value),
+      levelGround: levelGroundMode,
     }
   });
 }
@@ -8804,8 +9042,35 @@ function csPlaceImage(doc, dataUrl, caption, ctx, y) {
   if (y + 5 + h > ctx.pageH - ctx.marginX) { doc.addPage(); y = ctx.marginX; }
   doc.setFontSize(9); doc.setTextColor(90);
   doc.text(caption, ctx.marginX, y); y += 4;
-  doc.addImage(dataUrl, 'PNG', ctx.marginX, y, w, h);
+  // Embedded as JPEG (downscaled by csCompressImage); PNG also accepted by jsPDF.
+  const fmt = (typeof dataUrl === 'string' && dataUrl.indexOf('image/jpeg') !== -1) ? 'JPEG' : 'PNG';
+  doc.addImage(dataUrl, fmt, ctx.marginX, y, w, h);
   return y + h + 6;
+}
+
+// Downscale a captured drawing's image DATA to ~display size and re-encode as
+// JPEG, so the embedded bytes match what's shown (not the full-res snapshot).
+// Full-res PNGs of every stage's plan+bracing blew past the 25MB upload cap.
+function csCompressImage(dataUrl, maxW, quality) {
+  return new Promise((resolve) => {
+    if (!dataUrl) return resolve('');
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const cx = c.getContext('2d');
+        cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h); // JPEG has no alpha
+        cx.drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', quality));
+      } catch { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 async function generateCombinedSchedule() {
@@ -8907,11 +9172,22 @@ async function generateCombinedSchedule() {
     for (const v of bySection.get(sec)) grandTokens.push({ qty: v.qty, desc: v.desc });
   }
 
-  // Build the PDF.
-  let doc, filename;
-  try {
+  // ── Compress drawings, then assemble the PDF, guarding the upload size ───────
+  // Each stage's drawings are downscaled + JPEG-encoded so a multi-stage sheet
+  // stays under the jobs-api 25MB cap (full-res PNGs of every view blew past it).
+  const IMG_KEYS = ['planDataUrl', 'bracingPlanUrl', 'bracingElevXUrl', 'bracingElevXBUrl', 'bracingElevYUrl', 'bracingElevYRUrl'];
+  async function compressAllImages(maxW, quality) {
+    for (const st of perStage) {
+      if (!st.images) { st.imagesC = null; continue; }
+      const out = {};
+      for (const k of IMG_KEYS) out[k] = st.images[k] ? await csCompressImage(st.images[k], maxW, quality) : '';
+      st.imagesC = out; // rebuilt from the originals each pass — no cumulative loss
+    }
+  }
+
+  function assemblePdf() {
     const { jsPDF } = window.jspdf;
-    doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const jobLine = combinedJobName ? combinedJobName : ('Job ' + combinedJobId);
     doc.setFontSize(16); doc.setTextColor(20);
     doc.text('Combined Load Schedule', 14, 18);
@@ -8919,8 +9195,7 @@ async function generateCombinedSchedule() {
     doc.text('Raven Staging', 14, 24);
     doc.text(jobLine, 14, 29);
     doc.text('Generated ' + new Date().toLocaleString('en-GB'), 14, 34);
-    let line5 = perStage.length + ' stage' + (perStage.length > 1 ? 's' : '') + ' included';
-    doc.text(line5, 14, 39);
+    doc.text(perStage.length + ' stage' + (perStage.length > 1 ? 's' : '') + ' included', 14, 39);
     let yStart = 46;
     if (failed.length) {
       doc.setTextColor(200, 0, 0);
@@ -8960,24 +9235,50 @@ async function generateCombinedSchedule() {
         columnStyles: { 0: { cellWidth: 24, fontStyle: 'bold' } },
         theme: 'grid',
       });
-      // Plan + bracing drawings for this stage (as in the standard schedule).
-      if (st.images) {
+      // Plan + bracing drawings for this stage (downscaled copies in imagesC).
+      const imgs = st.imagesC;
+      if (imgs) {
         const ctx = { marginX: 14, pageW: doc.internal.pageSize.getWidth(),
           pageH: doc.internal.pageSize.getHeight(), maxImgH: 105 };
         let iy = doc.lastAutoTable.finalY + 8;
         const tag = fmtRunningId(st.runningId) + ' — ';
-        iy = csPlaceImage(doc, st.images.planDataUrl,      tag + 'Plan View', ctx, iy);
-        iy = csPlaceImage(doc, st.images.bracingPlanUrl,   tag + 'Bracing — Plan', ctx, iy);
-        iy = csPlaceImage(doc, st.images.bracingElevXUrl,  tag + 'Bracing — Elevation Front (X)', ctx, iy);
-        iy = csPlaceImage(doc, st.images.bracingElevXBUrl, tag + 'Bracing — Elevation Back (X)', ctx, iy);
-        iy = csPlaceImage(doc, st.images.bracingElevYUrl,  tag + 'Bracing — Elevation Left (Y)', ctx, iy);
-        iy = csPlaceImage(doc, st.images.bracingElevYRUrl, tag + 'Bracing — Elevation Right (Y)', ctx, iy);
+        iy = csPlaceImage(doc, imgs.planDataUrl,      tag + 'Plan View', ctx, iy);
+        iy = csPlaceImage(doc, imgs.bracingPlanUrl,   tag + 'Bracing — Plan', ctx, iy);
+        iy = csPlaceImage(doc, imgs.bracingElevXUrl,  tag + 'Bracing — Elevation Front (X)', ctx, iy);
+        iy = csPlaceImage(doc, imgs.bracingElevXBUrl, tag + 'Bracing — Elevation Back (X)', ctx, iy);
+        iy = csPlaceImage(doc, imgs.bracingElevYUrl,  tag + 'Bracing — Elevation Left (Y)', ctx, iy);
+        iy = csPlaceImage(doc, imgs.bracingElevYRUrl, tag + 'Bracing — Elevation Right (Y)', ctx, iy);
       }
     }
 
     const safeRef = (combinedJobName || combinedJobId)
       .replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40).toLowerCase();
-    filename = 'load-schedule-' + (safeRef || combinedJobId) + '-' + new Date().toISOString().slice(0, 10) + '.pdf';
+    const filename = 'load-schedule-' + (safeRef || combinedJobId) + '-' + new Date().toISOString().slice(0, 10) + '.pdf';
+    return { doc, filename };
+  }
+
+  const SIZE_CAP = 25 * 1024 * 1024;    // jobs-api hard cap
+  const SIZE_TARGET = 24 * 1024 * 1024; // assemble under this, leaving margin
+  let doc, filename;
+  try {
+    await compressAllImages(1100, 0.85);
+    ({ doc, filename } = assemblePdf());
+    let sizeBytes = doc.output('arraybuffer').byteLength;
+    if (sizeBytes > SIZE_TARGET) {
+      // One-notch retry: smaller + lower quality, rebuilt from the originals.
+      setQbStatus('cs-status', 'sending', 'Large sheet — recompressing drawings…');
+      await compressAllImages(850, 0.6);
+      ({ doc, filename } = assemblePdf());
+      sizeBytes = doc.output('arraybuffer').byteLength;
+    }
+    if (sizeBytes > SIZE_CAP) {
+      // Still over the cap — don't attempt a doomed upload; save locally instead.
+      setQbStatus('cs-status', 'error', '<b>Sheet is ' + (sizeBytes / 1048576).toFixed(1)
+        + ' MB — over the 25 MB job-file limit even after recompression.</b> Downloaded a local copy instead.');
+      try { doc.save(filename); } catch {}
+      btn.disabled = false;
+      return;
+    }
   } catch (e) {
     setQbStatus('cs-status', 'error', '<b>PDF build failed:</b> ' + e.message);
     btn.disabled = false;
@@ -9028,6 +9329,15 @@ function importLayoutJson(jsonString) {
     document.getElementById('cfg-splitter').value  = data.config.splitter;
     document.getElementById('cfg-baseplate').value = data.config.baseplate;
     document.getElementById('cfg-jack').value      = data.config.jack;
+    // Sync legs-only mode without forcing a redraw — import re-renders afterward.
+    levelGroundMode = !!data.config.levelGround;
+    const lgcb = document.getElementById('cfg-levelground');
+    if (lgcb) lgcb.checked = levelGroundMode;
+    for (const id of ['lbl-splitter', 'lbl-jack']) {
+      const el = document.getElementById(id);
+      if (el) el.style.opacity = levelGroundMode ? '0.4' : '1';
+    }
+    updateLegendForMode();
   }
   // Backwards compat: ramps saved before flights field was added.
   // Regenerate flights from existing rise, gradient, and widthFt rather than failing.

@@ -743,6 +743,7 @@
     <button class="btn btn-ghost" id="btn-send-quote" onclick="openQuoteModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x2709; Send Quote</button>
     <button class="btn btn-ghost" id="btn-qb-push" onclick="openQbPushModal()" style="border-color:var(--accent2);color:var(--accent2);">&#x21EA; Send to QB</button>
     <button class="btn btn-ghost" id="btn-qb-layouts" onclick="openQbLayoutsModal()">&#x1F5C2; Sent Layouts</button>
+    <button class="btn btn-ghost" id="btn-combined-schedule" onclick="openCombinedScheduleModal()" style="display:none;border-color:var(--accent2);color:var(--accent2);">&#x1F4CB; Combined load schedule</button>
   </div>
 </header>
 
@@ -1124,6 +1125,8 @@
 
 <!-- jsPDF - client-side PDF generation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- jsPDF-AutoTable - clean tables + reliable page breaks (combined load schedule) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <!-- Quote modal -->
 <div class="quote-overlay" id="quote-overlay">
@@ -1238,6 +1241,25 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="refreshQbLayouts()">Refresh</button>
       <button class="btn btn-ghost" onclick="closeQbLayoutsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Combined load schedule modal (Phase 2) ── -->
+<div class="modal-overlay" id="combined-schedule-modal">
+  <div class="modal" style="width:600px">
+    <h3>Combined load schedule</h3>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+      Builds one printable load schedule for <b id="cs-job-name">this job</b> — a grand
+      total across every current stage (the warehouse pick list) plus a per-stage
+      breakdown — and saves it to the job's files. Each generation replaces the
+      previous one.
+    </div>
+    <div id="cs-stages" style="margin:12px 0;font-size:13px;max-height:300px;overflow-y:auto">Loading stages…</div>
+    <div class="qm-status" id="cs-status" style="display:none;margin-top:10px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="cs-generate" onclick="generateCombinedSchedule()">Generate combined load schedule</button>
+      <button class="btn btn-ghost" onclick="closeCombinedScheduleModal()">Close</button>
     </div>
   </div>
 </div>
@@ -6111,6 +6133,216 @@ function buildScheduleData() {
     bracingCalc,
   };
 }
+// Equipment-totals token stream — the single source of truth for the print
+// schedule's "Equipment Totals" table AND the Phase 2 combined load schedule.
+// Tokens: {section} a header; {qty,desc} one pick-list quantity line (these SUM
+// across stages in the combined schedule); {html} a decorative print-only row
+// (ramp warnings / per-ramp narrative), which the combined schedule ignores.
+// Call it straight after buildScheduleData() for the current in-memory layout.
+// NOTE: printSchedule renders these tokens — keep both paths in step.
+function buildLoadTotals(d) {
+  const out = [];
+  const section = (t) => out.push({ section: t });
+  const row = (qty, desc) => out.push({ qty, desc });
+  const html = (h) => out.push({ html: h });
+
+  const PANEL_NAMES = {
+    '8x4': "8' × 4' Litedeck panel", '8x2': "8' × 2' Litedeck panel",
+    '4x4': "4' × 4' Litedeck panel", '4x2': "4' × 2' Litedeck panel",
+  };
+
+  section('Panels');
+  for (const [type, qty] of Object.entries(d.panelCounts)) {
+    if (qty) row(qty, PANEL_NAMES[type]);
+  }
+  section('Structure');
+  if (d.splitter2way) row(d.splitter2way, '2-way leg splitter');
+  if (d.splitter4way) row(d.splitter4way, '4-way leg splitter');
+  const sortedLegs = Object.entries(d.legCounts).sort((a, b) => {
+    const mmA = parseFloat(a[0].match(/\((\d+)mm\)/)?.[1] || 0);
+    const mmB = parseFloat(b[0].match(/\((\d+)mm\)/)?.[1] || 0);
+    return mmB - mmA;
+  });
+  for (const [label, qty] of sortedLegs) {
+    if (qty) row(qty, label);
+  }
+  if (d.screwjacks)      row(d.screwjacks,      'Screw jack');
+  if (d.smallScrewjacks) row(d.smallScrewjacks, 'Small screwjack (1.6ft / 2ft legs)');
+  for (const mm of [18, 12, 9, 6]) {
+    const qty = d.plateCounts[mm] || 0;
+    if (qty) row(qty, `${mm}mm base plate`);
+  }
+  for (const [mm, qty] of Object.entries(d.plateCounts)) {
+    if (![18,12,9,6].includes(Number(mm)) && qty) row(qty, `${mm}mm base plate`);
+  }
+
+  if (d.stepsItemsPrint.length) {
+    section('Steps');
+    const stepCounts = {};
+    for (const s of d.stepsItemsPrint) stepCounts[s.heightKey] = (stepCounts[s.heightKey] || 0) + 1;
+    for (const [key, qty] of Object.entries(stepCounts)) {
+      row(qty, STEPS_DATA[key].label);
+    }
+  }
+
+  if (d.handrailItemsPrint.length) {
+    section('Handrails');
+    let qty4ft = 0, qty8ft = 0;
+    const infillGroups = {};
+    for (const h of d.handrailItemsPrint) {
+      if (h.hrType === 'handrail') {
+        if (h.size === '4ft') qty4ft++; else qty8ft++;
+      } else {
+        const cutMm = Math.round(h.tubeCutMm || Math.max(0, h.infillMm - CLAMP_DEDUCT));
+        if (!infillGroups[cutMm]) infillGroups[cutMm] = { tubes: 0, clamps: 0 };
+        infillGroups[cutMm].tubes  += 2;
+        infillGroups[cutMm].clamps += 4;
+      }
+    }
+    if (qty8ft) row(qty8ft, '8ft handrail');
+    if (qty4ft) row(qty4ft, '4ft handrail');
+    for (const [cutMm, g] of Object.entries(infillGroups)) {
+      row(g.tubes,  `Scaffold infill tube — cut to ${cutMm}mm`);
+      row(g.clamps, `Scaffold clamps (for ${cutMm}mm infills)`);
+    }
+  }
+
+  // ── Ramp totals ──
+  if (ramps.length) {
+    const rd = buildRampScheduleData();
+    const RAMP_PANEL_NAMES = { '8x4': "8'×4' ramp panel", '4x4': "4'×4' ramp panel", '4x2': "4'×2' ramp panel" };
+    const DIR_LABEL_PRINT  = { north: 'North', south: 'South', east: 'East', west: 'West' };
+
+    section('Ramps');
+
+    // Mandatory warning — appears in Equipment Totals
+    html(`<tr><td colspan="2" style="font-size:9pt;color:#c00;padding:6px 10px;
+        background:rgba(200,0,0,0.04);border-left:3px solid #c00;">
+        ⚠ All ramps must include a ramp bottom and hinge fitting.
+        Fixed footprint addition: 1,269.2mm (1,219.2mm ramp bottom + 50mm hinge).
+      </td></tr>`);
+
+    // Per-ramp panel rows with footprint breakdown
+    for (const ramp of ramps) {
+      const fullSummary = { ...ramp.panelSummary };
+      if (ramp.flights) {
+        for (const seg of ramp.flights) {
+          if (seg.type === 'landing') {
+            for (const [t, q] of Object.entries(seg.panelSummary)) fullSummary[t] = (fullSummary[t] || 0) + q;
+          }
+        }
+      }
+      const mixDesc = ['8x4','4x4','4x2']
+        .filter(k => fullSummary[k])
+        .map(k => `${fullSummary[k]}× ${RAMP_PANEL_NAMES[k]}`)
+        .join(', ');
+      const landingNote = ramp.numLandings ? ` &bull; ${ramp.numLandings} landing${ramp.numLandings > 1 ? 's' : ''} (${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm ea.)` : '';
+      html(`<tr><td colspan="2" style="font-size:9.5pt;padding:5px 10px;
+          border-bottom:1px solid #ddd;color:#333;">
+          <strong>${ramp.id}</strong> — ${ramp.widthFt}ft wide, 1:${ramp.gradient},
+          ${DIR_LABEL_PRINT[ramp.direction]}${landingNote}<br>
+          <span style="font-size:9pt;color:#555;line-height:1.8">
+            ${mixDesc}<br>
+            Sloped run: ${ramp.slopedRun.toLocaleString()}mm &bull;
+            Hinge: 50mm &bull;
+            Ramp bottom: 1,219mm &bull;
+            <strong>Total footprint: ${ramp.totalFootprintMm.toLocaleString()}mm</strong>
+          </span>
+        </td></tr>`);
+    }
+    // Per-type panel totals
+    for (const [type, qty] of Object.entries(rd.panelCounts)) {
+      if (qty) row(qty, RAMP_PANEL_NAMES[type] || `${type} ramp panel`);
+    }
+    if (rd.totalHinges)      row(rd.totalHinges,      'Ramp hinge');
+    if (rd.totalRampBottoms) row(rd.totalRampBottoms, "4'×4' ramp bottom plate");
+    if (rd.total2way)        row(rd.total2way,        '2-way leg splitter (ramp)');
+    if (rd.total4way)        row(rd.total4way,        '4-way leg splitter (ramp)');
+    const sortedRampLegs = Object.entries(rd.legCounts).sort((a, b) => {
+      const mmA = parseFloat(a[0].match(/\((\d+)mm\)/)?.[1] || 0);
+      const mmB = parseFloat(b[0].match(/\((\d+)mm\)/)?.[1] || 0);
+      return mmB - mmA;
+    });
+    for (const [label, qty] of sortedRampLegs) {
+      if (qty) row(qty, `${label} (ramp)`);
+    }
+    if (rd.totalScrewjacks)      row(rd.totalScrewjacks,      'Screw jack (ramp)');
+    if (rd.totalSmallScrewjacks) row(rd.totalSmallScrewjacks, 'Small screwjack — 1.6ft/2ft legs (ramp)');
+    for (const mm of [18, 12, 9, 6]) {
+      const qty = rd.plateCounts[mm] || 0;
+      if (qty) row(qty, `${mm}mm base plate (ramp)`);
+    }
+    for (const [mm, qty] of Object.entries(rd.plateCounts)) {
+      if (![18,12,9,6].includes(Number(mm)) && qty) row(qty, `${mm}mm base plate (ramp)`);
+    }
+  }
+
+  const bTotalDiagTubes    = d.bracingCalc.reduce((a,r) => a + r.totalDiagTubes, 0);
+  const bTotalSwivelClamps = d.bracingCalc.reduce((a,r) => a + r.totalSwivelClamps, 0);
+  const bTotalSleeveClamps = d.bracingCalc.reduce((a,r) => a + (r.totalSleeveClamps||0) + (r.totalPlanSleeveClamps||0), 0);
+  const bTotalPlanTubes    = d.bracingCalc.reduce((a,r) => a + r.totalPlanTubes, 0);
+  const bTotalRAClamps     = d.bracingCalc.reduce((a,r) => a + r.totalRAClamps, 0);
+  const bTotalExtraRA      = d.bracingCalc.reduce((a,r) => a + (r.totalExtraRAClamps||0), 0);
+
+  if (d.bracingCalc.length) {
+    section('Bracing — Scaffold Tube');
+    row(bTotalDiagTubes,    'Diagonal brace tubes (48.3mm OD)');
+    row(bTotalSwivelClamps, 'Swivel clamps (diagonal braces)');
+    if (bTotalSleeveClamps) row(bTotalSleeveClamps, 'Sleeve clamps (tube joins)');
+    row(bTotalPlanTubes,    'Horizontal tie tubes (48.3mm OD)');
+    row(bTotalRAClamps,     'Right-angle clamps (horizontal ties)');
+    if (bTotalExtraRA) row(bTotalExtraRA, 'Extra right-angle clamps (tube joins)');
+
+    // --- Tube length totals ---
+    const tubeLengthTotals = {}; // key: label string, value: count
+    for (const r of d.bracingCalc) {
+      // Diagonal tubes
+      for (const [, g] of Object.entries(r.diagByStd)) {
+        if (g.tubeBreakdown) {
+          for (const t of g.tubeBreakdown) {
+            tubeLengthTotals[t.label] = (tubeLengthTotals[t.label] || 0) + g.tubes;
+          }
+        } else {
+          const label = (g.stdMm / 1000).toFixed(1) + 'm';
+          tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.tubes;
+        }
+      }
+      // Horizontal tie tubes — mirror planPrint grouping from bracingHtml
+      const planTotals = {};
+      for (const b of r.planBraces) {
+        if (b.level !== 'Base level') continue;
+        const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
+        const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+        if (!planTotals[k]) planTotals[k] = { tubes: sol.tubes, count: 0 };
+        planTotals[k].count++;
+      }
+      for (const [, g] of Object.entries(planTotals)) {
+        for (const tubeMm of g.tubes) {
+          const label = tubeLengthLabel(tubeMm);
+          tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+        }
+      }
+    }
+
+    section('Bracing — Tube Lengths Required');
+    const TUBE_MM_ORDER = [
+      6000, 5000, 4000, 3048, 3000, 2438.4, 2133.6, 1981.2, 1828.8,
+      1676.4, 1524, 1371.6, 1219.2, 1066.8, 914.4, 762, 609.6, 457.2, 304.8
+    ];
+    const labelToMm = {};
+    for (const mm of TUBE_MM_ORDER) labelToMm[tubeLengthLabel(mm)] = mm;
+    const sortedTubeLengths = Object.entries(tubeLengthTotals).sort((a, b) => {
+      const mmA = labelToMm[a[0]] ?? 0;
+      const mmB = labelToMm[b[0]] ?? 0;
+      return mmB - mmA;
+    });
+    for (const [label, qty] of sortedTubeLengths) {
+      row(qty, `Scaffold tube — ${label}`);
+    }
+  }
+
+  return out;
+}
 function printSchedule() {
   if (!panels.some(p => p.category === 'panel')) { alert('No panels placed.'); return; }
   try {
@@ -6123,204 +6355,13 @@ function printSchedule() {
         border-bottom:2px solid #000;">${title}</td></tr>`;
     }
 
-    const PANEL_NAMES = {
-      '8x4': "8' × 4' Litedeck panel", '8x2': "8' × 2' Litedeck panel",
-      '4x4': "4' × 4' Litedeck panel", '4x2': "4' × 2' Litedeck panel",
-    };
-
+    const totalsTokens = buildLoadTotals(d);
     let totalsRows = '';
-    totalsRows += section('Panels');
-    for (const [type, qty] of Object.entries(d.panelCounts)) {
-      if (qty) totalsRows += row(qty, PANEL_NAMES[type]);
+    for (const t of totalsTokens) {
+      if ('section' in t) totalsRows += section(t.section);
+      else if ('html' in t) totalsRows += t.html;
+      else totalsRows += row(t.qty, t.desc);
     }
-    totalsRows += section('Structure');
-    if (d.splitter2way) totalsRows += row(d.splitter2way, '2-way leg splitter');
-    if (d.splitter4way) totalsRows += row(d.splitter4way, '4-way leg splitter');
-    const sortedLegs = Object.entries(d.legCounts).sort((a, b) => {
-      const mmA = parseFloat(a[0].match(/\((\d+)mm\)/)?.[1] || 0);
-      const mmB = parseFloat(b[0].match(/\((\d+)mm\)/)?.[1] || 0);
-      return mmB - mmA;
-    });
-    for (const [label, qty] of sortedLegs) {
-      if (qty) totalsRows += row(qty, label);
-    }
-    if (d.screwjacks)      totalsRows += row(d.screwjacks,      'Screw jack');
-    if (d.smallScrewjacks) totalsRows += row(d.smallScrewjacks, 'Small screwjack (1.6ft / 2ft legs)');
-    for (const mm of [18, 12, 9, 6]) {
-      const qty = d.plateCounts[mm] || 0;
-      if (qty) totalsRows += row(qty, `${mm}mm base plate`);
-    }
-    for (const [mm, qty] of Object.entries(d.plateCounts)) {
-      if (![18,12,9,6].includes(Number(mm)) && qty) totalsRows += row(qty, `${mm}mm base plate`);
-    }
-
-    if (d.stepsItemsPrint.length) {
-      totalsRows += section('Steps');
-      const stepCounts = {};
-      for (const s of d.stepsItemsPrint) stepCounts[s.heightKey] = (stepCounts[s.heightKey] || 0) + 1;
-      for (const [key, qty] of Object.entries(stepCounts)) {
-        totalsRows += row(qty, STEPS_DATA[key].label);
-      }
-    }
-
-    if (d.handrailItemsPrint.length) {
-      totalsRows += section('Handrails');
-      let qty4ft = 0, qty8ft = 0;
-      const infillGroups = {};
-      for (const h of d.handrailItemsPrint) {
-        if (h.hrType === 'handrail') {
-          if (h.size === '4ft') qty4ft++; else qty8ft++;
-        } else {
-          const cutMm = Math.round(h.tubeCutMm || Math.max(0, h.infillMm - CLAMP_DEDUCT));
-          if (!infillGroups[cutMm]) infillGroups[cutMm] = { tubes: 0, clamps: 0 };
-          infillGroups[cutMm].tubes  += 2;
-          infillGroups[cutMm].clamps += 4;
-        }
-      }
-      if (qty8ft) totalsRows += row(qty8ft, '8ft handrail');
-      if (qty4ft) totalsRows += row(qty4ft, '4ft handrail');
-      for (const [cutMm, g] of Object.entries(infillGroups)) {
-        totalsRows += row(g.tubes,  `Scaffold infill tube — cut to ${cutMm}mm`);
-        totalsRows += row(g.clamps, `Scaffold clamps (for ${cutMm}mm infills)`);
-      }
-    }
-
-    // ── Ramp totals ──
-    if (ramps.length) {
-      const rd = buildRampScheduleData();
-      const RAMP_PANEL_NAMES = { '8x4': "8'×4' ramp panel", '4x4': "4'×4' ramp panel", '4x2': "4'×2' ramp panel" };
-      const DIR_LABEL_PRINT  = { north: 'North', south: 'South', east: 'East', west: 'West' };
-
-      totalsRows += section('Ramps');
-
-      // Mandatory warning — appears in Equipment Totals
-      totalsRows += `<tr><td colspan="2" style="font-size:9pt;color:#c00;padding:6px 10px;
-        background:rgba(200,0,0,0.04);border-left:3px solid #c00;">
-        ⚠ All ramps must include a ramp bottom and hinge fitting.
-        Fixed footprint addition: 1,269.2mm (1,219.2mm ramp bottom + 50mm hinge).
-      </td></tr>`;
-
-      // Per-ramp panel rows with footprint breakdown
-      for (const ramp of ramps) {
-        // Full panel summary includes landing panels when flights are present
-        const fullSummary = { ...ramp.panelSummary };
-        if (ramp.flights) {
-          for (const seg of ramp.flights) {
-            if (seg.type === 'landing') {
-              for (const [t, q] of Object.entries(seg.panelSummary)) fullSummary[t] = (fullSummary[t] || 0) + q;
-            }
-          }
-        }
-        const mixDesc = ['8x4','4x4','4x2']
-          .filter(k => fullSummary[k])
-          .map(k => `${fullSummary[k]}× ${RAMP_PANEL_NAMES[k]}`)
-          .join(', ');
-        const landingNote = ramp.numLandings ? ` &bull; ${ramp.numLandings} landing${ramp.numLandings > 1 ? 's' : ''} (${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm ea.)` : '';
-        totalsRows += `<tr><td colspan="2" style="font-size:9.5pt;padding:5px 10px;
-          border-bottom:1px solid #ddd;color:#333;">
-          <strong>${ramp.id}</strong> — ${ramp.widthFt}ft wide, 1:${ramp.gradient},
-          ${DIR_LABEL_PRINT[ramp.direction]}${landingNote}<br>
-          <span style="font-size:9pt;color:#555;line-height:1.8">
-            ${mixDesc}<br>
-            Sloped run: ${ramp.slopedRun.toLocaleString()}mm &bull;
-            Hinge: 50mm &bull;
-            Ramp bottom: 1,219mm &bull;
-            <strong>Total footprint: ${ramp.totalFootprintMm.toLocaleString()}mm</strong>
-          </span>
-        </td></tr>`;
-      }
-      // Per-type panel totals
-      for (const [type, qty] of Object.entries(rd.panelCounts)) {
-        if (qty) totalsRows += row(qty, RAMP_PANEL_NAMES[type] || `${type} ramp panel`);
-      }
-      if (rd.totalHinges)      totalsRows += row(rd.totalHinges,      'Ramp hinge');
-      if (rd.totalRampBottoms) totalsRows += row(rd.totalRampBottoms, "4'×4' ramp bottom plate");
-      if (rd.total2way)        totalsRows += row(rd.total2way,        '2-way leg splitter (ramp)');
-      if (rd.total4way)        totalsRows += row(rd.total4way,        '4-way leg splitter (ramp)');
-      const sortedRampLegs = Object.entries(rd.legCounts).sort((a, b) => {
-        const mmA = parseFloat(a[0].match(/\((\d+)mm\)/)?.[1] || 0);
-        const mmB = parseFloat(b[0].match(/\((\d+)mm\)/)?.[1] || 0);
-        return mmB - mmA;
-      });
-      for (const [label, qty] of sortedRampLegs) {
-        if (qty) totalsRows += row(qty, `${label} (ramp)`);
-      }
-      if (rd.totalScrewjacks)      totalsRows += row(rd.totalScrewjacks,      'Screw jack (ramp)');
-      if (rd.totalSmallScrewjacks) totalsRows += row(rd.totalSmallScrewjacks, 'Small screwjack — 1.6ft/2ft legs (ramp)');
-      for (const mm of [18, 12, 9, 6]) {
-        const qty = rd.plateCounts[mm] || 0;
-        if (qty) totalsRows += row(qty, `${mm}mm base plate (ramp)`);
-      }
-      for (const [mm, qty] of Object.entries(rd.plateCounts)) {
-        if (![18,12,9,6].includes(Number(mm)) && qty) totalsRows += row(qty, `${mm}mm base plate (ramp)`);
-      }
-    }
-
-    const bTotalDiagTubes    = d.bracingCalc.reduce((a,r) => a + r.totalDiagTubes, 0);
-    const bTotalSwivelClamps = d.bracingCalc.reduce((a,r) => a + r.totalSwivelClamps, 0);
-    const bTotalSleeveClamps = d.bracingCalc.reduce((a,r) => a + (r.totalSleeveClamps||0) + (r.totalPlanSleeveClamps||0), 0);
-    const bTotalPlanTubes    = d.bracingCalc.reduce((a,r) => a + r.totalPlanTubes, 0);
-    const bTotalRAClamps     = d.bracingCalc.reduce((a,r) => a + r.totalRAClamps, 0);
-    const bTotalExtraRA      = d.bracingCalc.reduce((a,r) => a + (r.totalExtraRAClamps||0), 0);
-
-    if (d.bracingCalc.length) {
-  totalsRows += section('Bracing — Scaffold Tube');
-  totalsRows += row(bTotalDiagTubes,    'Diagonal brace tubes (48.3mm OD)');
-  totalsRows += row(bTotalSwivelClamps, 'Swivel clamps (diagonal braces)');
-  if (bTotalSleeveClamps) totalsRows += row(bTotalSleeveClamps, 'Sleeve clamps (tube joins)');
-  totalsRows += row(bTotalPlanTubes,    'Horizontal tie tubes (48.3mm OD)');
-  totalsRows += row(bTotalRAClamps,     'Right-angle clamps (horizontal ties)');
-  if (bTotalExtraRA) totalsRows += row(bTotalExtraRA, 'Extra right-angle clamps (tube joins)');
-
-  // --- Tube length totals ---
-  const tubeLengthTotals = {}; // key: label string, value: count
-
-  for (const r of d.bracingCalc) {
-    // Diagonal tubes
-    for (const [, g] of Object.entries(r.diagByStd)) {
-      if (g.tubeBreakdown) {
-        for (const t of g.tubeBreakdown) {
-          tubeLengthTotals[t.label] = (tubeLengthTotals[t.label] || 0) + g.tubes;
-        }
-      } else {
-        const label = (g.stdMm / 1000).toFixed(1) + 'm';
-        tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.tubes;
-      }
-    }
-    // Horizontal tie tubes — mirror planPrint grouping from bracingHtml
-    const planTotals = {};
-    for (const b of r.planBraces) {
-      if (b.level !== 'Base level') continue;
-      const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
-      const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
-      if (!planTotals[k]) planTotals[k] = { tubes: sol.tubes, count: 0 };
-      planTotals[k].count++;
-    }
-    
-    for (const [, g] of Object.entries(planTotals)) {
-      for (const tubeMm of g.tubes) {
-        const label = tubeLengthLabel(tubeMm);
-        tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
-      }
-    }
-  }
-
-  totalsRows += section('Bracing — Tube Lengths Required');
-  const TUBE_MM_ORDER = [
-    6000, 5000, 4000, 3048, 3000, 2438.4, 2133.6, 1981.2, 1828.8,
-    1676.4, 1524, 1371.6, 1219.2, 1066.8, 914.4, 762, 609.6, 457.2, 304.8
-  ];
-  const labelToMm = {};
-  for (const mm of TUBE_MM_ORDER) labelToMm[tubeLengthLabel(mm)] = mm;
-  const sortedTubeLengths = Object.entries(tubeLengthTotals).sort((a, b) => {
-    const mmA = labelToMm[a[0]] ?? 0;
-    const mmB = labelToMm[b[0]] ?? 0;
-    return mmB - mmA;
-  });
-  for (const [label, qty] of sortedTubeLengths) {
-    totalsRows += row(qty, `Scaffold tube — ${label}`);
-  }
-}
 
     const buildTiers = [...new Set(d.buildRows.map(r => r.tier))];
     let buildHtml = '';
@@ -8075,6 +8116,7 @@ updatePendingInfo();
 redraw();
 setView('plan');
 setWatermark('bird');
+initCombinedSchedule();
 
 // Initialise zoom wrapper sizing and centre on the working quarter of the grid
 (function initZoom() {
@@ -8589,6 +8631,295 @@ async function qbLoadLayout(id) {
   } catch (e) {
     setQbStatus('qb-layouts-status', 'error', '<b>Failed to apply layout:</b> ' + e.message);
   }
+}
+
+// ── Combined load schedule (Phase 2) ─────────────────────────────────────────
+// One printable load schedule per job: a grand total across every current stage
+// (the warehouse pick list) plus a per-stage breakdown, saved to the job's files.
+// A summing job — the planner holds one layout at a time, so each stage is
+// imported, scheduled (buildScheduleData → buildLoadTotals), stashed, and the
+// next imported; the user's canvas is snapshotted and restored around the loop.
+// Reached via /litedeck?job=<id> from the jobs-api job page; same-origin to QB so
+// the qb_auth cookie covers the calls.
+let combinedJobId = null;
+let combinedJobName = null;
+let combinedStagesCache = null;
+
+function initCombinedSchedule() {
+  try {
+    const job = new URLSearchParams(location.search).get('job');
+    if (!job) return;
+    combinedJobId = job;
+    const btn = document.getElementById('btn-combined-schedule');
+    if (btn) btn.style.display = '';
+    // Advisory staleness check — non-blocking, flags the button if an existing
+    // sheet no longer matches the job's live current stages.
+    qbFetch('/api/planner-layouts/schedule-status?job_id=' + encodeURIComponent(job))
+      .then(s => {
+        if (s && s.exists && !s.upToDate && btn) {
+          btn.innerHTML = '&#x1F4CB; Combined load schedule &#9888;';
+          btn.title = 'Load schedule out of date — regenerate. ' + (s.reason || '');
+        }
+      })
+      .catch(() => {});
+  } catch {}
+}
+
+async function openCombinedScheduleModal() {
+  if (!combinedJobId) {
+    alert('Open this planner from a job (the "Combined load schedule" button on the job page) to use this.');
+    return;
+  }
+  document.getElementById('combined-schedule-modal').classList.add('active');
+  setQbStatus('cs-status', '', '');
+  const listEl = document.getElementById('cs-stages');
+  listEl.textContent = 'Loading stages…';
+  document.getElementById('cs-generate').disabled = true;
+  let data;
+  try {
+    data = await qbFetch('/api/planner-layouts/current?job_id=' + encodeURIComponent(combinedJobId));
+  } catch (e) {
+    listEl.textContent = '';
+    setQbStatus('cs-status', 'error', '<b>Could not load stages:</b> ' + e.message);
+    return;
+  }
+  if (!data || !data.ok) {
+    listEl.textContent = '';
+    setQbStatus('cs-status', 'error', '<b>Could not load stages:</b> ' + ((data && data.error) || 'unknown error'));
+    return;
+  }
+  combinedStagesCache = data.stages || [];
+  combinedJobName = (data.job && data.job.name) || null;
+  document.getElementById('cs-job-name').textContent = combinedJobName || ('job ' + combinedJobId);
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (!combinedStagesCache.length) {
+    listEl.innerHTML = '<div style="color:var(--muted)">No layouts found for this job.</div>';
+    document.getElementById('cs-generate').disabled = true;
+    return;
+  }
+  let anyLegacy = false;
+  let html = '<div style="font-weight:600;margin-bottom:6px">' + combinedStagesCache.length
+    + ' stage' + (combinedStagesCache.length > 1 ? 's' : '') + ' to include:</div>';
+  for (const s of combinedStagesCache) {
+    if (s.legacy) anyLegacy = true;
+    const usedBadge = s.status === 'used'
+      ? '<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);padding:1px 6px;margin-left:6px">USED</span>' : '';
+    const legacyBadge = s.legacy
+      ? '<span style="font-size:10px;color:#c60;border:1px solid #c60;padding:1px 6px;margin-left:6px">PRE-VERSIONING</span>' : '';
+    html += '<div style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px">'
+      + '<span style="font-variant-numeric:tabular-nums;color:var(--muted)">' + fmtRunningId(s.runningId) + '</span> — '
+      + esc(s.name) + usedBadge + legacyBadge + '</div>';
+  }
+  listEl.innerHTML = html;
+  if (anyLegacy) {
+    setQbStatus('cs-status', 'error', '&#9888; <b>This job has layouts from before stage versioning</b> — check for duplicates before trusting the totals.');
+  }
+  document.getElementById('cs-generate').disabled = false;
+}
+
+function closeCombinedScheduleModal() {
+  document.getElementById('combined-schedule-modal').classList.remove('active');
+}
+
+// Convert a buildLoadTotals() token list into jspdf-autotable body rows. Section
+// headers become a bold full-width row; quantity lines become [qty, item];
+// decorative {html} tokens are dropped (a load list is quantities only).
+function csTokensToBody(tokens) {
+  const body = [];
+  for (const t of tokens) {
+    if (t.section) {
+      body.push([{ content: t.section, colSpan: 2,
+        styles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 20 } }]);
+    } else if (Object.prototype.hasOwnProperty.call(t, 'qty')) {
+      body.push([String(t.qty) + ' no.', t.desc]);
+    }
+  }
+  return body;
+}
+
+async function generateCombinedSchedule() {
+  if (!combinedJobId) return;
+  const stages = combinedStagesCache;
+  if (!stages || !stages.length) {
+    setQbStatus('cs-status', 'error', '<b>No layouts found for this job.</b>');
+    return;
+  }
+  const btn = document.getElementById('cs-generate');
+  btn.disabled = true;
+  setQbStatus('cs-status', 'sending', 'Building schedule…');
+
+  // Snapshot the live canvas; the combine imports each stage into the globals, so
+  // restore the user's work afterward.
+  let snapshot = null;
+  try { snapshot = exportLayoutJson('', '', '', '', '', '', ''); } catch {}
+
+  const DEFAULT_CONFIG = { socket: 24, splitter: 155, baseplate: 18, jack: 50 };
+  const perStage = [];   // { runningId, name, createdAt, tokens }
+  const failed = [];     // { runningId, name, error }
+
+  try {
+    for (const s of stages) {
+      try {
+        if (!s.layoutState) throw new Error('no layout state stored');
+        // §4 guard: a layout with no config block of its own would otherwise
+        // inherit the previous stage's config. Force defaults first; the import
+        // overrides from data.config when the stage carries one.
+        if (!s.layoutState.config) {
+          document.getElementById('cfg-socket').value    = DEFAULT_CONFIG.socket;
+          document.getElementById('cfg-splitter').value  = DEFAULT_CONFIG.splitter;
+          document.getElementById('cfg-baseplate').value = DEFAULT_CONFIG.baseplate;
+          document.getElementById('cfg-jack').value      = DEFAULT_CONFIG.jack;
+        }
+        importLayoutJson(JSON.stringify(s.layoutState));
+        if (!panels.some(p => p.category === 'panel')) throw new Error('no panels in layout');
+        const d = buildScheduleData();
+        perStage.push({ runningId: s.runningId, name: s.name, createdAt: s.createdAt, tokens: buildLoadTotals(d) });
+      } catch (e) {
+        failed.push({ runningId: s.runningId, name: s.name, error: e.message });
+      }
+    }
+  } finally {
+    if (snapshot) { try { importLayoutJson(snapshot); redraw(); } catch {} }
+  }
+
+  if (!perStage.length) {
+    setQbStatus('cs-status', 'error', '<b>No stages could be processed.</b> '
+      + failed.map(f => fmtRunningId(f.runningId) + ' (' + f.error + ')').join('; '));
+    btn.disabled = false;
+    return;
+  }
+
+  // §8: never silently drop a failed stage — kit left behind on site.
+  if (failed.length) {
+    const ok = confirm('⚠ ' + failed.length + ' stage(s) failed to load:\n'
+      + failed.map(f => '• ' + fmtRunningId(f.runningId) + ' ' + (f.name || '') + ' — ' + f.error).join('\n')
+      + '\n\nGenerate an INCOMPLETE schedule with the remaining stages? Kit for the failed stage(s) will be missing.');
+    if (!ok) {
+      setQbStatus('cs-status', 'error', '<b>Cancelled.</b> Fix the failing stage(s) and try again.');
+      btn.disabled = false;
+      return;
+    }
+  }
+
+  // Grand total: sum quantity lines across stages, keyed by section + exact
+  // description so different specs (leg/plate/tube lengths) stay separate lines.
+  const grandMap = new Map();
+  for (const st of perStage) {
+    let sec = '';
+    for (const t of st.tokens) {
+      if (t.section) { sec = t.section; continue; }
+      if (!Object.prototype.hasOwnProperty.call(t, 'qty')) continue;
+      const key = sec + '|' + t.desc;
+      if (!grandMap.has(key)) grandMap.set(key, { section: sec, desc: t.desc, qty: 0 });
+      grandMap.get(key).qty += t.qty;
+    }
+  }
+  // Re-emit grand totals in canonical section order.
+  const SECTION_ORDER = ['Panels', 'Structure', 'Steps', 'Handrails', 'Ramps',
+    'Bracing — Scaffold Tube', 'Bracing — Tube Lengths Required'];
+  const bySection = new Map();
+  for (const v of grandMap.values()) {
+    if (!bySection.has(v.section)) bySection.set(v.section, []);
+    bySection.get(v.section).push(v);
+  }
+  const sectionsOrdered = [...bySection.keys()].sort((a, b) => {
+    const ia = SECTION_ORDER.indexOf(a), ib = SECTION_ORDER.indexOf(b);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  });
+  const grandTokens = [];
+  for (const sec of sectionsOrdered) {
+    grandTokens.push({ section: sec });
+    for (const v of bySection.get(sec)) grandTokens.push({ qty: v.qty, desc: v.desc });
+  }
+
+  // Build the PDF.
+  let doc, filename;
+  try {
+    const { jsPDF } = window.jspdf;
+    doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const jobLine = combinedJobName ? combinedJobName : ('Job ' + combinedJobId);
+    doc.setFontSize(16); doc.setTextColor(20);
+    doc.text('Combined Load Schedule', 14, 18);
+    doc.setFontSize(10); doc.setTextColor(90);
+    doc.text('Raven Staging', 14, 24);
+    doc.text(jobLine, 14, 29);
+    doc.text('Generated ' + new Date().toLocaleString('en-GB'), 14, 34);
+    let line5 = perStage.length + ' stage' + (perStage.length > 1 ? 's' : '') + ' included';
+    doc.text(line5, 14, 39);
+    let yStart = 46;
+    if (failed.length) {
+      doc.setTextColor(200, 0, 0);
+      doc.text('⚠ ' + failed.length + ' stage(s) EXCLUDED (failed to load): '
+        + failed.map(f => fmtRunningId(f.runningId)).join(', ') + ' — schedule is INCOMPLETE.', 14, 44);
+      yStart = 50;
+    }
+    doc.setTextColor(20); doc.setFontSize(12);
+    doc.text('1. Consolidated load list (all stages)', 14, yStart);
+    doc.autoTable({
+      startY: yStart + 3,
+      head: [['Qty', 'Item']],
+      body: csTokensToBody(grandTokens),
+      styles: { fontSize: 9, cellPadding: 1.5 },
+      headStyles: { fillColor: [20, 20, 20] },
+      columnStyles: { 0: { cellWidth: 24, fontStyle: 'bold' } },
+      theme: 'grid',
+    });
+
+    // Section 2 — per-stage breakdown, a page break between stages.
+    doc.addPage();
+    doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('2. Per-stage breakdown', 14, 18);
+    let firstStage = true;
+    for (const st of perStage) {
+      let topY;
+      if (firstStage) { topY = 26; firstStage = false; }
+      else { doc.addPage(); topY = 18; }
+      doc.setFontSize(11); doc.setTextColor(20);
+      doc.text(fmtRunningId(st.runningId) + ' — ' + (st.name || ''), 14, topY);
+      doc.autoTable({
+        startY: topY + 3,
+        head: [['Qty', 'Item']],
+        body: csTokensToBody(st.tokens),
+        styles: { fontSize: 9, cellPadding: 1.5 },
+        headStyles: { fillColor: [20, 20, 20] },
+        columnStyles: { 0: { cellWidth: 24, fontStyle: 'bold' } },
+        theme: 'grid',
+      });
+    }
+
+    const safeRef = (combinedJobName || combinedJobId)
+      .replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40).toLowerCase();
+    filename = 'load-schedule-' + (safeRef || combinedJobId) + '-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  } catch (e) {
+    setQbStatus('cs-status', 'error', '<b>PDF build failed:</b> ' + e.message);
+    btn.disabled = false;
+    return;
+  }
+
+  // Upload to the job, proxied through QB (replace-don't-accumulate).
+  setQbStatus('cs-status', 'sending', 'Uploading to the job…');
+  const manifest = perStage.map(st => ({ runningId: st.runningId, createdAt: st.createdAt }));
+  const pdfBase64 = doc.output('datauristring').split(',')[1];
+  try {
+    const up = await qbFetch('/api/planner-layouts/upload-schedule', {
+      method: 'POST',
+      body: JSON.stringify({ jobId: combinedJobId, filename, pdfBase64, manifest }),
+    });
+    if (up && up.ok) {
+      setQbStatus('cs-status', 'success', '✅ <b>Saved to the job</b> as <b>' + filename + '</b> ('
+        + perStage.length + ' stage' + (perStage.length > 1 ? 's' : '')
+        + (failed.length ? (', ' + failed.length + ' excluded') : '') + ').');
+      const tb = document.getElementById('btn-combined-schedule');
+      if (tb) { tb.innerHTML = '&#x1F4CB; Combined load schedule'; tb.title = ''; }
+    } else {
+      throw new Error((up && up.error) || 'unknown error');
+    }
+  } catch (e) {
+    setQbStatus('cs-status', 'error', '<b>Upload failed:</b> ' + e.message
+      + ' — downloading a local copy instead so it is not lost.');
+    try { doc.save(filename); } catch {}
+  }
+  btn.disabled = false;
 }
 
 function importLayoutJson(jsonString) {

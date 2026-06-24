@@ -6543,23 +6543,33 @@ function buildLoadTotals(d) {
     if (bTotalExtraRA) row(bTotalExtraRA, 'Extra right-angle clamps (tube joins)');
 
     // --- Tube length totals ---
+    // Every brace tube — diagonal AND horizontal tie, at EVERY level — must surface
+    // here so the cut list reconciles with the counts above. Both groupings count
+    // BRACES and expand per tube in the combination, so they are multi-tube safe.
+    // itemised* track the running totals for the fail-loud reconciliation guard.
     const tubeLengthTotals = {}; // key: label string, value: count
+    let itemisedDiagTubes = 0, itemisedTieTubes = 0;
     for (const r of d.bracingCalc) {
-      // Diagonal tubes
-      for (const [, g] of Object.entries(r.diagByStd)) {
-        if (g.tubeBreakdown) {
-          for (const t of g.tubeBreakdown) {
-            tubeLengthTotals[t.label] = (tubeLengthTotals[t.label] || 0) + g.tubes;
-          }
-        } else {
-          const label = (g.stdMm / 1000).toFixed(1) + 'm';
-          tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.tubes;
+      // Diagonal tubes — group by tube combination, count braces, expand per tube.
+      const diagTotals = {};
+      for (const b of r.diagBraces) {
+        const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
+        const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+        if (!diagTotals[k]) diagTotals[k] = { tubes: sol.tubes, count: 0 };
+        diagTotals[k].count++;
+      }
+      for (const [, g] of Object.entries(diagTotals)) {
+        for (const tubeMm of g.tubes) {
+          const label = tubeLengthLabel(tubeMm);
+          tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+          itemisedDiagTubes += g.count;
         }
       }
-      // Horizontal tie tubes — mirror planPrint grouping from bracingHtml
+      // Horizontal tie tubes — ALL levels (base + deck soffit). The old code
+      // filtered to 'Base level' only, silently dropping Deck-soffit ties on tall
+      // stages (>1600mm legs) — they were counted above but never itemised here.
       const planTotals = {};
       for (const b of r.planBraces) {
-        if (b.level !== 'Base level') continue;
         const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
         const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
         if (!planTotals[k]) planTotals[k] = { tubes: sol.tubes, count: 0 };
@@ -6569,6 +6579,7 @@ function buildLoadTotals(d) {
         for (const tubeMm of g.tubes) {
           const label = tubeLengthLabel(tubeMm);
           tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+          itemisedTieTubes += g.count;
         }
       }
     }
@@ -6587,6 +6598,22 @@ function buildLoadTotals(d) {
     });
     for (const [label, qty] of sortedTubeLengths) {
       row(qty, `Scaffold tube — ${label}`);
+    }
+
+    // Fail loud, never silent: the itemised cut list MUST reconcile with the tube
+    // counts above. If a tube ever fails to surface here (as Deck-soffit ties once
+    // did), flag it on the schedule rather than ship a list that is short on site.
+    const diagShort = bTotalDiagTubes - itemisedDiagTubes;
+    const tieShort  = bTotalPlanTubes - itemisedTieTubes;
+    if (diagShort !== 0 || tieShort !== 0) {
+      const parts = [];
+      if (diagShort !== 0) parts.push(`${Math.abs(diagShort)} diagonal tube${Math.abs(diagShort) === 1 ? '' : 's'} ${diagShort > 0 ? 'missing from' : 'over-listed in'} the cut list`);
+      if (tieShort !== 0)  parts.push(`${Math.abs(tieShort)} tie tube${Math.abs(tieShort) === 1 ? '' : 's'} ${tieShort > 0 ? 'missing from' : 'over-listed in'} the cut list`);
+      html(`<tr><td colspan="2" style="font-size:9pt;color:#c00;padding:6px 10px;
+        background:rgba(200,0,0,0.06);border-left:3px solid #c00;font-weight:700;">
+        &#9888; Cut list does not reconcile: ${parts.join('; ')}. The tube counts above are
+        authoritative &mdash; resolve before loading from this list.
+      </td></tr>`);
     }
   }
 
@@ -8613,21 +8640,33 @@ function buildQuoteItems() {
       '5m':    3.30,
       '6m':    3.85,
     };
+    // Mirror buildLoadTotals (the proven, fixed shape): count BRACES and expand per
+    // tube so multi-tube combinations are counted correctly, and itemise ties at ALL
+    // levels (base + Deck soffit). The old code re-used r.diagByStd (which over-counted
+    // multi-tube diagonals — g.tubes added to every tubeBreakdown label) and filtered
+    // ties to 'Base level' (dropping Deck-soffit ties on tall stages), so quotes/orders
+    // ran short on tube. itemised* feed the fail-loud reconciliation guard below.
     const tubeLengthTotals = {};
+    let itemisedDiagTubes = 0, itemisedTieTubes = 0;
     for (const r of d.bracingCalc) {
-      for (const [, g] of Object.entries(r.diagByStd)) {
-        if (g.tubeBreakdown) {
-          for (const t of g.tubeBreakdown) {
-            tubeLengthTotals[t.label] = (tubeLengthTotals[t.label] || 0) + g.tubes;
-          }
-        } else {
-          const label = (g.stdMm / 1000).toFixed(1) + 'm';
-          tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.tubes;
+      // Diagonal tubes — group by tube combination, count braces, expand per tube.
+      const diagTotals = {};
+      for (const b of r.diagBraces) {
+        const sol = b.solution || { tubes: [b.calcLengthMm] };
+        const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+        if (!diagTotals[k]) diagTotals[k] = { tubes: sol.tubes, count: 0 };
+        diagTotals[k].count++;
+      }
+      for (const [, g] of Object.entries(diagTotals)) {
+        for (const tubeMm of g.tubes) {
+          const label = tubeLengthLabel(tubeMm);
+          tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+          itemisedDiagTubes += g.count;
         }
       }
+      // Horizontal tie tubes — ALL levels (no 'Base level' filter).
       const planTotals = {};
       for (const b of r.planBraces) {
-        if (b.level !== 'Base level') continue;
         const sol = b.solution || { tubes: [b.calcLengthMm] };
         const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
         if (!planTotals[k]) planTotals[k] = { tubes: sol.tubes, count: 0 };
@@ -8637,6 +8676,7 @@ function buildQuoteItems() {
         for (const tubeMm of g.tubes) {
           const label = tubeLengthLabel(tubeMm);
           tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+          itemisedTieTubes += g.count;
         }
       }
     }
@@ -8654,6 +8694,26 @@ function buildQuoteItems() {
     if (bTotalSwivelClamps) items.push({ category: 'equipment', description: 'Scaffold swivel clamps (diagonal braces)', qty: bTotalSwivelClamps });
     if (bTotalSleeveClamps) items.push({ category: 'equipment', description: 'Scaffold sleeve clamps (tube joins)', qty: bTotalSleeveClamps });
     if (bTotalRAClamps + bTotalExtraRA) items.push({ category: 'equipment', description: 'Scaffold right-angle clamps (horizontal ties)', qty: bTotalRAClamps + bTotalExtraRA });
+
+    // Fail loud, never silent. A quote/order that doesn't reconcile with the
+    // authoritative tube counts is wrong and must not be sendable: both callers
+    // (submitQuote, submitQbPush) catch this throw and show a red status with nothing
+    // sent — so a short or over-listed cut list can never reach a customer quote or the
+    // D1 planner_layouts store. Same principle as buildLoadTotals' reconciliation guard,
+    // but blocking (the quote path has no passive warning surface). The message states
+    // the shortfall and that the computed counts are authoritative — Eddie resolves the
+    // layout before quoting. See CLAUDE.md "Bracing cut-list reconciliation".
+    const bTotalDiagTubes = d.bracingCalc.reduce((a, r) => a + r.totalDiagTubes, 0);
+    const bTotalPlanTubes = d.bracingCalc.reduce((a, r) => a + r.totalPlanTubes, 0);
+    const diagShort = bTotalDiagTubes - itemisedDiagTubes;
+    const tieShort  = bTotalPlanTubes - itemisedTieTubes;
+    if (diagShort !== 0 || tieShort !== 0) {
+      const parts = [];
+      if (diagShort !== 0) parts.push(`${Math.abs(diagShort)} diagonal tube${Math.abs(diagShort) === 1 ? '' : 's'} ${diagShort > 0 ? 'missing from' : 'over-listed in'} the quote`);
+      if (tieShort !== 0)  parts.push(`${Math.abs(tieShort)} tie tube${Math.abs(tieShort) === 1 ? '' : 's'} ${tieShort > 0 ? 'missing from' : 'over-listed in'} the quote`);
+      throw new Error('⚠ Bracing cut list does not reconcile: ' + parts.join('; ')
+        + '. The computed tube counts are authoritative and must be resolved before quoting.');
+    }
   }
 
   return items;

@@ -1291,7 +1291,7 @@ const GRID_H = 132;
 const FT2    = 609.6;  // mm per 2ft grid unit
 const PANEL_BODY_MM = 175;  // structural depth of a panel
 const LEG_1FT_MM    = 304.8;
-const LEG_1_6FT_MM  = 487.68;
+const LEG_1FT6IN_MM  = 457.2;   // 18in / 1'6" real stock tube (was mislabelled 487.68 = "1.6ft")
 const BP_SIZES = [18, 12, 9];  // available baseplate shims mm
 
 // ── Level-ground (legs-only) build mode ──────────────────────────────────────
@@ -4332,13 +4332,13 @@ function calcLeg(finishedHeight, splitterCount, nodeType) {
   if (h < 609.6) {
     // Leg + baseplates range
     const required = h - socket;
-    const legMm = LEG_1_6FT_MM <= required ? LEG_1_6FT_MM : LEG_1FT_MM;
+    const legMm = LEG_1FT6IN_MM <= required ? LEG_1FT6IN_MM : LEG_1FT_MM;
     const remainder = required - legMm - (splitter * splitterCount);
 
     // Rule: splitter nodes always need at least one baseplate (floor protection for tube)
-    // Rule: corner nodes with 1.6ft or 2ft leg use small screwjack instead of plate stack
+    // Rule: corner nodes with 1'6" (457.2mm) or 2ft leg use small screwjack instead of plate stack
     //       (but still keep one 18mm baseplate for floor protection)
-    const useSmallJack = isCorner && (legMm === LEG_1_6FT_MM || legMm === LEG_1FT_MM * 2);
+    const useSmallJack = isCorner && (legMm === LEG_1FT6IN_MM || legMm === LEG_1FT_MM * 2);
 
     let plates, smallJackNeeded;
     if (useSmallJack) {
@@ -4352,7 +4352,7 @@ function calcLeg(finishedHeight, splitterCount, nodeType) {
       smallJackNeeded = false;
     }
 
-    const legLabel  = legMm === LEG_1_6FT_MM ? "1'6\" leg" : "1ft leg";
+    const legLabel  = legMm === LEG_1FT6IN_MM ? "1'6\" leg" : "1ft leg";
     const plateStr  = plates.join('+') + 'mm';
     const jackStr   = smallJackNeeded ? ' + small screwjack' : '';
     const label     = `${legLabel} + ${plateStr} baseplate${jackStr}`;
@@ -4508,7 +4508,7 @@ function rampNodeGridPos(anchorGx, anchorGy, direction, rowIdx, colIdx) {
 
 // Shared leg-label formatter (mirrors the local legMmToFtLabel inside buildScheduleData).
 function rampLegLabel(mm) {
-  if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
+  if (mm === LEG_1FT6IN_MM) return `1'6" leg (${Math.round(mm)}mm)`;
   if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
   const halfFeet = Math.round(mm / 152.4) / 2;
   const wholeFt  = Math.floor(halfFeet);
@@ -6264,7 +6264,7 @@ function autoFill() {
   }
 function buildScheduleData() {
   function legMmToFtLabel(mm) {
-    if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
+    if (mm === LEG_1FT6IN_MM) return `1'6" leg (${Math.round(mm)}mm)`;
     if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
     const halfFeet = Math.round(mm / 152.4) / 2;
     const wholeFt  = Math.floor(halfFeet);

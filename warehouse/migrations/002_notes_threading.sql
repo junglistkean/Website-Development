@@ -1,1 +1,0 @@
-ALTER TABLE notes ADD COLUMN parent_id TEXT;

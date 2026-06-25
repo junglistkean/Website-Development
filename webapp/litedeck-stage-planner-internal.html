@@ -1318,6 +1318,10 @@ let currentLayoutJobId = null;  // job_id of the layout last loaded from QB (qbL
 // braced is always the deliberate default; no-bracing is an explicit choice.
 let noBracingMode = false;
 const LG_MAX_LEG_MM = 2438.4;   // 8ft — tallest stock leg; BRACE_STOCK_MM entries above this are bracing-only tubes
+// The 8ft cap is a DELIBERATE structural safeguard, NOT an inventory limit (Eddie, 25 Jun
+// 2026): ~2.5m is the real-world max build Raven has done, at the limit of the kit. Legs-only
+// cannot emit a non-stock leg today (board task_9e9c120fa256a550 — confirmed Situation A,
+// safe). Leave leg selection as-is; don't re-litigate this cap as a wrong assumption.
 
 const PANEL_SIZES = { '8x4':[4,2], '8x2':[4,1], '4x4':[2,2], '4x2':[2,1] };
 const PANEL_COLORS = { '8x4':'#3b5bdb', '8x2':'#2f9e44', '4x4':'#e67700', '4x2':'#9c36b5' };
@@ -6585,10 +6589,9 @@ function buildLoadTotals(d) {
     }
 
     section('Bracing — Tube Lengths Required');
-    const TUBE_MM_ORDER = [
-      6000, 5000, 4000, 3048, 3000, 2438.4, 2133.6, 1981.2, 1828.8,
-      1676.4, 1524, 1371.6, 1219.2, 1066.8, 914.4, 762, 609.6, 457.2, 304.8
-    ];
+    // Descending stock lengths — derived from the master (BRACE_STOCK_MM / STOCK_TUBES),
+    // not a hand-copy. All values distinct, so the descending sort is deterministic.
+    const TUBE_MM_ORDER = BRACE_STOCK_MM.slice().sort((a, b) => b - a);
     const labelToMm = {};
     for (const mm of TUBE_MM_ORDER) labelToMm[tubeLengthLabel(mm)] = mm;
     const sortedTubeLengths = Object.entries(tubeLengthTotals).sort((a, b) => {
@@ -7125,18 +7128,37 @@ function generateElevationImages(returnData) {
 // Two views: Plan view shows horizontal ties; Elevation view shows diagonal geometry.
 // ══════════════════════════════════════════════════════════════════════════════
 
-// All stock tube lengths available for bracing (mm), sorted ascending.
-// Includes all leg lengths + bracing-specific lengths. Max 6000mm.
-const BRACE_STOCK_MM = [
-  304.8, 457.2, 609.6, 762, 914.4, 1066.8, 1219.2,
-  1371.6, 1524, 1676.4, 1828.8, 1981.2, 2133.6,
-  2438.4,  // 8ft
-  3000,    // 3m
-  3048,    // 10ft
-  4000,    // 4m
-  5000,    // 5m
-  6000     // 6m (max)
+// SINGLE SOURCE OF TRUTH for stock tube lengths + their labels, sorted ascending.
+// Includes all leg lengths + bracing-specific lengths. Max 6000mm. BRACE_STOCK_MM,
+// TUBE_MM_ORDER (load schedule sort) and tubeLengthLabel() all DERIVE from this list —
+// add or change a length/label here only, never restate it elsewhere.
+const STOCK_TUBES = [
+  { mm: 304.8,  label: "1ft"   },
+  { mm: 457.2,  label: "1'6\"" },
+  { mm: 609.6,  label: "2ft"   },
+  { mm: 762,    label: "2'6\"" },
+  { mm: 914.4,  label: "3ft"   },
+  { mm: 1066.8, label: "3'6\"" },
+  { mm: 1219.2, label: "4ft"   },
+  { mm: 1371.6, label: "4'6\"" },
+  { mm: 1524,   label: "5ft"   },
+  { mm: 1676.4, label: "5'6\"" },
+  { mm: 1828.8, label: "6ft"   },
+  { mm: 1981.2, label: "6'6\"" },
+  { mm: 2133.6, label: "7ft"   },
+  { mm: 2438.4, label: "8ft"   },
+  { mm: 3000,   label: "3m"    },
+  { mm: 3048,   label: "10ft"  },
+  { mm: 4000,   label: "4m"    },
+  { mm: 5000,   label: "5m"    },
+  { mm: 6000,   label: "6m"    }
 ];
+// mm values only, ascending — every existing reader of BRACE_STOCK_MM keeps working
+// unchanged (same name, same values, same order; only the source moved to STOCK_TUBES).
+const BRACE_STOCK_MM = STOCK_TUBES.map(t => t.mm);
+// Exact-value mm → label lookup, reproducing the old literal `===` chain precisely
+// (Map keys match by value; no tolerance — non-stock values fall through to "…mm").
+const STOCK_TUBE_LABEL = new Map(STOCK_TUBES.map(t => [t.mm, t.label]));
 
 // Legacy list used by nextStdTube (kept for non-bracing uses)
 const STD_TUBE_LENGTHS = [1000,1500,2000,2500,3000,3900,4800,6000];
@@ -7279,28 +7301,11 @@ function findCombination(targetMm, numTubes, overshootMm) {
   return null;
 }
 
-// Format a stock tube length as a human-readable label
+// Format a stock tube length as a human-readable label — derives from STOCK_TUBES
+// (exact-value lookup, identical "…mm" fallback for any non-stock length).
 function tubeLengthLabel(mm) {
-  if (mm === 304.8)  return "1ft";
-  if (mm === 457.2)  return "1'6\"";
-  if (mm === 609.6)  return "2ft";
-  if (mm === 762)    return "2'6\"";
-  if (mm === 914.4)  return "3ft";
-  if (mm === 1066.8) return "3'6\"";
-  if (mm === 1219.2) return "4ft";
-  if (mm === 1371.6) return "4'6\"";
-  if (mm === 1524)   return "5ft";
-  if (mm === 1676.4) return "5'6\"";
-  if (mm === 1828.8) return "6ft";
-  if (mm === 1981.2) return "6'6\"";
-  if (mm === 2133.6) return "7ft";
-  if (mm === 2438.4) return "8ft";
-  if (mm === 3048)   return "10ft";
-  if (mm === 3000)   return "3m";
-  if (mm === 4000)   return "4m";
-  if (mm === 5000)   return "5m";
-  if (mm === 6000)   return "6m";
-  return Math.round(mm) + "mm";
+  const label = STOCK_TUBE_LABEL.get(mm);
+  return label !== undefined ? label : Math.round(mm) + "mm";
 }
 
 let bracingSubView = 'plan'; // 'plan' | 'elev'

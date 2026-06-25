@@ -137,11 +137,8 @@ function preset5mStage() {
     },
     suppressedStdPositions: ['1,0'],
     bomExtras: [
-      { description: 'Starting collar — central base point', qty: 1, priceName: 'Starting collars' },
-      { description: 'Screw jack (central base point)',       qty: 1, priceName: 'Screw jack' },
-      { description: 'Ledger 2.57m — left standard to centre',   qty: 1, priceName: '2.57m ledger' },
-      { description: 'Ledger 2.57m — right standard to centre',  qty: 1, priceName: '2.57m ledger' },
-      { description: 'Ledger 2.57m — front-to-back at centre',   qty: 1, priceName: '2.57m ledger' },
+      { description: "8' × 4' Litedeck panel", qty: 4 },
+      { description: "1'6\" tube", qty: 16 },
     ],
     activeView: 'front',
     activeFace: 'N',
@@ -588,9 +585,9 @@ export function calculateBom(state) {
     '2.07_2.07': '2.93m plan brace (2.07 x 2.07m bay)',
   };
 
-  // Facade diagonal braces — standard lifts use named keys; short top lifts are bespoke cut-to-length
+  // Facade diagonal braces — standard lifts use named keys; sub-2m remainder lifts recorded as unbraced
   const braces = {};
-  const bespokeTopBracesMap = {};
+  const unbracedTopLifts = [];
   for (const brace of braceList) {
     const span = brace.face === 'front' || brace.face === 'back'
       ? Math.round((bayLengths[brace.bayIndex] ?? DEFAULT_BAY_LENGTH) * 100) / 100
@@ -601,16 +598,12 @@ export function calculateBom(state) {
       const swivels = ledgerHeights.filter(
         h => h >= brace.liftBottom - 1e-9 && h <= brace.liftTop + 1e-9
       ).length;
-      const k = String(diagLen);
-      if (!bespokeTopBracesMap[k]) bespokeTopBracesMap[k] = { diagLen, qty: 0, swivels: 0 };
-      bespokeTopBracesMap[k].qty++;
-      bespokeTopBracesMap[k].swivels += swivels;
+      unbracedTopLifts.push({ face: brace.face, bayIndex: brace.bayIndex, liftHeight, span, diagLen, swivels });
     } else {
       const key = DIAG_BRACE_KEYS[span] ?? `${span}m diagonal brace`;
       braces[key] = (braces[key] ?? 0) + 1;
     }
   }
-  const bespokeTopBraces = Object.values(bespokeTopBracesMap);
 
   // Plan braces — one per bay cell, keyed by bay dimensions
   const planBraces = {};
@@ -629,7 +622,13 @@ export function calculateBom(state) {
 
   // Base plates — one per standard position, excluding suppressed (central base-only) positions
   const numStdPositions = (gridCols + 1) * (gridRows + 1);
-  const basePlates = numStdPositions - suppressedPosSet.size;
+  let basePlates = numStdPositions - suppressedPosSet.size;
+  // Suppressed positions (e.g. central base point in 5m-stage) still have base hardware
+  // and adjacent ledgers — compensate here rather than using bomExtras for clean BOM totals
+  if (suppressedPosSet.size > 0) {
+    basePlates += suppressedPosSet.size;
+    ledgers[2.57] = (ledgers[2.57] ?? 0) + 3;
+  }
 
   // Decking — one entry per placed pan; pan length = bay length
   const deckPans = {};
@@ -687,7 +686,7 @@ export function calculateBom(state) {
     transoms,
     braces,
     planBraces,
-    bespokeTopBraces,
+    unbracedTopLifts,
     basePlates,
     deckPans,
     gapFillers,

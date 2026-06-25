@@ -918,10 +918,13 @@ function ElevationView({ state, dispatch, face }) {
         const yB = yOf(b.liftBottom);
         const yT = yOf(b.liftTop);
         const [bx1, bx2] = b.direction === '/' ? [x1, x2] : [x2, x1];
+        const isRemainder = (b.liftTop - b.liftBottom) < 2.0 - 1e-9;
         return (
           <line key={`brc-${b.key}`}
             x1={bx1} y1={yB} x2={bx2} y2={yT}
-            stroke={BRACE_COLOR} strokeWidth={1.5}
+            stroke={isRemainder ? '#8a8a8a' : BRACE_COLOR}
+            strokeWidth={1.5}
+            strokeDasharray={isRemainder ? '6 4' : undefined}
             pointerEvents="none"
           />
         );

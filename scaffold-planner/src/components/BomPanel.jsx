@@ -16,10 +16,11 @@ const PANS_MAP = { 2.57: '2.57m pan', 2.07: '2.07m pan' };
 
 function buildQuoteItems(bom) {
   const items = [];
-  const add = (description, qty, unitPrice) => {
+  const add = (description, qty, unitPrice, priceName) => {
     if (!qty || qty <= 0) return;
     const item = { category: 'equipment', description, qty };
     if (unitPrice !== undefined) item.unitPrice = unitPrice;
+    if (priceName !== undefined) item.priceName = priceName;
     items.push(item);
   };
 
@@ -32,14 +33,6 @@ function buildQuoteItems(bom) {
   }
   for (const [desc, qty] of Object.entries(bom.braces))     add(desc, qty);
   for (const [desc, qty] of Object.entries(bom.planBraces)) add(desc, qty);
-  let bespokeSwivels = 0;
-  for (const b of bom.bespokeTopBraces ?? []) {
-    const unitPrice = Math.round((b.diagLen * 4.00 + 1.00) * 100) / 100;
-    add(`Bespoke diagonal brace — ${b.diagLen}m cut-to-length`, b.qty, unitPrice);
-    bespokeSwivels += b.swivels;
-  }
-  if (bespokeSwivels > 0) add('Scaffold swivel clamps (diagonal braces)', bespokeSwivels);
-
   if (bom.basePlates > 0) {
     add('Starting collars',                  bom.basePlates);
     add('Base plate (spec per engineering)', bom.basePlates);
@@ -50,7 +43,7 @@ function buildQuoteItems(bom) {
   }
 
   for (const b of bom.ladderBeamSpans ?? []) {
-    add(`Ladder beam — ${b.span}m span`, 1, 0);
+    add(`Ladder beam — ${b.span}m span`, 1, undefined, 'Ladder beam');
   }
 
   add('Tarp set — 2.57m x 2.57m x 2m lift', bom.tarpCount);
@@ -128,6 +121,18 @@ function QuoteModal({ bom, onClose, config }) {
     if (bom.gapFillers > 0)        warnings.push(`Note: ${bom.gapFillers} gap filler(s) required — price manually`);
     if (bom.removedLedgerCount > 0) warnings.push(`⚠ ${bom.removedLedgerCount} ledger(s) manually removed — verify structural adequacy`);
     if (bom.removedBraceCount > 0)  warnings.push(`⚠ ${bom.removedBraceCount} brace(s) manually removed — verify structural adequacy`);
+    const topLiftGroups = {};
+    for (const t of bom.unbracedTopLifts ?? []) {
+      const key = `${t.span}|${t.liftHeight}`;
+      if (!topLiftGroups[key]) topLiftGroups[key] = { ...t, count: 0, swivels: 0 };
+      topLiftGroups[key].count += 1;
+      topLiftGroups[key].swivels += t.swivels;
+    }
+    for (const g of Object.values(topLiftGroups)) {
+      warnings.push(
+        `Top lift bracing (rigger's discretion): ${g.count}× ${g.liftHeight}m lift on ${g.span}m bay${g.count > 1 ? 's' : ''} — no standard diagonal. Cut tube ≈${g.diagLen}m ×${g.count} + ${g.swivels} swivel clamps if required.`
+      );
+    }
     warnings.push('Base plate spec requires engineering confirmation per job.');
     const notes = [f.notes.trim(), ...warnings].filter(Boolean).join('\n');
 
@@ -283,7 +288,6 @@ export default function BomPanel({ state, isInternal, visible = true, showQuoteM
   const hasDecking       = Object.keys(bom.deckPans).length > 0 || bom.gapFillers > 0;
   const hasBraces        = Object.keys(bom.braces).length > 0;
   const hasPlanBraces    = Object.keys(bom.planBraces).length > 0;
-  const hasBespokeTopBraces = (bom.bespokeTopBraces ?? []).length > 0;
 
   return (
     <aside className={`bom-panel${visible ? '' : ' bom-panel--hidden'}`}>
@@ -327,15 +331,7 @@ export default function BomPanel({ state, isInternal, visible = true, showQuoteM
             .map(([desc, qty]) => (
               <BomRow key={desc} label={desc} qty={qty} />
             ))}
-          {(bom.bespokeTopBraces ?? []).map(b => (
-            <React.Fragment key={b.diagLen}>
-              <BomRow label={`Bespoke diagonal — ${b.diagLen}m cut-to-length`} qty={b.qty} />
-              <div className="bom-row-note" style={{ paddingLeft: '1rem', fontSize: '11px', color: '#aaa' }}>
-                {b.swivels} swivel clamp{b.swivels !== 1 ? 's' : ''} ({b.swivels / b.qty} per brace)
-              </div>
-            </React.Fragment>
-          ))}
-          {!hasBraces && !hasPlanBraces && !hasBespokeTopBraces && (
+          {!hasBraces && !hasPlanBraces && (
             <div className="bom-note">No bracing required</div>
           )}
           <div className="bom-note">Approximate — confirm final count with engineer</div>
@@ -406,7 +402,7 @@ export default function BomPanel({ state, isInternal, visible = true, showQuoteM
         {(bom.ladderBeamSpans ?? []).length > 0 && (
           <BomSection title="Ladder Beams">
             {bom.ladderBeamSpans.map((b, i) => (
-              <BomRow key={i} label={`Ladder beam — ${b.span}m span`} qty={1} note="price TBC" />
+              <BomRow key={i} label={`Ladder beam — ${b.span}m span`} qty={1} />
             ))}
           </BomSection>
         )}
@@ -420,7 +416,7 @@ export default function BomPanel({ state, isInternal, visible = true, showQuoteM
         {(bom.bomExtras ?? []).length > 0 && (
           <BomSection title="Preset Extras">
             {bom.bomExtras.map((e, i) => (
-              <BomRow key={i} label={e.description} qty={e.qty} note={e.unitPrice == null ? 'see spec' : undefined} />
+              <BomRow key={i} label={e.description} qty={e.qty} />
             ))}
           </BomSection>
         )}

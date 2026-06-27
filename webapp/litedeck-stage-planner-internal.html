@@ -4880,6 +4880,17 @@ function addRamp(anchorGx, anchorGy, direction, gradient, widthFt, tierId) {
   const numLandings      = flights.filter(s => s.type === 'landing').length;
   const totalFootprintMm = totalSlopedRun + totalLandingMm + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
 
+  // Hinge count — a hinge sits at every flat↔slope boundary between two real
+  // sections.  Section sequence top→bottom: stage(flat) + each flight(slope) /
+  // landing(flat).  The ground and the ramp-bottom wedge are NOT sections, so the
+  // bottom termination is excluded and gets no hinge.  A no-landing ramp yields one
+  // boundary (the stage edge) → widthCols, unchanged; each landing adds two.
+  const hingeSections = [{ flat: true }, ...flights.map(s => ({ flat: s.type === 'landing' }))];
+  let hingeBoundaries = 0;
+  for (let i = 1; i < hingeSections.length; i++)
+    if (hingeSections[i].flat !== hingeSections[i - 1].flat) hingeBoundaries++;
+  const hingeQty = widthCols * hingeBoundaries;
+
   return {
     id: 'ramp-' + (nextRampId++),
     tierId, anchorGx, anchorGy, direction, gradient, widthFt, widthCols, stageHeight,
@@ -4896,7 +4907,7 @@ function addRamp(anchorGx, anchorGy, direction, gradient, widthFt, tierId) {
     panelSummary: panelSummaryAll,
     legs:         allFltLegs,
     splitters:    allFltSplits,
-    hingeQty:     widthCols,
+    hingeQty,
     rampBottomQty: widthCols,
     // Structured per-segment breakdown
     flights,
@@ -8588,7 +8599,18 @@ function buildQuoteItems() {
     '6ft': 0.90, "6'6\"": 1.15,
     '7ft': 1.40, '8ft': 1.65, '10ft': 2.20,
   };
+  // Main-stage legs (d.legCounts) + ramp legs (rampLegCounts), combined into one
+  // pick-list line per length. A leg is the same stock tube whether it carries a
+  // main deck or a ramp, so same-length legs sum. Built as a LOCAL map — d is never
+  // mutated (the load-schedule path reads d.legCounts on its own fresh d).
+  // FIX 26 Jun 2026: this loop previously iterated rampLegCounts ONLY, silently
+  // dropping every main-stage leg from quotes/orders while the load schedule and
+  // the leg's own jack/baseplate still listed it (money bug). See CLAUDE.md.
+  const allLegCounts = Object.assign({}, d.legCounts);
   for (const [label, qty] of Object.entries(rampLegCounts)) {
+    allLegCounts[label] = (allLegCounts[label] || 0) + qty;
+  }
+  for (const [label, qty] of Object.entries(allLegCounts)) {
     if (!qty) continue;
     const lenPrefix = label.split(' leg ')[0];
     const price = LEG_TUBE_PRICES[lenPrefix] ?? 0.00;
@@ -8721,6 +8743,26 @@ function buildQuoteItems() {
     }
   }
 
+  // ── Defensive: no silent drops (26 Jun 2026) ──
+  // Tripwire mirroring the bracing reconciliation, but surfaced as a non-blocking
+  // warning (not a throw): every leg counted in the build must reach a quote line.
+  // This is the exact failure mode the leg fix above closed; the guard fails loud
+  // if a future change ever drops a leg family again. Broader schedule↔payload
+  // reconciliation across ALL equipment families is backlogged — see CLAUDE.md.
+  const warnings = [];
+  const authLegTotal    = Object.values(allLegCounts).reduce((a, b) => a + b, 0);
+  const emittedLegTotal = items.filter(i => / leg \(\d+mm\)/.test(i.description))
+                               .reduce((a, i) => a + i.qty, 0);
+  if (authLegTotal !== emittedLegTotal) {
+    const diff = Math.abs(authLegTotal - emittedLegTotal);
+    const msg = 'Legs do not reconcile: ' + authLegTotal + ' leg(s) in the build but '
+      + emittedLegTotal + ' on the quote — ' + diff + ' leg(s) '
+      + (authLegTotal > emittedLegTotal ? 'missing from' : 'over-listed on') + ' the quote.';
+    console.warn('[buildQuoteItems] ' + msg);
+    warnings.push(msg);
+  }
+  items.warnings = warnings;
+
   return items;
 }
 
@@ -8780,7 +8822,10 @@ async function submitQuote() {
   const _qbUrl = QUOTE_BUILDER_URL + '/?data=' + encodeURIComponent(JSON.stringify(prepopulate));
   window.open(_qbUrl, '_blank');
 
-  setQuoteStatus('success', '✅ <b>Quote builder opened in a new tab</b> with your layout pre-loaded.');
+  const qWarn = (items.warnings && items.warnings.length)
+    ? '<br><span style="color:#c00">⚠ ' + items.warnings.join('<br>⚠ ') + '</span>' : '';
+  setQuoteStatus(qWarn ? 'error' : 'success',
+    '✅ <b>Quote builder opened in a new tab</b> with your layout pre-loaded.' + qWarn);
   document.getElementById('qm-submit').style.display = 'none';
   document.getElementById('qm-cancel').textContent = 'Close';
   document.getElementById('qm-cancel').disabled = false;
@@ -8883,9 +8928,11 @@ function closeQbPushModal() {
 async function submitQbPush() {
   const name = document.getElementById('qb-push-name').value.trim();
   if (!name) { setQbStatus('qb-push-status', 'error', '<b>Layout name is required.</b>'); return; }
-  let components;
+  let components, buildWarnings = [];
   try {
-    components = buildQuoteItems().map(i => ({ category: i.category, description: i.description, qty: i.qty }));
+    const built = buildQuoteItems();
+    buildWarnings = built.warnings || [];
+    components = built.map(i => ({ category: i.category, description: i.description, qty: i.qty }));
   } catch (e) {
     setQbStatus('qb-push-status', 'error', '<b>Error building component list:</b> ' + e.message);
     return;
@@ -8916,7 +8963,10 @@ async function submitQbPush() {
     if (d && d.ok) {
       if (typeof d.runningId === 'number') currentRunningId = d.runningId;
       const idTxt = (typeof d.runningId === 'number') ? ' as stage <b>' + fmtRunningId(d.runningId) + '</b>' : '';
-      setQbStatus('qb-push-status', 'success', '✅ <b>Sent</b>' + idTxt + '. Pending in the Quote Builder (' + components.length + ' component lines).');
+      const pWarn = buildWarnings.length
+        ? '<br><span style="color:#c00">⚠ ' + buildWarnings.join('<br>⚠ ') + '</span>' : '';
+      setQbStatus('qb-push-status', pWarn ? 'error' : 'success',
+        '✅ <b>Sent</b>' + idTxt + '. Pending in the Quote Builder (' + components.length + ' component lines).' + pWarn);
     } else {
       setQbStatus('qb-push-status', 'error', '<b>Send failed:</b> ' + ((d && d.error) || 'unknown error'));
     }
@@ -9875,16 +9925,36 @@ function drawRampSideViewCanvas(ramp, canvas) {
     ctx.stroke();
   }
 
-  // ── Hinge marker ──────────────────────────────────────────────────────────
+  // ── Hinge markers ──────────────────────────────────────────────────────────
+  // One at the stage edge (x=0) plus one at EACH landing boundary (both flat↔slope
+  // transitions of every landing).  This mirrors the hinge COUNT in addRamp /
+  // buildRampScheduleData, so the install diagram shows exactly the hinges on the
+  // parts list — a landing run with one landing draws 3 markers (stage + both sides).
   {
-    const hx = xPx(0), hy = yPxRaw(ramp.stageHeight);
-    ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#f5a623'; ctx.fill();
-    ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = '#f5a623bb';
-    ctx.font = 'bold 9px Barlow Condensed,sans-serif';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText('HINGE', hx + 7, hy);
+    const drawHinge = (mmX, mmH, label) => {
+      const hx = xPx(mmX), hy = yPxRaw(mmH);
+      ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f5a623'; ctx.fill();
+      ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
+      if (label) {
+        ctx.fillStyle = '#f5a623bb';
+        ctx.font = 'bold 9px Barlow Condensed,sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+        ctx.fillText(label, hx + 7, hy);
+      }
+    };
+    // Stage-edge hinge (labelled — identifies the marker kind).
+    drawHinge(0, ramp.stageHeight, 'HINGE');
+    // Landing-boundary hinges: each landing profile point marks the exit (landing →
+    // flight); the immediately-preceding profile point is the entry (flight → landing),
+    // at the same flat height.  Unlabelled to avoid clutter.  The ground / ramp-bottom
+    // point (rampBot) is never a landing, so the bottom termination draws no hinge.
+    for (let i = 1; i < profile.length; i++) {
+      if (profile[i].landing) {
+        drawHinge(profile[i - 1].x, profile[i].h, '');  // entry: flight → landing
+        drawHinge(profile[i].x,     profile[i].h, '');  // exit:  landing → flight
+      }
+    }
   }
 
   // ── Gradient label centred on the first sloped flight section ─────────────

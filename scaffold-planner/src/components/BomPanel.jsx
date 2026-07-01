@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { calculateBom } from '../state/scaffoldStore';
 
@@ -66,6 +66,30 @@ function buildQuoteItems(bom) {
 // ── Quote modal ───────────────────────────────────────────────────────────────
 
 const QUOTE_BUILDER_URL = 'https://quote-builder.e-kean.workers.dev';
+
+// ── Path B: cross-origin push to the QB "pending layout" store ────────────────
+// Scaffold is always a DIFFERENT origin from QB (Pages / localhost), so the
+// qb_auth cookie never applies — the low-privilege planner key is required on
+// every call. Prompted once, kept in localStorage, reused. Mirrors litedeck's
+// qbFetch (same localStorage key name; storage is per-origin so it's independent).
+const QB_KEY_STORAGE = 'qb_planner_key';
+
+async function qbFetch(path, opts = {}) {
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  let key = (localStorage.getItem(QB_KEY_STORAGE) || '').trim();
+  if (!key) {
+    key = (window.prompt('Enter the Quote Builder planner key (saved in this browser):') || '').trim();
+    if (!key) throw new Error('Planner key required.');
+    localStorage.setItem(QB_KEY_STORAGE, key);
+  }
+  headers['x-planner-key'] = key;
+  const res = await fetch(QUOTE_BUILDER_URL + path, Object.assign({}, opts, { headers }));
+  if (res.status === 401) {
+    localStorage.removeItem(QB_KEY_STORAGE);
+    throw new Error('Unauthorised — planner key rejected (re-enter it on the next attempt).');
+  }
+  return res.json();
+}
 
 function buildAutoName(config) {
   if (!config) return 'Layher scaffold';
@@ -259,6 +283,151 @@ function QuoteModal({ bom, onClose, config }) {
   );
 }
 
+// ── Path B modal: push layout to QB as a pending, job-tagged injection ────────
+// Separate from QuoteModal (Path A, which opens QB pre-loaded). This POSTs to
+// /api/planner-layouts so the layout sits pending against a job and can be
+// assembled with others into one quote inside QB. Faithful mirror of litedeck's
+// submitQbPush + #qb-push-modal.
+
+function fmtRunningId(n) { return n == null ? '' : String(n).padStart(5, '0'); }
+
+function PushModal({ bom, state, dispatch, config, onClose }) {
+  const [name, setName] = useState(() => buildAutoName(config));
+  const [jobs, setJobs] = useState([]);
+  const [jobId, setJobId] = useState('');
+  const [intent, setIntent] = useState('replace');
+  const [status, setStatus] = useState(null);   // { type: 'error'|'success'|'sending', msg }
+  const [sending, setSending] = useState(false);
+
+  // Replace/Duplicate choice only applies once this layout already has a stage id.
+  const hasStage = state.runningId != null;
+
+  // Populate the job picker from QB's planner jobs-list endpoint on open.
+  useEffect(() => {
+    let alive = true;
+    qbFetch('/api/planner-jobs')
+      .then(list => { if (alive && Array.isArray(list)) setJobs(list); })
+      .catch(e => {
+        if (alive) setStatus({ type: 'error', msg: `Could not load jobs: ${e.message} You can still send as Unassigned.` });
+      });
+    return () => { alive = false; };
+  }, []);
+
+  async function submit() {
+    if (!name.trim()) { setStatus({ type: 'error', msg: 'Layout name is required.' }); return; }
+
+    // Components: buildQuoteItems(bom) as-is — deliberately NOT stripped to
+    // {category,description,qty} like litedeck does. Scaffold emits items whose
+    // description is not a PRICE_LIST key (e.g. "Ladder beam — 2.50m span" carries
+    // priceName 'Ladder beam'); dropping priceName here would make them re-resolve
+    // to £0 when injected into a quote. Extra fields are harmless to the receiver.
+    let components;
+    try {
+      components = buildQuoteItems(bom);
+    } catch (e) {
+      setStatus({ type: 'error', msg: `Error building component list: ${e.message}` });
+      return;
+    }
+    if (!components.length) { setStatus({ type: 'error', msg: 'No components to send.' }); return; }
+
+    const sendIntent = hasStage ? intent : 'duplicate';
+    // layoutState = scaffold's serialisable state (minus history), same shape
+    // handleSave writes. Carries runningId; QB overwrites it with the final id.
+    const { history, ...layoutState } = state;
+
+    setSending(true);
+    setStatus({ type: 'sending', msg: 'Sending layout…' });
+    try {
+      const d = await qbFetch('/api/planner-layouts', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name.trim(),
+          jobId: jobId || null,
+          components,
+          layoutState,
+          intent: sendIntent,
+          runningId: sendIntent === 'replace' ? state.runningId : null,
+        }),
+      });
+      if (d && d.ok) {
+        if (typeof d.runningId === 'number') dispatch({ type: 'SET_RUNNING_ID', value: d.runningId });
+        const idTxt = typeof d.runningId === 'number' ? ` as stage ${fmtRunningId(d.runningId)}` : '';
+        setStatus({ type: 'success', msg: `✅ Sent${idTxt}. Pending in the Quote Builder (${components.length} component lines).` });
+      } else {
+        setStatus({ type: 'error', msg: `Send failed: ${(d && d.error) || 'unknown error'}` });
+      }
+    } catch (e) {
+      setStatus({ type: 'error', msg: `Send failed: ${e.message}` });
+    }
+    setSending(false);
+  }
+
+  const statusColor = status
+    ? (status.type === 'error' ? '#e06666' : status.type === 'success' ? '#3fae6a' : '#c9a84c')
+    : undefined;
+
+  return createPortal(
+    <div className="qm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="qm-modal">
+        <h3 className="qm-title">Send to Quote Builder — pending layout</h3>
+        <p className="qm-sub">
+          Pushes this layout to the quote builder as a pending injection. Multiple layouts can be
+          sent against one job and later assembled into a single quote.
+        </p>
+
+        {status && (
+          <div style={{
+            marginTop: 10, marginBottom: 4, padding: '8px 10px', borderRadius: 6,
+            fontSize: 13, color: statusColor, border: `1px solid ${statusColor}`,
+          }}>{status.msg}</div>
+        )}
+
+        <div className="qm-field">
+          <label>Layout Name *{hasStage ? ` (stage ${fmtRunningId(state.runningId)})` : ''}</label>
+          <input type="text" value={name} onChange={e => setName(e.target.value)}
+            placeholder="e.g. Main stage — two tier 24x16" />
+        </div>
+
+        <div className="qm-field">
+          <label>Assign to Job</label>
+          <select value={jobId} onChange={e => setJobId(e.target.value)}>
+            <option value="">— Unassigned —</option>
+            {jobs.map(j => (
+              <option key={j.id} value={j.id}>
+                {j.name}{j.client ? ` — ${j.client}` : ''}{j.dateStart ? ` (${j.dateStart})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {hasStage && (
+          <div className="qm-field">
+            <label>This layout is stage {fmtRunningId(state.runningId)} — re-sending</label>
+            <label className="qm-tbc">
+              <input type="radio" name="qb-push-mode" value="replace"
+                checked={intent === 'replace'} onChange={() => setIntent('replace')} />
+              Replace this stage
+            </label>
+            <label className="qm-tbc">
+              <input type="radio" name="qb-push-mode" value="duplicate"
+                checked={intent === 'duplicate'} onChange={() => setIntent('duplicate')} />
+              Save as new stage
+            </label>
+          </div>
+        )}
+
+        <div className="qm-actions">
+          <button className="sb-btn" onClick={onClose} disabled={sending}>Cancel</button>
+          <button className="sb-btn sb-btn--accent" onClick={submit} disabled={sending}>
+            {sending ? 'Sending…' : 'Send ⇪'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function BomSection({ title, children }) {
@@ -283,7 +452,7 @@ function BomRow({ label, qty, note }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BomPanel({ state, isInternal, visible = true, showQuoteModal, onOpenQuote, onCloseQuote }) {
+export default function BomPanel({ state, dispatch, isInternal, visible = true, showQuoteModal, onOpenQuote, onCloseQuote, showPushModal, onOpenPush, onClosePush }) {
   const bom = calculateBom(state);
   const hasDecking       = Object.keys(bom.deckPans).length > 0 || bom.gapFillers > 0;
   const hasBraces        = Object.keys(bom.braces).length > 0;
@@ -450,6 +619,11 @@ export default function BomPanel({ state, isInternal, visible = true, showQuoteM
               SEND TO QUOTE BUILDER ✉
             </button>
           )}
+          {isInternal && (
+            <button className="sb-btn" onClick={onOpenPush}>
+              SEND AS PENDING LAYOUT ⇪
+            </button>
+          )}
         </div>
 
       </div>
@@ -458,6 +632,24 @@ export default function BomPanel({ state, isInternal, visible = true, showQuoteM
         <QuoteModal
           bom={bom}
           onClose={onCloseQuote}
+          config={{
+            gridCols: state.gridCols,
+            bayLengths: state.bayLengths,
+            gridRows: state.gridRows,
+            bayWidth: state.bayWidth,
+            structureHeight: state.structureHeight,
+            hasRoof: state.roofBays?.length > 0,
+            tarps: state.tarps,
+          }}
+        />
+      )}
+
+      {isInternal && showPushModal && (
+        <PushModal
+          bom={bom}
+          state={state}
+          dispatch={dispatch}
+          onClose={onClosePush}
           config={{
             gridCols: state.gridCols,
             bayLengths: state.bayLengths,

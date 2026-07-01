@@ -57,6 +57,13 @@ const initialState = {
   activePlacement: null,
   windowHeight: 1.0,
 
+  // Stage-lineage key for the QB "pending layout" push (Path B). null on a fresh
+  // layout; set from the push response's runningId and persisted by handleSave
+  // (it serialises state, so this rides along) / rehydrated by LOAD_STATE. Lets a
+  // re-send of the same layout REPLACE the prior pending row instead of piling up
+  // duplicates. Mirrors litedeck's currentRunningId (carried in exportLayoutJson).
+  runningId: null,
+
   history: [],
 };
 
@@ -449,6 +456,11 @@ function reducer(state, action) {
 
     case 'LOAD_STATE':
       return migrateTarps({ ...initialState, ...action.payload, history: [] });
+
+    // Stamp the QB stage-lineage id after a successful "pending layout" push.
+    // Not an undoable edit (no record()) — it's push metadata, not a canvas change.
+    case 'SET_RUNNING_ID':
+      return { ...state, runningId: action.value };
 
     default:
       return state;

@@ -10,6 +10,7 @@ function AppInner({ isInternal }) {
   const { state, dispatch } = useScaffold();
   const [showBom, setShowBom] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [showPushModal, setShowPushModal] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -62,11 +63,15 @@ function AppInner({ isInternal }) {
         <Canvas state={state} dispatch={dispatch} />
         <BomPanel
           state={state}
+          dispatch={dispatch}
           isInternal={isInternal}
           visible={showBom}
           showQuoteModal={showQuoteModal}
           onOpenQuote={() => setShowQuoteModal(true)}
           onCloseQuote={() => setShowQuoteModal(false)}
+          showPushModal={showPushModal}
+          onOpenPush={() => setShowPushModal(true)}
+          onClosePush={() => setShowPushModal(false)}
         />
       </div>
     </div>

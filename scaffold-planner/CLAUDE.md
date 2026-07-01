@@ -29,7 +29,7 @@ scaffold-planner/
 │   │   └── scaffoldGeometry.js    # Pure geometry: ledger heights, auto-ledgers/bracing
 │   └── components/
 │       ├── Canvas.jsx             # SVG rendering — plan + elevation views
-│       ├── BomPanel.jsx           # BOM display + quote builder modal
+│       ├── BomPanel.jsx           # BOM display + Path A quote modal + Path B pending-layout push modal
 │       ├── Sidebar.jsx            # Left panel — grid/bay config, levels, placement modes
 │       ├── Toolbar.jsx            # Top bar — view switcher, save/load, BOM toggle
 │       └── StatusBar.jsx          # Contextual hints below toolbar
@@ -73,6 +73,7 @@ Core state shape:
   activePlacement,             // 'tarp' | 'window' | 'roof' | 'ladder' | null
   tool,                        // 'place' | 'delete'
   windowHeight,
+  runningId,                   // QB stage-lineage key for Path B pending push — null until first push; see BOM & Quote
 }
 ```
 
@@ -112,7 +113,50 @@ Full-2m diagonal braces render as solid gold lines (`BRACE_COLOR`). Sub-2m remai
 - Ladder beams (by span)
 - Windows, bomExtras
 
-The quote modal (`QUOTE_BUILDER_URL = 'https://quote-builder.e-kean.workers.dev'`) serialises BOM items to JSON and opens the quote builder via `window.open(...?data=<encoded-JSON>)`. It is gated behind the `isInternal` prop.
+There are **two ways to push a layout to the quote builder**, both gated behind `isInternal` and both built from the same `buildQuoteItems(bom)` in `BomPanel.jsx`:
+
+**Path A — "Send to Quote Builder" (open QB pre-loaded).** `QuoteModal.submit()` opens
+`window.open(QUOTE_BUILDER_URL + '/?data=<encoded-JSON>')` (`QUOTE_BUILDER_URL =
+'https://quote-builder.e-kean.workers.dev'`). No auth, no server write — QB's client-side
+`loadPrepopulate` consumes the URL param and the quote is only persisted when the user saves
+in QB. The payload carries `{ eventName, eventDates, dateStart, dateEnd, eventVenue,
+companyName, clientName, clientEmail, notes, group, items }`. **The `group: { id, name, qty }`
+field is load-bearing and QB-specific**: `loadPrepopulate` detects `data.group && !data.groups`
+and wraps all equipment items into a single QB *structure-group* (a "set × N structures" block
+with its own qty multiplier and hire period). Litedeck's Path A does **not** send `group`;
+scaffold does. Do not drop it — QB relies on it to group the scaffold BOM as one priced set.
+
+**Path B — "Send as Pending Layout" (batch/pending injection).** `PushModal` in `BomPanel.jsx`
+POSTs to `POST {QB}/api/planner-layouts`; QB's `handleCreatePlannerLayout` writes one **pending**
+row to the `planner_layouts` table in D1 `raven-finance`. The layout then sits pending against a
+job and can be assembled with other layouts into a single quote inside QB. This mirrors
+litedeck's `submitQbPush`. Contract:
+
+- **Auth:** scaffold is always cross-origin to QB (Pages/localhost), so the `qb_auth` cookie
+  never applies — the low-privilege **`x-planner-key`** header is required on every call
+  (`qbFetch` in `BomPanel.jsx`; key prompted once, stored in `localStorage['qb_planner_key']`,
+  re-prompted on a 401). Never embed the key — the built site is published verbatim.
+- **Job capture:** a `<select>` populated on modal open via `qbFetch('/api/planner-jobs')`
+  (options `id → "name — client (dateStart)"`, plus `— Unassigned —` → `jobId: null`). Same
+  mechanism as litedeck — not free text.
+- **Body:** `{ name, jobId|null, components, layoutState, intent, runningId }`.
+  `components` = `buildQuoteItems(bom)` **unchanged** (full objects — deliberately *not*
+  stripped to `{category,description,qty}` like litedeck, because scaffold emits items whose
+  `description` is not a PRICE_LIST key, e.g. the ladder beam relies on its `priceName`; stripping
+  would make it re-resolve to £0 on injection). `layoutState` = scaffold's serialisable `state`
+  minus `history` (same shape `handleSave` writes).
+- **`intent` / `runningId` — stage lineage (Replace scope = session + saved-file only).**
+  `state.runningId` (added to the store; `null` on a fresh layout) is the stage-lineage key.
+  On first push it is `null` → `intent:'duplicate'` → QB mints a `running_id` → the response's
+  `d.runningId` is stored back via `SET_RUNNING_ID`. Because `handleSave` serialises the whole
+  state, `runningId` is **persisted in the saved `.json` and rehydrated by `LOAD_STATE`** — the
+  equivalent of litedeck's `exportLayoutJson`. A re-send then defaults to `intent:'replace'`
+  (radios shown only when `runningId != null`), sending the same `runningId` so QB supersedes the
+  prior pending row instead of piling up duplicates. **Known-and-intended limitation:** scaffold
+  has no "reload a sent layout back from QB" list (litedeck's `openQbLayoutsModal`), so replace
+  works **only within the same browser session or via save-file → reopen → resend**. A fresh
+  session with no local save file has no `runningId` and will **duplicate** (mint a new stage) —
+  this is accepted scope, **not a bug**; do not "fix" it by inventing an identity.
 
 ### Pricing model
 
@@ -130,6 +174,24 @@ Top lift bracing (rigger's discretion): N× Xm lift on X.XXm bays — no standar
 Cut tube ≈X.XXm ×N + N swivel clamps if required.
 ```
 The geometric length (√(span² + liftHeight²)) is advisory only; riggers size the actual tube themselves.
+
+### Known & intended pricing gaps (both push paths — do NOT "fix" without sign-off)
+
+These are deliberate. A future session finding a £0 or a missing line here should treat it as
+recorded intent, not a defect:
+
+- **Transoms are intentionally disabled in scaffold** — not generated, not in the BOM, not
+  quoted. When Litedeck decking is stocked they'll be reintroduced as the deck-support piece and
+  will need a price added to QB at that time (**no `transom` key exists in QB `PRICE_LIST`
+  currently**). *(As of this Path B commit the phantom transom generation is still present in
+  `calculateBom`/`BomPanel`; removing it is the immediately-next change — this reminder records
+  the settled end state.)*
+- **Narrow bays (0.73 / 1.09 / 1.57m) would resolve to £0** for ledgers/pans/braces (the
+  `STANDARDS_MAP`/`LEDGERS_MAP`/`PANS_MAP`/`DIAG_BRACE_KEYS` fallbacks emit names absent from
+  `PRICE_LIST`). **Not stocked — no real layout uses them**, so this is ignored by design.
+- **Base plate is £0 on purpose.** `Base plate (spec per engineering)` is a real PRICE_LIST key
+  priced at £0.00 ("spec per engineering") — every scaffold quote carries a £0 base-plate line
+  intentionally. Leave as-is.
 
 ### Layher constants (`layher.js`)
 

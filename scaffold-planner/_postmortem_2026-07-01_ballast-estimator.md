@@ -70,3 +70,24 @@ old static BALLAST flag (its prose folded into the estimate's disclaimer).
   reproduce his figures. Don't "correct" it without re-checking against the report.
 - Skeleton `V1_BAY_WIDTH`/`V1_CANTILEVER` fix the lookup column; the fuller table is
   transcribed for future cantilever/narrow-tower support.
+
+## Addendum — post-build adjustments (same session)
+
+Three changes after first review, all verified numerically (build clean):
+
+1. **Skeleton multi-bay → no figure** (was a caveat note). A skeleton figure is now produced
+   ONLY for the single 2.57 m-bay / no-cantilever reference tower. `gridCols>1`, `gridRows>1`,
+   `bayWidth≠2.57` or `bayLengths≠2.57` all route to amber "off-table — bespoke, engineer's
+   ballast calc required. No estimate given." — same hard stop as > 6.25 m. The old
+   proportional-scaling caveat path was removed. (`isReferenceTower` computed in `computeBallast`.)
+2. **Internal-only visibility.** `<BallastEstimate>` is gated on `BomPanel`'s existing
+   `isInternal` prop (verified it exists — from `data-internal` via `main.jsx`; no new flag,
+   no persistence). It no longer renders on the client build.
+3. **Skeleton default → concrete.** Skeleton headline is now 1.1 T concrete blocks; 1.0 T water
+   is offered as an *alternative* line only on the ≤ 4.25 m reference case
+   (`WATER_OFFER_MAX_HEIGHT`). Clad unchanged (concrete only, tied down).
+
+Confirmed-as-built (no change): skeleton > 6.25 m → amber/no figure; exposure inert in skeleton
+lane; all clad types = full solid face in v1.
+
+Still owed: same browser eyeball (Canvas render loop blocks the automation's `document_idle`).

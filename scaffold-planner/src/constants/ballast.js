@@ -77,8 +77,9 @@ export const LAYHER_OPEN_TOWER = {
     { h: 4.25, a: { 1.57: { 0.39: 1400, 0.73: 1515 }, 2.07: { 0.39: 745,  0.73: 835  }, 2.57: { 0: 275,  0.39: 330,  0.73: 405  } } },
     { h: 6.25, a: { 1.57: { 0.39: 2980, 0.73: 3095 }, 2.07: { 0.39: 1880, 0.73: 1970 }, 2.57: { 0: 1150, 0.39: 1200, 0.73: 1270 } } },
   ],
-  V1_BAY_WIDTH: 2.57,   // a — the reference open tower width used in v1
-  V1_CANTILEVER: 0,     // k — no cantilever
-  MIN_HEIGHT: 2.25,     // table floor (below → 0 kg)
-  MAX_HEIGHT: 6.25,     // table ceiling (above → out-of-table, engineer required)
+  V1_BAY_WIDTH: 2.57,        // a — the reference open tower width used in v1
+  V1_CANTILEVER: 0,          // k — no cantilever
+  MIN_HEIGHT: 2.25,          // table floor (below → 0 kg)
+  MAX_HEIGHT: 6.25,          // table ceiling (above → out-of-table, engineer required)
+  WATER_OFFER_MAX_HEIGHT: 4.25, // ≤ this height, 1.0T water is offered as an alternative to concrete
 };

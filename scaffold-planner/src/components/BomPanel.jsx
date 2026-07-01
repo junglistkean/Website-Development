@@ -593,7 +593,7 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
           </div>
         </div>
 
-        <BallastEstimate state={state} />
+        {isInternal && <BallastEstimate state={state} />}
 
         <div className="bom-divider" />
 

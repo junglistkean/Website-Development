@@ -19,9 +19,8 @@ export default function BallastEstimate({ state }) {
   const isSkeleton = r.lane === 'skeleton';
   const flagColor = r.confidence === 'green' ? GREEN : AMBER;
 
-  const blockLine = isSkeleton
-    ? `${r.blocks.water} × ${BLOCK.WATER_T}T water block${r.blocks.water === 1 ? '' : 's'}`
-    : `${r.blocks.concrete} × ${BLOCK.CONCRETE_T}T concrete block${r.blocks.concrete === 1 ? '' : 's'} (tied down)`;
+  const concreteLine = `${r.blocks.concrete} × ${BLOCK.CONCRETE_T}T concrete block${r.blocks.concrete === 1 ? '' : 's'}`;
+  const blockLine = isSkeleton ? concreteLine : `${concreteLine} (tied down)`;
 
   return (
     <div className="bom-section">
@@ -59,9 +58,16 @@ export default function BallastEstimate({ state }) {
         </div>
       )}
       {!r.outOfTable && (
-        <div className="bom-row" style={{ marginBottom: 6 }}>
+        <div className="bom-row" style={{ marginBottom: r.waterAlt != null ? 2 : 6 }}>
           <span className="bom-label" style={{ color: 'var(--gold)', fontWeight: 700 }}>
             {blockLine}
+          </span>
+        </div>
+      )}
+      {!r.outOfTable && r.waterAlt != null && (
+        <div className="bom-row" style={{ marginBottom: 6 }}>
+          <span className="bom-label" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            or {r.waterAlt} × {BLOCK.WATER_T}T water block{r.waterAlt === 1 ? '' : 's'} (permitted ≤ 4.25 m)
           </span>
         </div>
       )}

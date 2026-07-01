@@ -203,19 +203,22 @@ recorded intent, not a defect:
 Read-only, quote-stage **indicative** ballast estimate — a tonnage + ballast-block count for
 free-standing scaffold. **Never a design figure.** Rendered as a section inside `BomPanel`
 (it replaced the old static BALLAST caveat flag, whose prose was folded into the estimate's
-disclaimer). Shown in both builds (not `isInternal`-gated). Writes nothing — the two selectors
-(cladding gate, exposure band) live in `BallastEstimate`'s component-local React state, seeded
-once from `state.renderMode`.
+disclaimer). **Internal-only** — gated on `BomPanel`'s `isInternal` prop, so it does not render
+on the client build. Writes nothing — the two selectors (cladding gate, exposure band) live in
+`BallastEstimate`'s component-local React state, seeded once from `state.renderMode`.
 
 `computeBallast(state, { cladding, exposure })` is pure and picks one of two lanes by cladding:
 
 - **Skeleton lane** — looks up Layher's type-tested open-tower ballast table (`LAYHER_OPEN_TOWER`
   in `constants/ballast.js`; transcribed from the Allround Technical Brochure 04.2017, Tab.44–46,
-  "in the open", steel/K rows) and **interpolates linearly on platform height**. v1 fixes the
-  lookup to the a=2.57 m / no-cantilever column (the only published no-cantilever row) — so it's
-  **height-driven only**, does not scale by bay count/width; a caveat note fires on multi-bay or
-  non-2.57 m layouts. H > 6.25 m → amber, **no figure** (engineer required). Uses 1.0 T **water**
-  blocks (not uplift-critical). Green flag.
+  "in the open", steel/K rows) and **interpolates linearly on platform height**. A figure is only
+  produced for the **single 2.57 m-bay / no-cantilever reference tower** the table describes
+  (`gridCols===1 && gridRows===1 && bayWidth===2.57 && bayLengths[0]===2.57`). **Any other
+  geometry** (multi-bay, non-2.57 m) **OR H > 6.25 m → amber, no figure** ("off-table — bespoke,
+  engineer required") — same hard stop, no proportional scaling. Defaults to 1.1 T **concrete**
+  blocks; 1.0 T **water** is offered as an alternative only on the low reference case
+  (≤ `WATER_OFFER_MAX_HEIGHT` = 4.25 m, where uplift is not a concern). Green flag when a figure
+  is produced.
 - **Clad lane** (part-clad / scrim / fully-clad / banner) — **overturning method** with Raven's
   own engineer coefficients (`CLAD` in `constants/ballast.js`, from CampbellReith report 13994-81):
   `q = Q_NET_BASELINE × exposure` → `F = q·H·L_long` → `M_ot = F·H/2` → `Fb = M_ot/(L_short/2)` →

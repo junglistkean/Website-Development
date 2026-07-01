@@ -56,6 +56,7 @@ function AppInner({ isInternal }) {
         dispatch={dispatch}
         onLoad={handleLoad}
         onOpenQuote={() => setShowQuoteModal(true)}
+        onOpenPush={() => setShowPushModal(true)}
       />
       <StatusBar state={state} />
       <div className="app-body">

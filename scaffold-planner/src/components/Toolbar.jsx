@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-export default function Toolbar({ isInternal, state, activeView, activeFace, renderMode, showBom, onToggleBom, dispatch, onLoad, onOpenQuote }) {
+export default function Toolbar({ isInternal, state, activeView, activeFace, renderMode, showBom, onToggleBom, dispatch, onLoad, onOpenQuote, onOpenPush }) {
   const fileRef = useRef(null);
 
   function handleSave() {
@@ -145,6 +145,11 @@ export default function Toolbar({ isInternal, state, activeView, activeFace, ren
         {isInternal && (
           <button className="toolbar-btn toolbar-btn--accent" onClick={onOpenQuote}>
             SEND QUOTE
+          </button>
+        )}
+        {isInternal && (
+          <button className="toolbar-btn" onClick={onOpenPush}>
+            SEND AS PENDING ⇪
           </button>
         )}
       </nav>

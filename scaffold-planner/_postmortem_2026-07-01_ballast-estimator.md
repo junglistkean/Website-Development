@@ -38,12 +38,16 @@ old static BALLAST flag (its prose folded into the estimate's disclaimer).
 
 ## What broke / didn't happen
 
-- **Browser eyeball NOT done — blocked, owed.** The Chrome extension needs `document_idle`;
-  the planner's Canvas render loop never idles, so screenshot/find/read_page all time out
-  (4 attempts). Same limitation noted for the litedeck/autofill work. **Owed:** a human should
-  open the BOM panel and confirm the ballast section renders and the selectors switch lanes.
-- No Cloudflare deploy performed (not requested; scaffold deploys manually via wrangler from
-  `dist/`). Branch pushed for review only.
+- **Automated browser eyeball blocked (extension, not the app).** Every injection-based
+  Claude-in-Chrome tool (screenshot / find / read_page) timed out after 45 s on
+  `document_idle` against the `localhost` preview, while navigate + wait (non-injecting)
+  worked. Initially misdiagnosed as the Canvas render loop — but the source has **no**
+  `requestAnimationFrame`/`setInterval`/`setTimeout`, so it's the extension being unable to
+  inject into the `localhost` tab (site-permission gap), not the app. **Resolved by Eddie:**
+  he eyeballed the live internal preview at `localhost:4174` and confirmed the section renders
+  and the lanes switch, plus internal-only (absent on `/client.html`).
+- No Cloudflare deploy performed — scaffold deploys manually via wrangler from `dist/`. Branch
+  pushed; **awaiting Eddie's go for the wrangler push.**
 
 ## Assumptions made mid-session (CONFIRM before relying on the numbers)
 
@@ -90,4 +94,10 @@ Three changes after first review, all verified numerically (build clean):
 Confirmed-as-built (no change): skeleton > 6.25 m → amber/no figure; exposure inert in skeleton
 lane; all clad types = full solid face in v1.
 
-Still owed: same browser eyeball (Canvas render loop blocks the automation's `document_idle`).
+## Final status
+
+Feature complete. Verified in Node **and** eyeballed live by Eddie at `localhost:4174`
+(internal build): section renders, cladding selector switches lanes (skeleton→green Layher
+figure / clad→amber overturning), and it is internal-only (absent on `/client.html`).
+**NOT deployed** — awaiting Eddie's go for the wrangler push from `dist/`. The Layher source
+PDF is gitignored (`*.pdf`) — keep it out of the verbatim-published repo.

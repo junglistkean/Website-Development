@@ -17,6 +17,13 @@ import {
 const INITIAL_COLS = 1;
 const INITIAL_ROWS = 1;
 
+// Transoms are DISABLED across all layouts — they generate height-driven (2 per
+// lift per row gap) but are not stocked, and a level/platform is built on ledgers
+// only. They return as the Litedeck deck-support piece when decking is stocked;
+// flip this to true to reinstate (also re-add the Transoms BOM section in
+// BomPanel.jsx and a QB PRICE_LIST key — none exists yet).
+const TRANSOMS_ENABLED = false;
+
 function makeBayLengths(cols, existing = []) {
   return Array.from({ length: cols }, (_, i) => existing[i] ?? DEFAULT_BAY_LENGTH);
 }
@@ -578,9 +585,11 @@ export function calculateBom(state) {
     ledgers[len] = (ledgers[len] ?? 0) + 1;
   }
 
-  // Transoms — standard bayWidth transom per lift per row gap
+  // Transoms — standard bayWidth transom per lift per row gap. DISABLED via
+  // TRANSOMS_ENABLED (not stocked); empty when off so bom.transoms stays a stable
+  // shape and reinstating is a one-line flag flip. See TRANSOMS_ENABLED above.
   const transomCountPerLift = (gridCols + 1) * gridRows;
-  const transoms = { [bayWidth]: transomCountPerLift * lifts };
+  const transoms = TRANSOMS_ENABLED ? { [bayWidth]: transomCountPerLift * lifts } : {};
 
   // Diagonal braces — derive from geometry with overrides
   const { bracing: braceList, removedCount: removedBraceCount } =

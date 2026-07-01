@@ -481,14 +481,6 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
             ))}
         </BomSection>
 
-        <BomSection title="Transoms">
-          {Object.entries(bom.transoms)
-            .sort(([a], [b]) => Number(a) - Number(b))
-            .map(([len, qty]) => (
-              <BomRow key={len} label={`${len}m transom`} qty={qty} />
-            ))}
-        </BomSection>
-
         <BomSection title="Braces">
           {Object.entries(bom.braces)
             .sort(([a], [b]) => parseFloat(a) - parseFloat(b))

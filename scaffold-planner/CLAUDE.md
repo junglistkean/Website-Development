@@ -181,11 +181,13 @@ These are deliberate. A future session finding a £0 or a missing line here shou
 recorded intent, not a defect:
 
 - **Transoms are intentionally disabled in scaffold** — not generated, not in the BOM, not
-  quoted. When Litedeck decking is stocked they'll be reintroduced as the deck-support piece and
-  will need a price added to QB at that time (**no `transom` key exists in QB `PRICE_LIST`
-  currently**). *(As of this Path B commit the phantom transom generation is still present in
-  `calculateBom`/`BomPanel`; removing it is the immediately-next change — this reminder records
-  the settled end state.)*
+  quoted. Gated by `TRANSOMS_ENABLED = false` in `scaffoldStore.js` (generation returns `{}`
+  when off); the Transoms `BomSection` in `BomPanel.jsx` has been removed. The old generation was
+  height-driven — `(gridCols + 1) * gridRows` per lift × `lifts` — which produced phantom
+  transoms on every layout (e.g. a 6m structure with zero decks → 24× 2.57m); a level/platform is
+  built on ledgers only. When Litedeck decking is stocked they return as the deck-support piece:
+  flip `TRANSOMS_ENABLED` to `true`, re-add the Transoms `BomSection`, and add a `transom` key to
+  QB's `PRICE_LIST` (**none exists currently**).
 - **Narrow bays (0.73 / 1.09 / 1.57m) would resolve to £0** for ledgers/pans/braces (the
   `STANDARDS_MAP`/`LEDGERS_MAP`/`PANS_MAP`/`DIAG_BRACE_KEYS` fallbacks emit names absent from
   `PRICE_LIST`). **Not stocked — no real layout uses them**, so this is ignored by design.

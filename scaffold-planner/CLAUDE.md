@@ -24,12 +24,15 @@ scaffold-planner/
 │   ├── state/
 │   │   └── scaffoldStore.js       # Context + useReducer + BOM calculation
 │   ├── constants/
-│   │   └── layher.js              # Layher Allround dimensions and slot counts
+│   │   ├── layher.js              # Layher Allround dimensions and slot counts
+│   │   └── ballast.js             # Ballast estimator constants + Layher open-tower table (cited, tunable)
 │   ├── utils/
-│   │   └── scaffoldGeometry.js    # Pure geometry: ledger heights, auto-ledgers/bracing
+│   │   ├── scaffoldGeometry.js    # Pure geometry: ledger heights, auto-ledgers/bracing
+│   │   └── ballast.js             # Pure ballast calc: skeleton table lookup + clad overturning method
 │   └── components/
 │       ├── Canvas.jsx             # SVG rendering — plan + elevation views
-│       ├── BomPanel.jsx           # BOM display + Path A quote modal + Path B pending-layout push modal
+│       ├── BomPanel.jsx           # BOM display + Path A quote modal + Path B pending-layout push modal + Ballast estimate
+│       ├── BallastEstimate.jsx    # Read-only ballast panel (local selectors) — rendered inside BomPanel
 │       ├── Sidebar.jsx            # Left panel — grid/bay config, levels, placement modes
 │       ├── Toolbar.jsx            # Top bar — view switcher, save/load, BOM toggle
 │       └── StatusBar.jsx          # Contextual hints below toolbar
@@ -194,6 +197,39 @@ recorded intent, not a defect:
 - **Base plate is £0 on purpose.** `Base plate (spec per engineering)` is a real PRICE_LIST key
   priced at £0.00 ("spec per engineering") — every scaffold quote carries a £0 base-plate line
   intentionally. Leave as-is.
+
+### Ballast estimator (`utils/ballast.js` / `constants/ballast.js` / `BallastEstimate.jsx`)
+
+Read-only, quote-stage **indicative** ballast estimate — a tonnage + ballast-block count for
+free-standing scaffold. **Never a design figure.** Rendered as a section inside `BomPanel`
+(it replaced the old static BALLAST caveat flag, whose prose was folded into the estimate's
+disclaimer). Shown in both builds (not `isInternal`-gated). Writes nothing — the two selectors
+(cladding gate, exposure band) live in `BallastEstimate`'s component-local React state, seeded
+once from `state.renderMode`.
+
+`computeBallast(state, { cladding, exposure })` is pure and picks one of two lanes by cladding:
+
+- **Skeleton lane** — looks up Layher's type-tested open-tower ballast table (`LAYHER_OPEN_TOWER`
+  in `constants/ballast.js`; transcribed from the Allround Technical Brochure 04.2017, Tab.44–46,
+  "in the open", steel/K rows) and **interpolates linearly on platform height**. v1 fixes the
+  lookup to the a=2.57 m / no-cantilever column (the only published no-cantilever row) — so it's
+  **height-driven only**, does not scale by bay count/width; a caveat note fires on multi-bay or
+  non-2.57 m layouts. H > 6.25 m → amber, **no figure** (engineer required). Uses 1.0 T **water**
+  blocks (not uplift-critical). Green flag.
+- **Clad lane** (part-clad / scrim / fully-clad / banner) — **overturning method** with Raven's
+  own engineer coefficients (`CLAD` in `constants/ballast.js`, from CampbellReith report 13994-81):
+  `q = Q_NET_BASELINE × exposure` → `F = q·H·L_long` → `M_ot = F·H/2` → `Fb = M_ot/(L_short/2)` →
+  `W_req = FOS·Fb` → ×`KN_TO_KG` (100, engineer's convention) → subtract `SELFWEIGHT_PER_BAY × N_bays`
+  → 1.1 T **concrete** blocks, tied down (water not permitted — uplift-critical). Always amber
+  ("clad/bespoke, engineer sign-off"); extra caution note above the validated 7.5 m example.
+  All clad variants use the same full-solid-face calc in v1 (part-clad area reduction + high-mounted
+  banner CoP are v-next). Exposure step-up applies to this lane only.
+
+Geometry mapping: `L_long`/`L_short` = max/min of (Σ `bayLengths`, `gridRows × bayWidth`);
+`N_bays` = `gridCols × gridRows`; `H` = `structureHeight`. **All constants are estimation
+baselines — tunable, not engineer-sanctioned — and are printed on every output** (see the
+"Assumptions" line) so a wrong figure can be traced to its inputs. **Do not "correct"
+`KN_TO_KG` to 9.81** — 100 is deliberate, to reproduce the engineer's figures.
 
 ### Layher constants (`layher.js`)
 

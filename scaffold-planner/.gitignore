@@ -1,3 +1,7 @@
+# Third-party source docs — copyrighted, must NOT be published (repo is served verbatim).
+# Keep the Layher brochure (ballast table source) out of git; store it somewhere private.
+*.pdf
+
 # Logs
 logs
 *.log

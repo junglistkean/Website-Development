@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { calculateBom } from '../state/scaffoldStore';
+import BallastEstimate from './BallastEstimate';
 
 // ── BOM → quote items serialisation ──────────────────────────────────────────
 
@@ -592,13 +593,7 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
           </div>
         </div>
 
-        <div className="bom-flag">
-          <span className="bom-flag-icon">⚠</span>
-          <div>
-            <strong>BALLAST &amp; ENGINEERING</strong><br />
-            Ballast requirements depend on structure height, size, and site conditions. An independent engineer's report is strongly recommended and should be included in client budgets. Raven can source this on request at additional cost.
-          </div>
-        </div>
+        <BallastEstimate state={state} />
 
         <div className="bom-divider" />
 

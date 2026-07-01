@@ -23,15 +23,20 @@ export const CLADDING_OPTIONS = [
 // ─── Exposure band (CLAD LANE ONLY) ──────────────────────────────────────────
 // The skeleton lane reads a fixed Layher "in the open" table value, so exposure does
 // not apply there. In the clad lane this multiplies the baseline net pressure q.
+//
+// PROVENANCE / SAFETY: `Q_NET_BASELINE` (0.40, below) is engineer-sourced (CampbellReith).
+// These step-up multipliers are NOT — they are conservative brackets, NOT engineer-signed.
+// Exposed-coastal / peak-summer clad jobs should get an engineer involved EARLY rather than
+// lean on this estimate.
 export const EXPOSURE_OPTIONS = [
   { id: 'sheltered_inland',       label: 'Sheltered / inland' },
   { id: 'open_summer',            label: 'Open country' },
   { id: 'exposed_coastal_upland', label: 'Exposed coastal / upland' },
 ];
 export const EXPOSURE_STEPUP = {
-  sheltered_inland: 1.0,
-  open_summer: 1.25,
-  exposed_coastal_upland: 1.5,
+  sheltered_inland: 1.0,   // engineer's validated case
+  open_summer: 1.25,       // conservative bracket — not engineer-signed
+  exposed_coastal_upland: 1.5, // conservative bracket — not engineer-signed
 };
 
 // ─── Clad-lane coefficients ──────────────────────────────────────────────────

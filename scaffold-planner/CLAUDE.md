@@ -234,6 +234,24 @@ baselines — tunable, not engineer-sanctioned — and are printed on every outp
 "Assumptions" line) so a wrong figure can be traced to its inputs. **Do not "correct"
 `KN_TO_KG` to 9.81** — 100 is deliberate, to reproduce the engineer's figures.
 
+**Safety caveats (carry forward):**
+- **Exposure step-ups are NOT engineer-signed.** Only `Q_NET_BASELINE` (0.40) comes from
+  CampbellReith; the `EXPOSURE_STEPUP` 1.25 / 1.5 multipliers are Claude's conservative brackets.
+  Exposed-coastal / peak-summer clad jobs → engineer early, don't lean on the estimate.
+- **v1 treats all cladding as full solid face** — over-reads part-mesh builds (e.g. a projection
+  tower's permeable lower section). Safe (over-quotes) but sits above the engineer's eventual
+  sign-off.
+- Source docs (Layher brochure PDF, CampbellReith report) are **git-ignored / kept private** —
+  copyrighted; the repo is published verbatim. `*.pdf` is in `scaffold-planner/.gitignore`.
+
+**v-next / parked (confirmed backlog, not built):**
+- Part-clad / permeable-mesh **area reduction** — stop treating part-clad as full solid face.
+- **High-mounted banner** — raise the centre of pressure above mid-height for banner/signage towers.
+- Explicit **sliding check** as a `max()` alongside overturning (currently overturning governs;
+  sliding is only noted as confirmed in the engineer's report).
+- **Parked by design:** wider skeleton geometry (1.57 / 2.07 m widths, cantilever rows) routes to
+  an engineer rather than being estimated — only the single 2.57 m reference tower is covered.
+
 ### Layher constants (`layher.js`)
 
 Key values:

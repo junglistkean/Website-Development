@@ -74,6 +74,19 @@ old static BALLAST flag (its prose folded into the estimate's disclaimer).
   reproduce his figures. Don't "correct" it without re-checking against the report.
 - Skeleton `V1_BAY_WIDTH`/`V1_CANTILEVER` fix the lookup column; the fuller table is
   transcribed for future cantilever/narrow-tower support.
+- **Exposure step-ups (1.25 / 1.5) are Claude's conservative brackets — NOT engineer-signed.**
+  Only `Q_NET_BASELINE` (0.40) is from CampbellReith. Exposed-coastal / peak-summer clad jobs →
+  engineer early, don't lean on the estimate. (Now annotated in `constants/ballast.js`.)
+- **v1 treats all cladding as full solid face** — over-reads part-mesh builds (safe/over-quotes,
+  but above the engineer's eventual sign-off).
+
+## Backlog (Eddie-confirmed 2026-07-01) — also in CLAUDE.md
+
+- v-next: part-clad / permeable-mesh area reduction (stop over-reading mesh as solid face).
+- v-next: high-mounted banner — raise centre of pressure above mid-height.
+- v-next: explicit sliding check as `max()` alongside overturning.
+- Parked by design: wider skeleton geometry (1.57 / 2.07 m widths, cantilever rows) routes to an
+  engineer; only the single 2.57 m reference tower is estimated.
 
 ## Addendum — post-build adjustments (same session)
 

@@ -5144,16 +5144,14 @@ function printScheduleAdvanced() {
       const sortedTubeLengths = Object.entries(tubeLengthTotals).sort((a, b) => (labelToMm[b[0]] ?? 0) - (labelToMm[a[0]] ?? 0));
       for (const [label, qty] of sortedTubeLengths) totalsRows += row(qty, `Scaffold tube — ${label}`);
 
-      // Fail loud, never silent: the itemised cut list MUST reconcile with the tube
-      // counts above. If a tube ever fails to surface here (as Deck-soffit ties once
-      // did), flag it on the schedule rather than ship a list that is short on site.
+      // Reconciliation check — SILENT on the client planner (Eddie, 3 Jul 2026):
+      // cut-list reconciliation is an internal concern, the client print stays
+      // clean. The internal planner keeps its visible red warning row; here a
+      // mismatch only logs to the console so we can still spot it in devtools.
       const diagShort = bTotalDiagTubes - itemisedDiagTubes;
       const tieShort  = bTotalPlanTubes - itemisedTieTubes;
       if (diagShort !== 0 || tieShort !== 0) {
-        const parts = [];
-        if (diagShort !== 0) parts.push(`${Math.abs(diagShort)} diagonal tube${Math.abs(diagShort) === 1 ? '' : 's'} ${diagShort > 0 ? 'missing from' : 'over-listed in'} the cut list`);
-        if (tieShort !== 0)  parts.push(`${Math.abs(tieShort)} tie tube${Math.abs(tieShort) === 1 ? '' : 's'} ${tieShort > 0 ? 'missing from' : 'over-listed in'} the cut list`);
-        totalsRows += `<tr><td colspan="2" style="font-size:9pt;color:#c00;padding:6px 10px;background:rgba(200,0,0,0.06);border-left:3px solid #c00;font-weight:700;">&#9888; Cut list does not reconcile: ${parts.join('; ')}. The tube counts above are authoritative &mdash; resolve before loading from this list.</td></tr>`;
+        console.warn(`Cut list does not reconcile: diag short ${diagShort}, tie short ${tieShort}. Tube counts are authoritative.`);
       }
     }
 

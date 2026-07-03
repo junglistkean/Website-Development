@@ -1,3 +1,6 @@
 /siteplan/* /siteplan/:splat 200
 /webapp/litedeck-stage-planner-internal / 302
 /webapp/litedeck-stage-planner-internal.html / 302
+/CLAUDE.md / 302
+/scaffold-planner/CLAUDE.md / 302
+/scaffold-planner/_postmortem_* / 302

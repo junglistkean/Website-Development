@@ -4,6 +4,9 @@
 webapp/CLAUDE.md
 webapp/LITEDECK-IDENTITY.md
 webapp/litedeck-stage-planner-internal.html
+/CLAUDE.md
+scaffold-planner/CLAUDE.md
+scaffold-planner/_postmortem_*.md
 _archive/
 BACKLOG.md
 .claude/

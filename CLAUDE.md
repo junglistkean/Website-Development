@@ -28,7 +28,7 @@ Website Development/
 ├── index.html                     # Main marketing/portfolio site
 ├── webapp/
 │   ├── litedeck-stage-planner.html          # Client-facing stage planner (canonical)
-│   └── litedeck-stage-planner-internal.html # Internal/staff version of the stage planner
+│   └── litedeck-stage-planner-internal.html # Internal/staff planner mirror — git-ignored, NOT deployed (unpublished 3 Jul 2026)
 ├── projects/                      # 10 individual project/case-study pages
 ├── siteplan/                      # Site planner tool (split across 3 JS files)
 │   ├── index.html
@@ -55,7 +55,7 @@ Self-contained single-file tools — all state and logic inline. Key globals:
 - Undo/redo stack
 - Canvas views: plan (top-down) and bracing (plan ties + four per-face elevations)
 
-Panel types: 8×4, 8×2, 4×4, 4×2 ft. Grid: 56×44 cells at 24px/cell (client); the internal version uses a finer 168×132 grid. Supports multi-tier stages with independent finished heights, steps, handrails, infill panels, auto-handrail population, and an auto-generate layout function. Generates a bill of materials and a print view. The client-facing planner is `webapp/litedeck-stage-planner.html`; the internal/staff version (file save/load, floor rake, quote-builder integration) is `webapp/litedeck-stage-planner-internal.html`. The two are separate canonical files — shared logic edited in one must be mirrored into the other manually.
+Panel types: 8×4, 8×2, 4×4, 4×2 ft. Grid: 56×44 cells at 24px/cell (client); the internal version uses a finer 168×132 grid. Supports multi-tier stages with independent finished heights, steps, handrails, infill panels, auto-handrail population, and an auto-generate layout function. Generates a bill of materials and a print view. The client-facing planner is `webapp/litedeck-stage-planner.html`; the internal/staff version (file save/load, floor rake, quote-builder integration) is `webapp/litedeck-stage-planner-internal.html` — since 3 Jul 2026 this file is git-ignored and no longer publicly served: it is a local disk mirror only (the canonical internal planner lives in the quote_builder repo). The two are separate canonical files — shared logic edited in one must be mirrored into the other manually.
 
 ### Site Planner (siteplan/)
 Split across three files:

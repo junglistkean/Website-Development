@@ -1060,7 +1060,7 @@ const GRID_H = 44;
 const FT2    = 609.6;
 const PANEL_BODY_MM = 175;
 const LEG_1FT_MM    = 304.8;
-const LEG_1_6FT_MM  = 487.68;
+const LEG_1FT6IN_MM  = 457.2;   // 18in / 1'6" real stock tube (was mislabelled 487.68 = "1.6ft")
 const BP_SIZES = [18, 12, 9, 6];
 
 const PANEL_SIZES  = { '8x4':[4,2], '8x2':[4,1], '4x4':[2,2], '4x2':[2,1] };
@@ -1232,7 +1232,7 @@ function countPanelsAtRampNode(rowIdx, colIdx, totalRows, widthCols) {
 
 // Shared leg-label formatter.
 function rampLegLabel(mm) {
-  if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
+  if (mm === LEG_1FT6IN_MM) return `1'6" leg (${Math.round(mm)}mm)`;
   if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
   const halfFeet = Math.round(mm / 152.4) / 2;
   const wholeFt  = Math.floor(halfFeet);
@@ -1511,6 +1511,17 @@ function addRamp(anchorGx, anchorGy, direction, gradient, widthFt, tierId) {
   const numLandings      = flights.filter(s => s.type === 'landing').length;
   const totalFootprintMm = totalSlopedRun + totalLandingMm + RAMP_HINGE_DEPTH_MM + RAMP_BOTTOM_MM;
 
+  // Hinge count — a hinge sits at every flat↔slope boundary between two real
+  // sections.  Section sequence top→bottom: stage(flat) + each flight(slope) /
+  // landing(flat).  The ground and the ramp-bottom wedge are NOT sections, so the
+  // bottom termination is excluded and gets no hinge.  A no-landing ramp yields one
+  // boundary (the stage edge) → widthCols, unchanged; each landing adds two.
+  const hingeSections = [{ flat: true }, ...flights.map(s => ({ flat: s.type === 'landing' }))];
+  let hingeBoundaries = 0;
+  for (let i = 1; i < hingeSections.length; i++)
+    if (hingeSections[i].flat !== hingeSections[i - 1].flat) hingeBoundaries++;
+  const hingeQty = widthCols * hingeBoundaries;
+
   return {
     id: 'ramp-' + (nextRampId++),
     tierId, anchorGx, anchorGy, direction, gradient, widthFt, widthCols, stageHeight,
@@ -1526,7 +1537,7 @@ function addRamp(anchorGx, anchorGy, direction, gradient, widthFt, tierId) {
     panelSummary: panelSummaryAll,
     legs:         allFltLegs,
     splitters:    allFltSplits,
-    hingeQty:     widthCols,
+    hingeQty,
     rampBottomQty: widthCols,
     flights,
   };
@@ -3915,15 +3926,36 @@ function drawRampSideViewCanvas(ramp, canvas) {
     ctx.stroke();
   }
 
+  // ── Hinge markers ──────────────────────────────────────────────────────────
+  // One at the stage edge (x=0) plus one at EACH landing boundary (both flat↔slope
+  // transitions of every landing).  This mirrors the hinge COUNT in addRamp /
+  // buildRampScheduleData, so the install diagram shows exactly the hinges on the
+  // parts list — a landing run with one landing draws 3 markers (stage + both sides).
   {
-    const hx = xPx(0), hy = yPxRaw(ramp.stageHeight);
-    ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#f5a623'; ctx.fill();
-    ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = '#f5a623bb';
-    ctx.font = 'bold 9px Barlow Condensed,sans-serif';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText('HINGE', hx + 7, hy);
+    const drawHinge = (mmX, mmH, label) => {
+      const hx = xPx(mmX), hy = yPxRaw(mmH);
+      ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f5a623'; ctx.fill();
+      ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
+      if (label) {
+        ctx.fillStyle = '#f5a623bb';
+        ctx.font = 'bold 9px Barlow Condensed,sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+        ctx.fillText(label, hx + 7, hy);
+      }
+    };
+    // Stage-edge hinge (labelled — identifies the marker kind).
+    drawHinge(0, ramp.stageHeight, 'HINGE');
+    // Landing-boundary hinges: each landing profile point marks the exit (landing →
+    // flight); the immediately-preceding profile point is the entry (flight → landing),
+    // at the same flat height.  Unlabelled to avoid clutter.  The ground / ramp-bottom
+    // point (rampBot) is never a landing, so the bottom termination draws no hinge.
+    for (let i = 1; i < profile.length; i++) {
+      if (profile[i].landing) {
+        drawHinge(profile[i - 1].x, profile[i].h, '');  // entry: flight → landing
+        drawHinge(profile[i].x,     profile[i].h, '');  // exit:  landing → flight
+      }
+    }
   }
 
   {
@@ -4449,9 +4481,9 @@ function calcLeg(finishedHeight, splitterCount, nodeType) {
   }
   if (h < 609.6) {
     const required = h - socket;
-    const legMm = LEG_1_6FT_MM <= required ? LEG_1_6FT_MM : LEG_1FT_MM;
+    const legMm = LEG_1FT6IN_MM <= required ? LEG_1FT6IN_MM : LEG_1FT_MM;
     const remainder = required - legMm - (splitter * splitterCount);
-    const useSmallJack = isCorner && (legMm === LEG_1_6FT_MM || legMm === LEG_1FT_MM * 2);
+    const useSmallJack = isCorner && (legMm === LEG_1FT6IN_MM || legMm === LEG_1FT_MM * 2);
     let plates, smallJackNeeded;
     if (useSmallJack) {
       plates = [baseplateStd]; smallJackNeeded = true;
@@ -4461,7 +4493,7 @@ function calcLeg(finishedHeight, splitterCount, nodeType) {
       if (plates.length === 0) plates = [baseplateStd];
       smallJackNeeded = false;
     }
-    const legLabel = legMm === LEG_1_6FT_MM ? "1'6\" leg" : "1ft leg";
+    const legLabel = legMm === LEG_1FT6IN_MM ? "1'6\" leg" : "1ft leg";
     const plateStr = plates.join('+') + 'mm';
     const jackStr  = smallJackNeeded ? ' + small screwjack' : '';
     return { range: 'leg+bp', legMm, baseplates: plates, jackNeeded: false, smallJackNeeded, label: `${legLabel} + ${plateStr} baseplate${jackStr}`, warn: false };
@@ -4857,7 +4889,7 @@ const TIER_COLORS = ['#3b82f6','#f5a623','#22c55e','#e879f9','#f87171','#34d399'
 // ── SHARED SCHEDULE DATA BUILDER ──────────────────────────────────────────────
 function buildScheduleData() {
   function legMmToFtLabel(mm) {
-    if (mm === LEG_1_6FT_MM) return `1'6" leg (${Math.round(mm)}mm)`;
+    if (mm === LEG_1FT6IN_MM) return `1'6" leg (${Math.round(mm)}mm)`;
     if (mm === LEG_1FT_MM)   return `1ft leg (${Math.round(mm)}mm)`;
     const halfFeet = Math.round(mm / 152.4) / 2;
     const wholeFt  = Math.floor(halfFeet);
@@ -5064,16 +5096,35 @@ function printScheduleAdvanced() {
       totalsRows += row(bTotalPlanTubes,    'Horizontal tie tubes (48.3mm OD)');
       totalsRows += row(bTotalRAClamps,     'Right-angle clamps (horizontal ties)');
       if (bTotalExtraRA) totalsRows += row(bTotalExtraRA, 'Extra right-angle clamps (tube joins)');
+      // --- Tube length totals ---
+      // Every brace tube — diagonal AND horizontal tie, at EVERY level — must surface
+      // here so the cut list reconciles with the counts above. Both groupings count
+      // BRACES and expand per tube in the combination, so they are multi-tube safe.
+      // itemised* track the running totals for the fail-loud reconciliation guard.
       const tubeLengthTotals = {};
       const TUBE_MM_ORDER = [6000,5000,4000,3048,3000,2438.4,2133.6,1981.2,1828.8,1676.4,1524,1371.6,1219.2,1066.8,914.4,762,609.6,457.2,304.8];
+      let itemisedDiagTubes = 0, itemisedTieTubes = 0;
       for (const r of d.bracingCalc) {
-        for (const [, g] of Object.entries(r.diagByStd)) {
-          if (g.tubeBreakdown) { for (const t of g.tubeBreakdown) tubeLengthTotals[t.label] = (tubeLengthTotals[t.label] || 0) + g.tubes; }
-          else { const label = (g.stdMm/1000).toFixed(1)+'m'; tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.tubes; }
+        // Diagonal tubes — group by tube combination, count braces, expand per tube.
+        const diagTotals = {};
+        for (const b of r.diagBraces) {
+          const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
+          const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
+          if (!diagTotals[k]) diagTotals[k] = { tubes: sol.tubes, count: 0 };
+          diagTotals[k].count++;
         }
+        for (const [, g] of Object.entries(diagTotals)) {
+          for (const tubeMm of g.tubes) {
+            const label = tubeLengthLabel(tubeMm);
+            tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+            itemisedDiagTubes += g.count;
+          }
+        }
+        // Horizontal tie tubes — ALL levels (base + deck soffit). The old code
+        // filtered to 'Base level' only, silently dropping Deck-soffit ties on tall
+        // stages (>1600mm legs) — they were counted above but never itemised here.
         const planTotals = {};
         for (const b of r.planBraces) {
-          if (b.level !== 'Base level') continue;
           const sol = b.solution || { tubes: [b.calcLengthMm], sleeveClamps: 0, extraRAClamps: 0, joinType: 'none' };
           const k = sol.tubes.map(t => tubeLengthLabel(t)).join('+');
           if (!planTotals[k]) planTotals[k] = { tubes: sol.tubes, count: 0 };
@@ -5083,6 +5134,7 @@ function printScheduleAdvanced() {
           for (const tubeMm of g.tubes) {
             const label = tubeLengthLabel(tubeMm);
             tubeLengthTotals[label] = (tubeLengthTotals[label] || 0) + g.count;
+            itemisedTieTubes += g.count;
           }
         }
       }
@@ -5091,6 +5143,18 @@ function printScheduleAdvanced() {
       for (const mm of TUBE_MM_ORDER) labelToMm[tubeLengthLabel(mm)] = mm;
       const sortedTubeLengths = Object.entries(tubeLengthTotals).sort((a, b) => (labelToMm[b[0]] ?? 0) - (labelToMm[a[0]] ?? 0));
       for (const [label, qty] of sortedTubeLengths) totalsRows += row(qty, `Scaffold tube — ${label}`);
+
+      // Fail loud, never silent: the itemised cut list MUST reconcile with the tube
+      // counts above. If a tube ever fails to surface here (as Deck-soffit ties once
+      // did), flag it on the schedule rather than ship a list that is short on site.
+      const diagShort = bTotalDiagTubes - itemisedDiagTubes;
+      const tieShort  = bTotalPlanTubes - itemisedTieTubes;
+      if (diagShort !== 0 || tieShort !== 0) {
+        const parts = [];
+        if (diagShort !== 0) parts.push(`${Math.abs(diagShort)} diagonal tube${Math.abs(diagShort) === 1 ? '' : 's'} ${diagShort > 0 ? 'missing from' : 'over-listed in'} the cut list`);
+        if (tieShort !== 0)  parts.push(`${Math.abs(tieShort)} tie tube${Math.abs(tieShort) === 1 ? '' : 's'} ${tieShort > 0 ? 'missing from' : 'over-listed in'} the cut list`);
+        totalsRows += `<tr><td colspan="2" style="font-size:9pt;color:#c00;padding:6px 10px;background:rgba(200,0,0,0.06);border-left:3px solid #c00;font-weight:700;">&#9888; Cut list does not reconcile: ${parts.join('; ')}. The tube counts above are authoritative &mdash; resolve before loading from this list.</td></tr>`;
+      }
     }
 
     const buildTiers = [...new Set(d.buildRows.map(r => r.tier))];

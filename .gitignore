@@ -7,6 +7,11 @@ webapp/litedeck-stage-planner-internal.html
 /CLAUDE.md
 scaffold-planner/CLAUDE.md
 scaffold-planner/_postmortem_*.md
+# Build output — deploys to scaffold-planner.pages.dev via wrangler, NOT via this
+# repo. The in-repo copy never worked on the custom domain (absolute /assets/
+# paths) and /scaffold-planner/* now 302s to pages.dev; committing dist here
+# would just re-publish a dead copy.
+scaffold-planner/dist/
 _archive/
 BACKLOG.md
 .claude/

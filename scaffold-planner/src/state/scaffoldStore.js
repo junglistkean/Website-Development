@@ -17,6 +17,28 @@ import {
 const INITIAL_COLS = 1;
 const INITIAL_ROWS = 1;
 
+// Slot count per bay across the width direction (0.32m pans; the 2.07m bay's
+// last 0.19m is a gap filler, counted separately in calculateBom).
+function slotsForWidth(bayWidth) {
+  return bayWidth === 2.07 ? PANS_PER_BAY_207 : PANS_PER_BAY_257;
+}
+
+// Full pan set for the given bay cells at each level — a deck level always
+// starts fully panned (a level with no deck under it isn't buildable); the
+// delete tool carves openings from there.
+function deckPansForBays(bays, bayWidth, levels) {
+  const slots = slotsForWidth(bayWidth);
+  const pans = [];
+  for (const level of levels) {
+    for (const [col, row] of bays) {
+      for (let s = 0; s < slots; s++) {
+        pans.push({ id: `pan-${col}-${row}-${s}-${level.id}`, col, row, slotIndex: s, levelId: level.id });
+      }
+    }
+  }
+  return pans;
+}
+
 // Transoms are DISABLED across all layouts — they generate height-driven (2 per
 // lift per row gap) but are not stocked, and a level/platform is built on ledgers
 // only. They return as the Litedeck deck-support piece when decking is stocked;
@@ -44,7 +66,7 @@ const initialState = {
   ],
   activeLevelId: 'L1',
 
-  placedPans: [],
+  placedPans: deckPansForBays([[0, 0]], DEFAULT_BAY_WIDTH, [{ id: 'L1' }]),
   tarps: [],
   windows: [],
   roofBays: [],
@@ -91,6 +113,44 @@ function migrateTarps(state) {
       return t;
     }),
   };
+}
+
+// ─── Pan migration (pre-Jul-2026 saves: deck levels with no pans) ─────────────
+// Deck levels now start fully panned (deckPansForBays), but saves written before
+// that carry pan-less levels. On load, any bay-level with ZERO pans is filled;
+// one or more pans means a deliberately carved opening — left untouched. Runs on
+// the in-memory state only: the saved file is never rewritten until the user
+// saves again. Saves decked via Litedeck bomExtras (the 5m-stage preset) are
+// not filled — they must stay aluminium-pan-free.
+function migratePans(state) {
+  const cols     = state.gridCols ?? 1;
+  const rows     = state.gridRows ?? 1;
+  const bayWidth = state.bayWidth ?? DEFAULT_BAY_WIDTH;
+  const levels   = state.levels ?? [];
+  const levelIds = new Set(levels.map(l => l.id));
+
+  // Hygiene: drop pans that reference a missing level or an out-of-range slot
+  // (can happen when a partial payload is spread over the panned initial state)
+  const slots = slotsForWidth(bayWidth);
+  const placedPans = (state.placedPans ?? []).filter(p =>
+    levelIds.has(p.levelId) && p.col < cols && p.row < rows && p.slotIndex < slots
+  );
+
+  const isLitedeckDecked = (state.bomExtras ?? []).some(e => /litedeck/i.test(e.description ?? ''));
+  if (isLitedeckDecked || levels.length === 0) return { ...state, placedPans };
+
+  const decked = new Set(placedPans.map(p => `${p.col}|${p.row}|${p.levelId}`));
+  const added = [];
+  for (const level of levels) {
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        if (!decked.has(`${c}|${r}|${level.id}`)) {
+          added.push(...deckPansForBays([[c, r]], bayWidth, [level]));
+        }
+      }
+    }
+  }
+  return { ...state, placedPans: [...placedPans, ...added] };
 }
 
 // ─── Undo helpers ─────────────────────────────────────────────────────────────
@@ -166,8 +226,21 @@ function preset5mStage() {
 function reducer(state, action) {
   switch (action.type) {
 
-    case 'SET_BAY_WIDTH':
-      return record({ ...state, bayWidth: action.value }, state);
+    case 'SET_BAY_WIDTH': {
+      if (action.value === state.bayWidth) return state;
+      // Slot count changes with width (8 ↔ 6): rebuild every decked bay-level
+      // to a full pan set under the new width; bays cleared of pans stay cleared.
+      const decked = [];
+      const seen = new Set();
+      for (const p of state.placedPans) {
+        const k = `${p.col}|${p.row}|${p.levelId}`;
+        if (!seen.has(k)) { seen.add(k); decked.push([[p.col, p.row], p.levelId]); }
+      }
+      const placedPans = decked.flatMap(([bay, levelId]) =>
+        deckPansForBays([bay], action.value, [{ id: levelId }])
+      );
+      return record({ ...state, bayWidth: action.value, placedPans }, state);
+    }
 
     case 'SET_STRUCTURE_HEIGHT': {
       const h = Math.min(30, Math.max(0.5, Math.round(action.payload * 2) / 2));
@@ -181,11 +254,18 @@ function reducer(state, action) {
     case 'SET_GRID_COLS': {
       const cols = Math.max(1, Math.min(16, action.value));
       const newLengths = makeBayLengths(cols, state.bayLengths);
+      // New columns start fully panned on every level (see deckPansForBays)
+      const newColBays = [];
+      for (let c = state.gridCols; c < cols; c++)
+        for (let r = 0; r < state.gridRows; r++) newColBays.push([c, r]);
       return record({
         ...state,
         gridCols: cols,
         bayLengths: newLengths,
-        placedPans: state.placedPans.filter(p => p.col < cols),
+        placedPans: [
+          ...state.placedPans.filter(p => p.col < cols),
+          ...deckPansForBays(newColBays, state.bayWidth, state.levels),
+        ],
         tarps: state.tarps.filter(t => (t.face === 'left' || t.face === 'right') || t.bayIndex < cols),
         windows: state.windows.filter(w => w.col < cols),
         roofBays: state.roofBays.filter(([c]) => c < cols),
@@ -194,10 +274,17 @@ function reducer(state, action) {
 
     case 'SET_GRID_ROWS': {
       const rows = Math.max(1, Math.min(16, action.value));
+      // New rows start fully panned on every level (see deckPansForBays)
+      const newRowBays = [];
+      for (let c = 0; c < state.gridCols; c++)
+        for (let r = state.gridRows; r < rows; r++) newRowBays.push([c, r]);
       return record({
         ...state,
         gridRows: rows,
-        placedPans: state.placedPans.filter(p => p.row < rows),
+        placedPans: [
+          ...state.placedPans.filter(p => p.row < rows),
+          ...deckPansForBays(newRowBays, state.bayWidth, state.levels),
+        ],
         tarps: state.tarps.filter(t => (t.face === 'front' || t.face === 'back') || t.bayIndex < rows),
         windows: state.windows.filter(w => w.row < rows),
         roofBays: state.roofBays.filter(([, r]) => r < rows),
@@ -219,10 +306,17 @@ function reducer(state, action) {
         height: Math.min(state.structureHeight, Math.max(0.5, nextH)),
         color: LEVEL_COLORS[idx % LEVEL_COLORS.length],
       };
+      const allBays = [];
+      for (let c = 0; c < state.gridCols; c++)
+        for (let r = 0; r < state.gridRows; r++) allBays.push([c, r]);
       return record({
         ...state,
         levels: [...state.levels, newLevel],
         activeLevelId: newLevel.id,
+        placedPans: [
+          ...state.placedPans,
+          ...deckPansForBays(allBays, state.bayWidth, [newLevel]),
+        ],
       }, state);
     }
 
@@ -459,10 +553,10 @@ function reducer(state, action) {
       return { ...initialState, history: [] };
 
     case 'LOAD':
-      return { ...migrateTarps(action.state), history: [] };
+      return migratePans({ ...migrateTarps(action.state), history: [] });
 
     case 'LOAD_STATE':
-      return migrateTarps({ ...initialState, ...action.payload, history: [] });
+      return migratePans(migrateTarps({ ...initialState, ...action.payload, history: [] }));
 
     // Stamp the QB stage-lineage id after a successful "pending layout" push.
     // Not an undoable edit (no record()) — it's push metadata, not a canvas change.
@@ -658,9 +752,10 @@ export function calculateBom(state) {
     deckPans[panLength] = (deckPans[panLength] ?? 0) + 1;
   }
 
-  // Gap fillers — one per unique bay (col,row) that has any pans, only in 2.07m wide bays
+  // Gap fillers — one per bay PER DECK LEVEL that has any pans, only in 2.07m
+  // wide bays (two levels on one bay = two full pan sets = two fillers)
   const gapFillerBays = new Set(
-    bayWidth === 2.07 ? placedPans.map(p => `${p.col},${p.row}`) : []
+    bayWidth === 2.07 ? placedPans.map(p => `${p.col},${p.row},${p.levelId}`) : []
   );
   const gapFillers = gapFillerBays.size;
 

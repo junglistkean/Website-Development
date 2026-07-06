@@ -3,14 +3,14 @@ import {
   DEFAULT_BAY_LENGTH, DEFAULT_BAY_WIDTH,
   DEFAULT_STACK, NODE_INTERVAL, LEVEL_COLORS,
   PANS_PER_BAY_257, PANS_PER_BAY_207,
-} from '../constants/layher';
+} from '../constants/layher.js'; // explicit .js so Node ESM (the offline tests) resolves it too
 import {
   getLedgerHeights,
   getAutoLedgersWithOverrides,
   getAutoBracingWithOverrides,
   getBracingCladConflicts,
   MAX_LIFT_GAP,
-} from '../utils/scaffoldGeometry';
+} from '../utils/scaffoldGeometry.js';
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
@@ -26,7 +26,9 @@ function slotsForWidth(bayWidth) {
 // Full pan set for the given bay cells at each level — a deck level always
 // starts fully panned (a level with no deck under it isn't buildable); the
 // delete tool carves openings from there.
-function deckPansForBays(bays, bayWidth, levels) {
+// Exported for _test_bom.mjs (the 6 Jul auto-fill acceptance case) — no
+// component imports it.
+export function deckPansForBays(bays, bayWidth, levels) {
   const slots = slotsForWidth(bayWidth);
   const pans = [];
   for (const level of levels) {

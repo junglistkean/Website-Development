@@ -10,7 +10,7 @@
 
 import {
   CLADDING_OPTIONS, EXPOSURE_STEPUP, CLAD, BLOCK, LAYHER_OPEN_TOWER,
-} from '../constants/ballast';
+} from '../constants/ballast.js'; // explicit .js so Node ESM (the offline tests) resolves it too
 
 const laneFor = (claddingId) =>
   (CLADDING_OPTIONS.find(o => o.id === claddingId)?.lane) ?? 'clad';

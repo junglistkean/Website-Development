@@ -5426,7 +5426,16 @@ function generateElevationImages() {
   bracingContainer.style.display='flex';
   const firstBracingTier=tiers.find(t=>panels.some(p=>p.category==='panel'&&p.tier===t.id));
   let bracingPlanUrl='',bracingElevXUrl='',bracingElevXBUrl='',bracingElevYUrl='',bracingElevYRUrl='';
-  if (firstBracingTier) {
+  // The five bracing canvases are shared DOM elements: renderBracingView only
+  // hides them when no tier calcs bracing, so they could still hold a PREVIOUS
+  // layout's drawing (stale carry-over — ported from the internal planner,
+  // 2026-08-25). Blank them before any conditional render and skip the capture
+  // when no tier of this layout calcs bracing.
+  ['bracingCanvasPlan','bracingCanvasElev','bracingCanvasElevXB','bracingCanvasElevY','bracingCanvasElevYR']
+    .forEach(id=>{const c=document.getElementById(id);if(c){c.width=0;c.height=0;}});
+  let bracingResults=null; try{bracingResults=calcBracing();}catch{bracingResults=null;}
+  const needsBracing=!!(bracingResults&&bracingResults.some(r=>r.status==='calc'));
+  if (firstBracingTier && needsBracing) {
     // One render draws all five canvases; capture each directly
     setBracingSubView('plan'); renderBracingView();
     const cap=id=>{const c=document.getElementById(id);return c&&c.width>0?c.toDataURL('image/png'):'';};

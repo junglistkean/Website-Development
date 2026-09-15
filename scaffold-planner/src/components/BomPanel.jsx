@@ -526,7 +526,7 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
           </BomSection>
         )}
 
-        {(bom.stepped || bom.openingCaveats?.length > 0 || bom.pansAboveBay > 0 || bom.removedLedgerCount > 0 || bom.removedBraceCount > 0 || bom.bracingConflicts?.length > 0) && (
+        {(bom.stepped || bom.openingCaveats?.length > 0 || bom.braceOverlaps?.length > 0 || bom.pansAboveBay > 0 || bom.removedLedgerCount > 0 || bom.removedBraceCount > 0 || bom.bracingConflicts?.length > 0) && (
           <BomSection title="Warnings">
             {(bom.steppedCaveats ?? []).map((c, i) => (
               <div key={`sc-${i}`} className="bom-note bom-note--warn">⚠ {c}</div>
@@ -541,6 +541,11 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
                 ⚠ {bom.pansAboveBay} pan{bom.pansAboveBay !== 1 ? 's' : ''} sit on a level above their bay's height — not built, not counted
               </div>
             )}
+            {(bom.braceOverlaps ?? []).map((o, i) => (
+              <div key={`bo-${i}`} className="bom-note bom-note--warn">
+                ⚠ Manual brace {o.face} bay {o.bayIndex + 1} ({o.manual[0]}–{o.manual[1]} m) overlaps auto brace ({o.auto[0]}–{o.auto[1]} m) — draws as an X; delete one if unintended
+              </div>
+            ))}
             {bom.removedLedgerCount > 0 && (
               <div className="bom-note bom-note--warn">
                 ⚠ {bom.removedLedgerCount} ledger{bom.removedLedgerCount !== 1 ? 's' : ''} manually removed — verify structural adequacy

@@ -929,6 +929,23 @@ export function calculateBom(state) {
   // Opening caveat — whenever removed ledgers interrupted auto bracing on a face.
   const openingCaveats = bracingOpenings.length > 0 ? [OPENING_CAVEAT] : [];
 
+  // Manual braces overlapping an auto brace in the same face-bay draw as an X
+  // (e.g. a 1–3 m off-the-shelf brace over the auto 0–2 / 2–4 lifts). Auto
+  // braces themselves never overlap. Reported so the schedule explains the
+  // drawing rather than leaving it to look like a broken pattern.
+  const addedKeys = new Set(bracingOverrides.added ?? []);
+  const braceOverlaps = [];
+  for (const m of braceList) {
+    if (!addedKeys.has(m.key)) continue;
+    for (const a of braceList) {
+      if (addedKeys.has(a.key) || a.face !== m.face || a.bayIndex !== m.bayIndex) continue;
+      if (m.liftBottom < a.liftTop - 1e-9 && m.liftTop > a.liftBottom + 1e-9) {
+        braceOverlaps.push({ face: m.face, bayIndex: m.bayIndex, manualKey: m.key, autoKey: a.key,
+          manual: [m.liftBottom, m.liftTop], auto: [a.liftBottom, a.liftTop] });
+      }
+    }
+  }
+
   return {
     bayHeights,
     legHeights,
@@ -937,6 +954,7 @@ export function calculateBom(state) {
     steppedCaveats,
     bracingOpenings,
     openingCaveats,
+    braceOverlaps,
     pansAboveBay,
     standards,
     ledgers,

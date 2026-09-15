@@ -506,5 +506,82 @@ function makeState(over = {}) {
   ok(solid && solid.bespoke === false, 'legacy exactly-2 m key stays an off-the-shelf (solid) brace');
 }
 
+// ── Fixture L — EVERY FACE generates a coherent pattern (BACK / SIDES pinned) ─
+// 5-bay stepped run 1.5 / 3 / 5 / 3 / 1.5 m (the reviewed screenshot case) plus a
+// 5 × 3 grid at 4 m for the side faces. Directions are in each face's OWN
+// elevation view as drawn ('/' = base on the left standard as viewed, '\' = base
+// on the right); the renderer draws them verbatim for every face. Invariants:
+//   • exactly one auto brace per braced bay/lift cell on every face
+//   • no two auto braces on a face cross (in bay space: '/' = (0,b)→(1,t),
+//     '\' = (1,b)→(0,t); auto lifts in a bay never overlap in height, so a
+//     crossing is impossible unless a cell is doubled)
+//   • ALT alternates across adjacent bays at the same lift index and across
+//     lifts in the same bay (a clean zigzag), identically on FRONT and BACK
+//   • SAME + lean R → every auto brace on that face is '\' (base right as drawn)
+{
+  const sig = bs => bs.slice().sort((a, b) => a.bayIndex - b.bayIndex || a.liftBottom - b.liftBottom)
+    .map(b => `${b.bayIndex}[${b.liftBottom}-${b.liftTop}]${b.direction}${b.bespoke ? '~' : ''}`).join(' ');
+  const properCross = (p, q) => {
+    const seg = b => b.direction === '/' ? [[0, b.liftBottom], [1, b.liftTop]] : [[1, b.liftBottom], [0, b.liftTop]];
+    const o = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+    const [P1, P2] = seg(p), [Q1, Q2] = seg(q);
+    return o(P1, P2, Q1) * o(P1, P2, Q2) < 0 && o(Q1, Q2, P1) * o(Q1, Q2, P2) < 0;
+  };
+  const faceInvariants = (bs, label) => {
+    const cells = new Map();
+    for (const b of bs) { const k = `${b.bayIndex}|${b.liftBottom}|${b.liftTop}`; cells.set(k, (cells.get(k) ?? 0) + 1); }
+    ok([...cells.values()].every(n => n === 1), `${label}: exactly one auto brace per bay/lift cell`);
+    let crossings = 0;
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++)
+      if (bs[i].bayIndex === bs[j].bayIndex && properCross(bs[i], bs[j])) crossings++;
+    ok(crossings === 0, `${label}: no crossed auto braces (got ${crossings})`);
+  };
+
+  const H5 = [1.5, 3, 5, 3, 1.5];
+  const alt = getAutoBracingWithOverrides(5, 1, H5, { removed: [], added: [] }, null, { pattern: {} }).bracing;
+  const front = alt.filter(b => b.face === 'front'), back = alt.filter(b => b.face === 'back');
+  const EXPECTED = '0[0-1.5]/~ 1[0-2]\\ 1[2-3]/~ 2[0-2]/ 2[2-4]\\ 2[4-5]/~ 3[0-2]\\ 3[2-3]/~ 4[0-1.5]/~';
+  ok(sig(front) === EXPECTED, `FRONT ALT 1.5/3/5/3/1.5: pinned zigzag (got ${sig(front)})`);
+  ok(sig(back) === EXPECTED, `BACK ALT 1.5/3/5/3/1.5: pinned zigzag, same as front as drawn (got ${sig(back)})`);
+  faceInvariants(front, 'FRONT ALT'); faceInvariants(back, 'BACK ALT');
+  // Adjacent bays alternate at the same lift index; lifts alternate within a bay.
+  const at = (bs, bay, lift) => bs.filter(b => b.bayIndex === bay).sort((a, b) => a.liftBottom - b.liftBottom)[lift]?.direction;
+  ok(at(back, 1, 0) !== at(back, 2, 0) && at(back, 2, 0) !== at(back, 3, 0) && at(back, 2, 0) !== at(back, 2, 1) && at(back, 2, 1) !== at(back, 2, 2),
+     'BACK ALT: alternates bay-to-bay at lift 0 and lift-to-lift in the 5 m bay');
+
+  const sameR = getAutoBracingWithOverrides(5, 1, H5, { removed: [], added: [] }, null,
+    { pattern: { back: { mode: 'same', lean: 'R' } } }).bracing;
+  const backR = sameR.filter(b => b.face === 'back');
+  ok(backR.length === back.length && backR.every(b => b.direction === '\\'), 'BACK SAME lean R: every back auto brace is \\ (base right as drawn in the BACK view)');
+  ok(sig(sameR.filter(b => b.face === 'front')) === EXPECTED, 'BACK setting leaves FRONT untouched');
+  faceInvariants(backR, 'BACK SAME/R');
+
+  // Side faces: 5 × 3 grid at 4 m → left/right each 3 row-bays × 2 lifts.
+  const grid = getAutoBracingWithOverrides(5, 3, [4, 4, 4, 4, 4], { removed: [], added: [] }, null, { pattern: {} }).bracing;
+  for (const face of ['left', 'right']) {
+    const bs = grid.filter(b => b.face === face);
+    ok(bs.length === 6, `${face.toUpperCase()} ALT: 3 bays × 2 lifts = 6 braces (got ${bs.length})`);
+    ok(sig(bs) === '0[0-2]/ 0[2-4]\\ 1[0-2]\\ 1[2-4]/ 2[0-2]/ 2[2-4]\\', `${face.toUpperCase()} ALT: pinned zigzag (got ${sig(bs)})`);
+    faceInvariants(bs, `${face.toUpperCase()} ALT`);
+  }
+  const sidesR = getAutoBracingWithOverrides(5, 3, [4, 4, 4, 4, 4], { removed: [], added: [] }, null,
+    { pattern: { left: { mode: 'same', lean: 'R' }, right: { mode: 'same', lean: 'L' } } }).bracing;
+  ok(sidesR.filter(b => b.face === 'left').every(b => b.direction === '\\') && sidesR.filter(b => b.face === 'right').every(b => b.direction === '/'),
+     'SIDE L SAME/R → all \\; SIDE R SAME/L → all / (each face from its own setting)');
+  // Patterns never change what is counted.
+  const bomA = calculateBom(makeState({ gridCols: 5, bayLengths: Array(5).fill(2.57), bayHeights: H5 }));
+  const bomB = calculateBom(makeState({ gridCols: 5, bayLengths: Array(5).fill(2.57), bayHeights: H5,
+    bracingPattern: { front: { mode: 'same', lean: 'L' }, back: { mode: 'same', lean: 'R' } } }));
+  ok(eq(bomA, bomB), '1.5/3/5/3/1.5: BOM identical under any per-face pattern');
+
+  // The reviewed symptom (an X near the 2 m node) is what a leftover MANUAL
+  // off-the-shelf brace overlapping auto lifts looks like — flagged in the BOM.
+  const withManual = calculateBom(makeState({ gridCols: 5, bayLengths: Array(5).fill(2.57), bayHeights: H5,
+    bracingOverrides: { removed: [], added: ['back-2-1-3-L'] } }));
+  ok(withManual.braceOverlaps.length === 2 && withManual.braceOverlaps.every(o => o.face === 'back' && o.bayIndex === 2 && o.manualKey === 'back-2-1-3-L'),
+     `manual 1–3 m brace in the 5 m bay overlaps the auto 0–2 and 2–4 braces → 2 overlap warnings (got ${JSON.stringify(withManual.braceOverlaps)})`);
+  ok(bomA.braceOverlaps.length === 0, 'no overlap warnings on a pure auto pattern');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

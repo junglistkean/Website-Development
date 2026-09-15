@@ -583,5 +583,60 @@ function makeState(over = {}) {
   ok(bomA.braceOverlaps.length === 0, 'no overlap warnings on a pure auto pattern');
 }
 
+// ── Fixture M — SIDE FACES generate and COUNT like front/back ────────────────
+// Side (left/right) faces take the END column's height and honour their own
+// pattern setting; their braces are priced by bayWidth span and have been
+// counted in the BOM since the planner's first commit (4b0c263) — past quotes
+// did not undercount. A side under 2 m is a single sub-2m lift: the same
+// dashed advisory (unbracedTopLifts) a sub-2m top lift gets on front/back — no
+// priced component, no separate warning. Reconciled 15 Sep 2026.
+{
+  const run = (heights, rows = 1, over = {}) => makeState({
+    gridCols: 5, gridRows: rows, bayLengths: Array(5).fill(2.57), bayHeights: heights, ...over,
+  });
+  const side = (bs, face) => bs.filter(b => b.face === face);
+
+  // (a) 1.5 m end bays (the reviewed 5×1 run): sides = one 1.5 m advisory lift each,
+  //     identical treatment to the 1.5 m end bays' own front/back faces.
+  const b15 = getAutoBracingWithOverrides(5, 1, [1.5, 3, 5, 3, 1.5], { removed: [], added: [] }).bracing;
+  ok(side(b15, 'left').length === 1 && side(b15, 'left')[0].bespoke && side(b15, 'left')[0].liftTop === 1.5 &&
+     side(b15, 'right').length === 1 && side(b15, 'right')[0].bespoke,
+     '1.5 m ends: each side = one dashed 0–1.5 m advisory lift, no solid component');
+  const bom15 = calculateBom(run([1.5, 3, 5, 3, 1.5]));
+  // named: front 1[0-2]+2[0-2]+2[2-4]+3[0-2] = 4, back 4 → 8; advisory: 5 front + 5 back + 2 sides = 12
+  ok(eq(bom15.braces, { '3.18m diagonal brace (2.57m bay)': 8 }) && bom15.unbracedTopLifts.length === 12,
+     `1.5 m ends: 8 named, 12 advisory lifts incl. both sides (got ${JSON.stringify(bom15.braces)}, ${bom15.unbracedTopLifts.length})`);
+  ok(bom15.braceOverlaps.length === 0 && bom15.openingCaveats.length === 0, '1.5 m ends: no spurious warnings');
+
+  // (b) End bays raised to 3 m: sides get a solid 0–2 m component + a dashed 2–3 m lift.
+  const b3 = getAutoBracingWithOverrides(5, 1, [3, 3, 5, 3, 3], { removed: [], added: [] }).bracing;
+  for (const f of ['left', 'right']) {
+    ok(side(b3, f).length === 2 && side(b3, f).some(b => !b.bespoke && b.liftBottom === 0 && b.liftTop === 2) &&
+       side(b3, f).some(b => b.bespoke && b.liftBottom === 2 && b.liftTop === 3),
+       `3 m ends: ${f} = solid 0–2 m + dashed 2–3 m`);
+  }
+  const bom3 = calculateBom(run([3, 3, 5, 3, 3]));
+  // named: front 1+1+2+1+1 = 6, back 6, left 1, right 1 → 14; the two side ones are priced by bayWidth (2.57)
+  ok(eq(bom3.braces, { '3.18m diagonal brace (2.57m bay)': 14 }), `3 m ends: 14 named incl. 2 side braces (got ${JSON.stringify(bom3.braces)})`);
+  const noSides = calculateBom(run([3, 3, 5, 3, 3], 1, { bracingOverrides: { removed: ['left-0-0-2', 'right-0-0-2'], added: [] } }));
+  ok(noSides.braces['3.18m diagonal brace (2.57m bay)'] === 12, 'removing both side braces drops the count by exactly 2 → sides ARE counted');
+  // 2.07 m-wide bays: side braces resolve to the 2.07 m-bay component (span = bayWidth).
+  const bomW = calculateBom(run([3, 3, 5, 3, 3], 1, { bayWidth: 2.07 }));
+  ok(bomW.braces['2.81m diagonal brace (2.07m bay)'] === 2 && bomW.braces['3.18m diagonal brace (2.57m bay)'] === 12,
+     `side braces priced by bay WIDTH (2 × 2.07 m-bay component) (got ${JSON.stringify(bomW.braces)})`);
+
+  // (c) Sides honour their own pattern; 3 rows → 3 side bays × lifts, zigzag on ALT.
+  const rows3 = getAutoBracingWithOverrides(5, 3, [4, 3, 5, 3, 4], { removed: [], added: [] }, null,
+    { pattern: { left: { mode: 'same', lean: 'R' }, front: { mode: 'same', lean: 'L' } } }).bracing;
+  ok(side(rows3, 'left').length === 6 && side(rows3, 'left').every(b => b.direction === '\\'),
+     'SIDE L SAME/R over 3 rows: 6 braces all \\ (own setting, not the front\'s)');
+  const r = side(rows3, 'right');
+  ok(r.length === 6 && r.find(b => b.bayIndex === 0 && b.liftBottom === 0).direction !== r.find(b => b.bayIndex === 1 && b.liftBottom === 0).direction,
+     'SIDE R stays ALT (zigzag) while SIDE L is SAME');
+  // Patterns never change side counts.
+  ok(eq(calculateBom(run([4, 3, 5, 3, 4], 3)), calculateBom(run([4, 3, 5, 3, 4], 3, { bracingPattern: { left: { mode: 'same', lean: 'R' }, right: { mode: 'same', lean: 'L' } } }))),
+     'side patterns: BOM identical');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

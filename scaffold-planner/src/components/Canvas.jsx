@@ -964,6 +964,41 @@ function ElevationView({ state, dispatch, face }) {
         );
       })}
 
+      {/* Side elevation: the rest of the stepped profile BEHIND the end face,
+          dimmed (existing dimmed convention). From the side every interior leg
+          line projects onto the same x positions, so the profile reads as the
+          taller bays' silhouette rising above the solid end face: dimmed upright
+          extensions to the run's tallest leg, dimmed nodes, and a dimmed top
+          line at each distinct taller leg height. */}
+      {!isNS && (() => {
+        const behind = Array.from(new Set(legHeights)).filter(h => h > faceColH + 1e-9).sort((a, b) => a - b);
+        if (behind.length === 0) return null;
+        const topH = behind[behind.length - 1];
+        const xL = PAD_L, xR = PAD_L + totalX * SCALE;
+        const nodes = [];
+        for (let h = Math.round((faceColH + NODE_STEP) * 100) / 100; h <= topH + 1e-9; h = Math.round((h + NODE_STEP) * 100) / 100) nodes.push(h);
+        return (
+          <g pointerEvents="none" opacity={0.22}>
+            {xPos.map((x, i) => (
+              <line key={`bstd-${i}`}
+                x1={PAD_L + x * SCALE} y1={yOf(topH)} x2={PAD_L + x * SCALE} y2={yOf(faceColH)}
+                stroke={STD_COLOR} strokeWidth={2} strokeDasharray="4 3" />
+            ))}
+            {xPos.flatMap((x, i) => nodes.map(h => (
+              <circle key={`bnc-${i}-${h}`} cx={PAD_L + x * SCALE} cy={yOf(h)} r={3.5} fill={STD_COLOR} />
+            )))}
+            {behind.map(h => (
+              <line key={`btop-${h}`} x1={xL} y1={yOf(h)} x2={xR} y2={yOf(h)}
+                stroke={LEDGER_COLOR} strokeWidth={2} strokeDasharray="4 3" />
+            ))}
+            <text x={xR - 4} y={yOf(topH) - 6} textAnchor="end" fill={DIM_COLOR} fontSize={10}
+              fontFamily="Barlow Condensed, sans-serif" letterSpacing="0.03em">
+              profile behind (to {topH}m)
+            </text>
+          </g>
+        );
+      })()}
+
       {/* Standard uprights — each leg line to its own height (taller neighbour) */}
       {xPos.map((x, i) => {
         const rowPos = isReversed ? segCount - i : i;

@@ -5,11 +5,19 @@ import {
   PANS_PER_BAY_257, PANS_PER_BAY_207,
 } from '../constants/layher.js'; // explicit .js so Node ESM (the offline tests) resolves it too
 import {
-  getLedgerHeights,
+  getFaceLedgerHeights,
   getAutoLedgersWithOverrides,
   getAutoBracingWithOverrides,
   getBracingCladConflicts,
-  MAX_LIFT_GAP,
+  resolveBayHeights,
+  standardHeights,
+  maxBayHeight,
+  isStepped,
+  clampBayHeight,
+  STEPPED_CAVEATS,
+  OPENING_CAVEAT,
+  FACES,
+  facePattern,
 } from '../utils/scaffoldGeometry.js';
 
 // ─── Initial state ────────────────────────────────────────────────────────────
@@ -52,12 +60,30 @@ function makeBayLengths(cols, existing = []) {
   return Array.from({ length: cols }, (_, i) => existing[i] ?? DEFAULT_BAY_LENGTH);
 }
 
+// New bays default to the height of the previous (last) bay.
+function makeBayHeights(cols, existing = []) {
+  const out = [];
+  for (let c = 0; c < cols; c++) {
+    out.push(existing[c] ?? out[c - 1] ?? existing[existing.length - 1] ?? 4.0);
+  }
+  return out;
+}
+
+// Lower any deck level that no longer fits under the tallest bay.
+function clampLevels(levels, bayHeights) {
+  const maxH = maxBayHeight(bayHeights);
+  return levels.map(l => l.height > maxH ? { ...l, height: maxH } : l);
+}
+
 const initialState = {
   gridCols: INITIAL_COLS,
   gridRows: INITIAL_ROWS,
   bayLengths: [2.57],
   bayWidth: DEFAULT_BAY_WIDTH,
-  structureHeight: 4.0,
+  // Per-bay (per-column) heights in metres (0.5 m nodes) — see resolveBayHeights.
+  // Entered in metres in the UI; the single global `structureHeight` is gone
+  // (legacy saves carrying it are migrated on load by migrateHeights).
+  bayHeights: [4.0],
 
   levels: [
     {
@@ -76,6 +102,9 @@ const initialState = {
 
   ledgerOverrides: { removed: [], added: [] },
   bracingOverrides: { removed: [], added: [] },
+  // Per-face auto-bracing pattern: { mode: 'alternating'|'same', lean: 'L'|'R' }.
+  // Drawing preference only — counts/BOM identical. Missing faces = alternating.
+  bracingPattern: {},
   activePlacementMode: null,
 
   suppressedStdPositions: [],
@@ -115,6 +144,17 @@ function migrateTarps(state) {
       return t;
     }),
   };
+}
+
+// ─── Height migration (pre-Sep-2026 saves: single structureHeight) ───────────
+// Saves written before per-bay heights carry one `structureHeight`; every bay
+// takes it. Also normalises bayHeights to exactly gridCols entries (new columns
+// inherit the previous bay's height) and drops the legacy field so there is a
+// single source of truth.
+function migrateHeights(state) {
+  const { structureHeight, ...rest } = state;
+  const bayHeights = resolveBayHeights({ ...rest, structureHeight }).map(clampBayHeight);
+  return { ...rest, bayHeights, levels: clampLevels(rest.levels ?? [], bayHeights) };
 }
 
 // ─── Pan migration (pre-Jul-2026 saves: deck levels with no pans) ─────────────
@@ -180,7 +220,7 @@ function preset5mStage() {
     gridRows: 1,
     bayLengths: [2.57, 2.57],
     bayWidth: 2.57,
-    structureHeight: 3.0,
+    bayHeights: [3.0, 3.0],
     levels: [{ id: 'L1', height: 0.5, color: LEVEL_COLORS[0] }],
     activeLevelId: 'L1',
     placedPans: [],
@@ -244,18 +284,28 @@ function reducer(state, action) {
       return record({ ...state, bayWidth: action.value, placedPans }, state);
     }
 
-    case 'SET_STRUCTURE_HEIGHT': {
-      const h = Math.min(30, Math.max(0.5, Math.round(action.payload * 2) / 2));
-      return record({
-        ...state,
-        structureHeight: h,
-        levels: state.levels.map(l => l.height > h ? { ...l, height: h } : l),
-      }, state);
+    // Per-bay height (metres, 0.5 m nodes — entered in metres by the Sidebar).
+    case 'SET_BAY_HEIGHT': {
+      const { col } = action;
+      if (col < 0 || col >= state.gridCols) return state;
+      const h = clampBayHeight(action.value);
+      if (h === state.bayHeights[col]) return state;
+      const bayHeights = [...state.bayHeights];
+      bayHeights[col] = h;
+      return record({ ...state, bayHeights, levels: clampLevels(state.levels, bayHeights) }, state);
+    }
+
+    // "Set all" shortcut — a uniform structure is still one entry.
+    case 'SET_ALL_BAY_HEIGHTS': {
+      const h = clampBayHeight(action.value);
+      const bayHeights = Array.from({ length: state.gridCols }, () => h);
+      return record({ ...state, bayHeights, levels: clampLevels(state.levels, bayHeights) }, state);
     }
 
     case 'SET_GRID_COLS': {
       const cols = Math.max(1, Math.min(16, action.value));
       const newLengths = makeBayLengths(cols, state.bayLengths);
+      const newHeights = makeBayHeights(cols, state.bayHeights);
       // New columns start fully panned on every level (see deckPansForBays)
       const newColBays = [];
       for (let c = state.gridCols; c < cols; c++)
@@ -264,6 +314,8 @@ function reducer(state, action) {
         ...state,
         gridCols: cols,
         bayLengths: newLengths,
+        bayHeights: newHeights,
+        levels: clampLevels(state.levels, newHeights),
         placedPans: [
           ...state.placedPans.filter(p => p.col < cols),
           ...deckPansForBays(newColBays, state.bayWidth, state.levels),
@@ -305,7 +357,7 @@ function reducer(state, action) {
       const nextH = Math.round((maxExisting + 0.5) * 2) / 2;
       const newLevel = {
         id: `L${idx + 1}_${Date.now()}`,
-        height: Math.min(state.structureHeight, Math.max(0.5, nextH)),
+        height: Math.min(maxBayHeight(state.bayHeights), Math.max(0.5, nextH)),
         color: LEVEL_COLORS[idx % LEVEL_COLORS.length],
       };
       const allBays = [];
@@ -337,7 +389,7 @@ function reducer(state, action) {
 
     case 'UPDATE_LEVEL': {
       const changes = action.changes.height !== undefined
-        ? { ...action.changes, height: Math.min(state.structureHeight, action.changes.height) }
+        ? { ...action.changes, height: Math.min(maxBayHeight(state.bayHeights), action.changes.height) }
         : action.changes;
       return record({
         ...state,
@@ -497,14 +549,22 @@ function reducer(state, action) {
       }, state);
     }
 
-    case 'REMOVE_BRACE':
+    case 'REMOVE_BRACE': {
+      // A manually ADDED brace is deleted by dropping it from `added` (the
+      // removed list only suppresses auto braces — it never filtered added
+      // keys, so manual braces were previously undeletable).
+      const { removed, added } = state.bracingOverrides;
+      if (added.includes(action.key)) {
+        return record({
+          ...state,
+          bracingOverrides: { removed, added: added.filter(k => k !== action.key) },
+        }, state);
+      }
       return record({
         ...state,
-        bracingOverrides: {
-          ...state.bracingOverrides,
-          removed: [...state.bracingOverrides.removed, action.key],
-        },
+        bracingOverrides: { removed: [...removed, action.key], added },
       }, state);
+    }
 
     case 'ADD_BRACE': {
       const key = action.key;
@@ -519,12 +579,37 @@ function reducer(state, action) {
       }, state);
     }
 
+    // Per-face auto-bracing pattern (Item 2). Not undoable-critical but recorded
+    // so Ctrl+Z restores the previous look.
+    case 'SET_BRACING_PATTERN': {
+      const { face } = action;
+      if (!FACES.includes(face)) return state;
+      const current = facePattern(state.bracingPattern, face);
+      const next = {
+        mode: action.mode ?? current.mode,
+        lean: action.lean ?? current.lean,
+      };
+      return record({ ...state, bracingPattern: { ...(state.bracingPattern ?? {}), [face]: next } }, state);
+    }
+
+    // Re-apply auto bracing (Item 3): the auto pattern is derived from the
+    // CURRENT geometry + face pattern on every render, so regeneration is just
+    // clearing the removed-brace suppression list. Safe because the generator
+    // itself skips any position whose anchoring ledger has been removed (an
+    // opening gets no brace in or across it). Manually added off-the-shelf
+    // braces and bespoke diagonals (`added`) are left untouched.
+    case 'REAPPLY_AUTO_BRACING':
+      return record({
+        ...state,
+        bracingOverrides: { removed: [], added: state.bracingOverrides?.added ?? [] },
+      }, state);
+
     case 'SET_PLACEMENT_MODE': {
       const mode = action.value;
       const toggling = state.activePlacementMode === mode;
       const nextMode = toggling ? null : mode;
       let nextView = state.activeView;
-      if (nextMode === 'ledger' || nextMode === 'brace') {
+      if (nextMode === 'ledger' || nextMode === 'brace' || nextMode === 'bespoke') {
         if (state.activeView === 'plan') nextView = 'front';
       } else if (nextMode === 'deck') {
         nextView = 'plan';
@@ -555,10 +640,17 @@ function reducer(state, action) {
       return { ...initialState, history: [] };
 
     case 'LOAD':
-      return migratePans({ ...migrateTarps(action.state), history: [] });
+      return migratePans(migrateHeights({ ...migrateTarps(action.state), history: [] }));
 
-    case 'LOAD_STATE':
-      return migratePans(migrateTarps({ ...initialState, ...action.payload, history: [] }));
+    case 'LOAD_STATE': {
+      // A legacy save (structureHeight, no bayHeights) must not inherit the
+      // initial state's default bayHeights through the spread — drop them so
+      // migrateHeights resolves every bay from the legacy field instead.
+      const p = action.payload ?? {};
+      const legacy = !Array.isArray(p.bayHeights) && typeof p.structureHeight === 'number';
+      const base = legacy ? { ...initialState, bayHeights: undefined } : initialState;
+      return migratePans(migrateHeights(migrateTarps({ ...base, ...p, history: [] })));
+    }
 
     // Stamp the QB stage-lineage id after a successful "pending layout" push.
     // Not an undoable edit (no record()) — it's push metadata, not a canvas change.
@@ -571,6 +663,10 @@ function reducer(state, action) {
 }
 
 // ─── BOM calculation (pure functions) ────────────────────────────────────────
+
+// Re-exported for BomPanel; defined in the pure geometry module so the ballast
+// estimator can share the same wording without importing this React store.
+export { STEPPED_CAVEATS };
 
 function calcStandardStack(height, stackPref) {
   const counts = {};
@@ -589,7 +685,7 @@ function calcStandardStack(height, stackPref) {
 export function calculateBom(state) {
   const {
     gridCols, gridRows, bayLengths, bayWidth,
-    structureHeight, levels, placedPans = [], tarps, windows, roofBays, ladderBeams,
+    levels, placedPans = [], tarps, windows, roofBays, ladderBeams,
     ledgerOverrides = { removed: [], added: [] },
     bracingOverrides = { removed: [], added: [] },
     suppressedStdPositions = [],
@@ -598,9 +694,14 @@ export function calculateBom(state) {
 
   const suppressedPosSet = new Set(suppressedStdPositions);
 
-  const lifts = Math.round(structureHeight / NODE_INTERVAL);
+  // Per-bay heights (metres, one per column). Leg lines take the taller of
+  // their two neighbouring bays; end legs their single bay's height.
+  const bayHeights = resolveBayHeights(state);
+  const legHeights = standardHeights(bayHeights);
+  const maxHeight  = maxBayHeight(bayHeights);
+  const stepped    = isStepped(bayHeights);
 
-  // Rear-only roof standard positions stack to structureHeight - 0.5m (mono-pitch keder geometry)
+  // Rear-only roof standard positions stack to their leg height - 0.5m (mono-pitch keder geometry)
   const rearRoofPositions  = new Set();
   const frontRoofPositions = new Set();
   for (const [bayCol, bayRow] of roofBays) {
@@ -611,10 +712,10 @@ export function calculateBom(state) {
   }
   for (const k of frontRoofPositions) rearRoofPositions.delete(k);
 
-  const stackFull = calcStandardStack(structureHeight, DEFAULT_STACK);
-  const stackRear = structureHeight > 0.5
-    ? calcStandardStack(structureHeight - 0.5, DEFAULT_STACK)
-    : stackFull;
+  const stackCache = {};
+  const stackFor = h => (stackCache[h] ??= calcStandardStack(h, DEFAULT_STACK));
+  const stackFullAt = c => stackFor(legHeights[c]);
+  const stackRearAt = c => legHeights[c] > 0.5 ? stackFor(legHeights[c] - 0.5) : stackFullAt(c);
 
   // Ladder beams suppress the tube above beam height for intermediate standard positions
   const suppressedH = {}; // `${c},${r}` → min beam height across all beams on that position
@@ -643,11 +744,11 @@ export function calculateBom(state) {
       const suppH = suppressedH[key];
       let s;
       if (suppH !== undefined) {
-        s = calcStandardStack(suppH, DEFAULT_STACK);
+        s = stackFor(Math.min(suppH, legHeights[c]));
       } else if (rearRoofPositions.has(key)) {
-        s = stackRear;
+        s = stackRearAt(c);
       } else {
-        s = stackFull;
+        s = stackFullAt(c);
       }
       for (const [len, n] of Object.entries(s)) {
         standards[Number(len)] = (standards[Number(len)] ?? 0) + n;
@@ -655,13 +756,14 @@ export function calculateBom(state) {
     }
   }
 
-  // Ledgers — derive from geometry with overrides
+  // Ledgers — derive from geometry with overrides. Each bay's ledger heights
+  // come from ITS OWN height, so a lift's ledgers exist only in bays that reach it.
   const roofType = roofBays && roofBays.length > 0 ? 'monoPitch' : null;
   const levelHeights = levels.map(l => l.height);
-  const ledgerHeights = getLedgerHeights(structureHeight, levelHeights);
+  const faceLedgerHeights = getFaceLedgerHeights(gridCols, gridRows, bayHeights, levelHeights);
 
   const { ledgers: ledgerList, removedCount: removedLedgerCount } =
-    getAutoLedgersWithOverrides(gridCols, gridRows, ledgerHeights, ledgerOverrides, structureHeight, roofType);
+    getAutoLedgersWithOverrides(gridCols, gridRows, bayHeights, levelHeights, ledgerOverrides, roofType);
 
   // Ledgers at the same face+height as a ladder beam are replaced by the beam — suppress them
   const beamFaceHeights = new Set(
@@ -681,15 +783,22 @@ export function calculateBom(state) {
     ledgers[len] = (ledgers[len] ?? 0) + 1;
   }
 
-  // Transoms — standard bayWidth transom per lift per row gap. DISABLED via
+  // Transoms — standard bayWidth transom per lift per row gap, on every leg line
+  // up to THAT leg line's own height (per-bay rule). DISABLED via
   // TRANSOMS_ENABLED (not stocked); empty when off so bom.transoms stays a stable
   // shape and reinstating is a one-line flag flip. See TRANSOMS_ENABLED above.
-  const transomCountPerLift = (gridCols + 1) * gridRows;
-  const transoms = TRANSOMS_ENABLED ? { [bayWidth]: transomCountPerLift * lifts } : {};
+  const transomCount = legHeights.reduce(
+    (sum, h) => sum + gridRows * Math.round(h / NODE_INTERVAL), 0);
+  const transoms = TRANSOMS_ENABLED ? { [bayWidth]: transomCount } : {};
 
-  // Diagonal braces — derive from geometry with overrides
-  const { bracing: braceList, removedCount: removedBraceCount } =
-    getAutoBracingWithOverrides(gridCols, gridRows, ledgerHeights, bracingOverrides, structureHeight, roofType);
+  // Diagonal braces — derive from geometry with overrides (per-bay lifts; no
+  // bracing is generated for the exposed step faces between bays of different
+  // height — see the stepped-structure caveat). The generator also skips any
+  // position whose anchoring ledger has been removed (an opening) and reports
+  // those as `openings` for the continuity caveat.
+  const { bracing: braceList, removedCount: removedBraceCount, openings: bracingOpenings } =
+    getAutoBracingWithOverrides(gridCols, gridRows, bayHeights, bracingOverrides, roofType,
+      { pattern: state.bracingPattern, removedLedgers: ledgerOverrides.removed });
 
   const DIAG_BRACE_KEYS = {
     2.57: '3.18m diagonal brace (2.57m bay)',
@@ -702,7 +811,11 @@ export function calculateBom(state) {
     '2.07_2.07': '2.93m plan brace (2.07 x 2.07m bay)',
   };
 
-  // Facade diagonal braces — standard lifts use named keys; sub-2m remainder lifts recorded as unbraced
+  // Facade diagonal braces — 2 m off-the-shelf components use named keys;
+  // BESPOKE diagonals (sub-2m remainder lifts, and any manually drawn
+  // node-to-node diagonal — flagged `bespoke` by the geometry) are recorded as
+  // advisory free-tube entries in unbracedTopLifts (the name predates manual
+  // bespoke diagonals; it is the bespoke/advisory list).
   const braces = {};
   const unbracedTopLifts = [];
   for (const brace of braceList) {
@@ -710,9 +823,10 @@ export function calculateBom(state) {
       ? Math.round((bayLengths[brace.bayIndex] ?? DEFAULT_BAY_LENGTH) * 100) / 100
       : Math.round(bayWidth * 100) / 100;
     const liftHeight = Math.round((brace.liftTop - brace.liftBottom) * 100) / 100;
-    if (liftHeight < MAX_LIFT_GAP - 1e-9) {
+    if (brace.bespoke) {
       const diagLen = Math.round(Math.sqrt(span * span + liftHeight * liftHeight) * 100) / 100;
-      const swivels = ledgerHeights.filter(
+      const bayLedgerHeights = faceLedgerHeights[`${brace.face}-${brace.bayIndex}`] ?? [];
+      const swivels = bayLedgerHeights.filter(
         h => h >= brace.liftBottom - 1e-9 && h <= brace.liftTop + 1e-9
       ).length;
       unbracedTopLifts.push({ face: brace.face, bayIndex: brace.bayIndex, liftHeight, span, diagLen, swivels });
@@ -747,9 +861,20 @@ export function calculateBom(state) {
     ledgers[2.57] = (ledgers[2.57] ?? 0) + 3;
   }
 
-  // Decking — one entry per placed pan; pan length = bay length
+  // Decking — one entry per placed pan; pan length = bay length. A pan is only
+  // built where its bay exists at that level's height (per-bay rule): pans on a
+  // level above a shorter bay are kept in state (they return if the bay is
+  // raised again) but excluded here and reported in pansAboveBay.
+  const levelHeightById = Object.fromEntries(levels.map(l => [l.id, l.height]));
+  const panExists = p => {
+    const lh = levelHeightById[p.levelId];
+    return lh !== undefined && lh <= (bayHeights[p.col] ?? maxHeight) + 1e-9;
+  };
+  const builtPans = placedPans.filter(panExists);
+  const pansAboveBay = placedPans.length - builtPans.length;
+
   const deckPans = {};
-  for (const pan of placedPans) {
+  for (const pan of builtPans) {
     const panLength = Math.round((bayLengths[pan.col] ?? DEFAULT_BAY_LENGTH) * 100) / 100;
     deckPans[panLength] = (deckPans[panLength] ?? 0) + 1;
   }
@@ -757,7 +882,7 @@ export function calculateBom(state) {
   // Gap fillers — one per bay PER DECK LEVEL that has any pans, only in 2.07m
   // wide bays (two levels on one bay = two full pan sets = two fillers)
   const gapFillerBays = new Set(
-    bayWidth === 2.07 ? placedPans.map(p => `${p.col},${p.row},${p.levelId}`) : []
+    bayWidth === 2.07 ? builtPans.map(p => `${p.col},${p.row},${p.levelId}`) : []
   );
   const gapFillers = gapFillerBays.size;
 
@@ -795,10 +920,24 @@ export function calculateBom(state) {
 
   // Roof bays with no placed pans beneath
   const undeckedRoofBays = roofBays.filter(([c, r]) =>
-    !placedPans.some(p => p.col === c && p.row === r)
+    !builtPans.some(p => p.col === c && p.row === r)
   ).length;
 
+  // Stepped-structure caveats — shown with the output whenever bay heights are
+  // not all equal. No bracing/tie design is attempted for the exposed step faces.
+  const steppedCaveats = stepped ? [...STEPPED_CAVEATS] : [];
+  // Opening caveat — whenever removed ledgers interrupted auto bracing on a face.
+  const openingCaveats = bracingOpenings.length > 0 ? [OPENING_CAVEAT] : [];
+
   return {
+    bayHeights,
+    legHeights,
+    maxHeight,
+    stepped,
+    steppedCaveats,
+    bracingOpenings,
+    openingCaveats,
+    pansAboveBay,
     standards,
     ledgers,
     transoms,
@@ -825,6 +964,11 @@ export function calculateBom(state) {
     bomExtras,
   };
 }
+
+// Exported for the offline tests (_test_bom.mjs drives REAPPLY_AUTO_BRACING,
+// SET_BRACING_PATTERN and REMOVE_BRACE through the real reducer). No component
+// imports it — components go through the context.
+export { reducer };
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 

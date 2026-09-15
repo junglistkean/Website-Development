@@ -86,8 +86,24 @@ export default function BallastEstimate({ state }) {
       {/* lane + assumptions */}
       <div className="bom-note" style={{ fontStyle: 'normal' }}>
         Lane: {isSkeleton ? 'Skeleton — Layher table' : 'Clad — overturning method'}
+        {' '}· summed per leg line ({r.legs?.length ?? 0} leg lines)
       </div>
       <div className="bom-note">Assumptions: {r.assumptions}</div>
+
+      {/* per-leg-line breakdown — shown when bay heights differ */}
+      {r.stepped && !r.outOfTable && (r.legs ?? []).length > 0 && (
+        <div style={{ margin: '6px 0 2px' }}>
+          <div className="bom-note" style={{ fontStyle: 'normal', marginBottom: 2 }}>
+            Per leg line (own height = taller neighbouring bay; tributary share of plan):
+          </div>
+          {r.legs.map(l => (
+            <div key={l.index} className="bom-row" style={{ fontSize: 11 }}>
+              <span className="bom-label">Leg {l.index + 1} @ {l.H}m</span>
+              <span className="bom-qty">{l.ballastKg} kg</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* per-result notes */}
       {r.notes.map((n, i) => (

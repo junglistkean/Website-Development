@@ -1,13 +1,15 @@
 import React from 'react';
+import { resolveBayHeights, describeHeights } from '../utils/scaffoldGeometry';
 
 export default function StatusBar({ state }) {
   const {
     gridCols, gridRows, bayLengths, bayWidth,
-    structureHeight, tool, activePlacement, activeLevelId, levels,
+    tool, activePlacement, activeLevelId, levels,
   } = state;
 
   const totalWidth = bayLengths.reduce((a, b) => a + b, 0).toFixed(2);
   const totalDepth = (gridRows * bayWidth).toFixed(2);
+  const heightLabel = describeHeights(resolveBayHeights(state));
   const activeLevel = levels.find(l => l.id === activeLevelId);
   const activeLabel = activePlacement ?? tool;
 
@@ -17,7 +19,7 @@ export default function StatusBar({ state }) {
       <span className="status-sep">|</span>
       <span>{totalWidth}m × {totalDepth}m</span>
       <span className="status-sep">|</span>
-      <span>H: {structureHeight}m</span>
+      <span>H: {heightLabel}</span>
       <span className="status-sep">|</span>
       <span>Tool: <strong>{activeLabel}</strong></span>
       {activeLevel && (

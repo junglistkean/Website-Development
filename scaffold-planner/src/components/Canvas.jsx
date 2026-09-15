@@ -1,11 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TARP_SIDE_HEIGHT, TARP_BAY_WIDTH } from '../constants/layher';
 import {
-  getLedgerHeights,
+  getFaceLedgerHeights,
   getAutoLedgersWithOverrides,
   getAutoBracingWithOverrides,
   getEffectiveFaceTop,
-  MAX_LIFT_GAP,
+  resolveBayHeights,
+  standardHeights,
+  maxBayHeight,
+  faceBayHeight,
+  manualBraceBase,
+  manualBraceKey,
+  bespokeBraceKey,
+  bespokeNode,
+  braceFaceTop,
+  BRACE_SPAN,
 } from '../utils/scaffoldGeometry';
 
 // ─── SVG coordinate constants ─────────────────────────────────────────────────
@@ -67,6 +76,11 @@ function PlanView({ state, dispatch }) {
 
   const svgRef = useRef(null);
   const [hover, setHover] = useState(null); // { col, row, slotIndex } | null
+
+  const bayHeights = resolveBayHeights(state);
+  const levelHeightById = Object.fromEntries(levels.map(l => [l.id, l.height]));
+  // A pan is only built where its bay reaches the level's height (per-bay rule)
+  const panBuilt = pan => (levelHeightById[pan.levelId] ?? Infinity) <= (bayHeights[pan.col] ?? 0) + 1e-9;
 
   const xPos   = buildXPos(gridCols, bayLengths);
   const totalW = xPos[gridCols];
@@ -202,14 +216,34 @@ function PlanView({ state, dispatch }) {
         const y = PAD_T + pan.row * bayWidth * SCALE + pan.slotIndex * slotH;
         const w = (bayLengths[pan.col] ?? 2.07) * SCALE;
         const isActive = pan.levelId === activeLevelId;
+        const built = panBuilt(pan);
         return (
           <rect
             key={pan.id}
             x={x} y={y} width={w} height={slotH}
-            fill={level.color} fillOpacity={isActive ? 0.55 : 0.3}
+            fill={level.color} fillOpacity={!built ? 0.08 : isActive ? 0.55 : 0.3}
             stroke={level.color} strokeWidth={0.5}
+            strokeDasharray={built ? undefined : '3 3'}
             pointerEvents="none"
           />
+        );
+      })}
+
+      {/* Per-bay height labels (metres) — per-bay heights, Sep 2026 */}
+      {Array.from({ length: gridCols }, (_, col) => {
+        const h = bayHeights[col] ?? 0;
+        const stepped = bayHeights.some(v => v !== bayHeights[0]);
+        return (
+          <text key={`hl-${col}`}
+            x={PAD_L + (xPos[col] + (bayLengths[col] ?? 2.07) / 2) * SCALE}
+            y={PAD_T + 14}
+            textAnchor="middle"
+            fill={stepped ? ROOF_COLOR : DIM_COLOR} fontSize={11}
+            fontFamily="Barlow Condensed, sans-serif" letterSpacing="0.03em"
+            pointerEvents="none"
+          >
+            H {h.toFixed(1)}m
+          </text>
         );
       })}
 
@@ -371,7 +405,7 @@ function clientToSvgCoords(e, svgEl, vbW, vbH) {
 function ElevationView({ state, dispatch, face }) {
   const {
     gridCols, gridRows, bayLengths, bayWidth,
-    structureHeight, levels, placedPans,
+    levels, placedPans,
     tarps, windows, roofBays, ladderBeams = [],
     activePlacement, activePlacementMode, activeFace, tool,
     windowHeight = 1.0,
@@ -387,6 +421,14 @@ function ElevationView({ state, dispatch, face }) {
   const svgRef = useRef(null);
   const [hover, setHover] = useState(null);
   useEffect(() => { setHover(null); }, [activeFace]);
+  // Bespoke diagonal tool: first click fixes the start node, second click the
+  // end node on the OTHER standard of the same bay. The start is scoped to the
+  // mode/tool it was set in (a face change remounts this view via its key), so
+  // switching tool or mode discards it without an effect.
+  const [bespokeStartRaw, setBespokeStartRaw] = useState(null); // { mode, tool, bayIdx, side: 'L'|'R', h }
+  const bespokeStart = bespokeStartRaw && bespokeStartRaw.mode === activePlacementMode && bespokeStartRaw.tool === tool
+    ? bespokeStartRaw : null;
+  const setBespokeStart = v => setBespokeStartRaw(v ? { ...v, mode: activePlacementMode, tool } : null);
   // hover: null | { segIdx, heightFromGround, bottomNode, snappedBottom }
 
   // X segments: N/S = column lengths; E/W = row widths
@@ -403,12 +445,12 @@ function ElevationView({ state, dispatch, face }) {
   for (const s of xSegs) xPos.push(xPos[xPos.length - 1] + s);
   const totalX  = xPos[xPos.length - 1];
 
-  const lifts   = Math.round(structureHeight / NODE_STEP);
-  const yOf     = h => PAD_T + (structureHeight - h) * SCALE;
-  const yGround = yOf(0);
-
-  const vbW = PAD_L + totalX * SCALE + ELEV_PAD_R;
-  const vbH = PAD_T + structureHeight * SCALE + PAD_B + 8;
+  // ── Per-bay heights ────────────────────────────────────────────────────────
+  // The canvas extent is the TALLEST bay; every standard, ledger and brace is
+  // drawn to its own bay / leg-line height (leg line = taller neighbour).
+  const bayHeights      = resolveBayHeights(state);
+  const legHeights      = standardHeights(bayHeights);
+  const structureHeight = maxBayHeight(bayHeights);
 
   // ── Mirror helpers: segment index ↔ bay/row index ──────────────────────────
   const segToBay = seg => isReversed ? segCount - 1 - seg : seg;
@@ -420,20 +462,47 @@ function ElevationView({ state, dispatch, face }) {
     : activeFace === 'W' ? 'left'
     : 'right';
 
+  // Height of the bay behind elevation segment `seg` on this face (side faces
+  // are a single end column, so every row bay shares that column's height).
+  const segBayH = seg => {
+    if (seg == null || seg < 0 || seg >= segCount) return structureHeight;
+    return faceBayHeight(faceName, segToBay(seg), bayHeights, gridCols);
+  };
+  const faceColH = isNS ? structureHeight : faceBayHeight(faceName, 0, bayHeights, gridCols);
+  // Leg-line height at elevation x-position i (line i sits between segments i-1 and i)
+  const lineTopH = i => {
+    if (!isNS) return faceColH;
+    const colIdx = isReversed ? segCount - i : i;
+    return legHeights[colIdx] ?? structureHeight;
+  };
+
+  const lifts   = Math.round(structureHeight / NODE_STEP);
+  const yOf     = h => PAD_T + (structureHeight - h) * SCALE;
+  const yGround = yOf(0);
+
+  const vbW = PAD_L + totalX * SCALE + ELEV_PAD_R;
+  const vbH = PAD_T + structureHeight * SCALE + PAD_B + 8;
+
   const beamsOnFace = ladderBeams.filter(b => b.face === faceName && b.height != null);
 
   const roofType = roofBays && roofBays.length > 0 ? 'monoPitch' : null;
   const levelHeights = levels.map(l => l.height);
-  const ledgerHeights = getLedgerHeights(structureHeight, levelHeights);
+  const faceLedgerHeights = getFaceLedgerHeights(gridCols, gridRows, bayHeights, levelHeights);
+  const ledgerHeightsFor = seg => faceLedgerHeights[`${faceName}-${segToBay(Math.max(0, seg))}`] ?? [];
+  // Union across the face — ladder beams span the whole face
+  const ledgerHeights = Array.from(new Set(
+    Array.from({ length: segCount }, (_, s) => ledgerHeightsFor(s)).flat()
+  )).sort((a, b) => a - b);
 
   const removedLedgerSet = new Set(ledgerOverrides.removed);
   const removedBraceSet  = new Set(bracingOverrides.removed);
 
   const { ledgers: allLedgers } = getAutoLedgersWithOverrides(
-    gridCols, gridRows, ledgerHeights, ledgerOverrides, structureHeight, roofType
+    gridCols, gridRows, bayHeights, levelHeights, ledgerOverrides, roofType
   );
   const { bracing: allBracing, removedCount: removedBraceCount } = getAutoBracingWithOverrides(
-    gridCols, gridRows, ledgerHeights, bracingOverrides, structureHeight, roofType
+    gridCols, gridRows, bayHeights, bracingOverrides, roofType,
+    { pattern: state.bracingPattern, removedLedgers: ledgerOverrides.removed }
   );
 
   // Filter to this face; also build removed lists for ghost rendering
@@ -499,10 +568,14 @@ function ElevationView({ state, dispatch, face }) {
   const roofMax = roofIdxList.length > 0 ? Math.max(...roofIdxList) : null;
 
   const RUNOFF = 50; // 0.5m × SCALE
-  // Back elevation roof line sits at structureHeight - 0.5m (rear keder geometry).
+  // Roof height: tallest roofed bay on N/S faces; the end column on side faces.
+  const roofH = isNS && roofIdxList.length > 0
+    ? Math.max(...roofIdxList.map(seg => segBayH(seg)))
+    : faceColH;
+  // Back elevation roof line sits at roofH - 0.5m (rear keder geometry).
   const effectiveRoofH = activeFace === 'S'
-    ? Math.max(0, structureHeight - 0.5)
-    : structureHeight;
+    ? Math.max(0, roofH - 0.5)
+    : roofH;
   const roofLineY = yOf(effectiveRoofH);
   // N/S faces: single horizontal line at roofLineY.
   const roofLine = roofMin !== null ? {
@@ -522,8 +595,8 @@ function ElevationView({ state, dispatch, face }) {
       ? PAD_L + xPos[roofMin]     * SCALE
       : PAD_L + xPos[roofMax + 1] * SCALE;
     const overhangX  = isReversed ? frontStdX + RUNOFF : frontStdX - RUNOFF;
-    const roofFrontY = PAD_T;            // yOf(structureHeight)
-    const roofRearY  = PAD_T + RUNOFF;   // yOf(structureHeight - 0.5)
+    const roofFrontY = yOf(roofH);
+    const roofRearY  = yOf(roofH - 0.5);
     return { frontStdX, rearStdX, overhangX, roofFrontY, roofRearY };
   })() : null;
 
@@ -553,9 +626,10 @@ function ElevationView({ state, dispatch, face }) {
     if (sy < PAD_T || sy > yGround) return null;
 
     const heightFromGround = structureHeight - (sy - PAD_T) / SCALE;
+    const hoverBayH = segBayH(segIdx); // the hovered bay's own height
 
     // Tarp: snap top edge to nearest 0.5m node; bottom = top - 2m, clipped to ground
-    const faceTarpTop = getEffectiveFaceTop(faceName, structureHeight, roofType);
+    const faceTarpTop = getEffectiveFaceTop(faceName, hoverBayH, roofType);
     const snappedTarpTop = Math.min(
       Math.round(heightFromGround / NODE_STEP) * NODE_STEP,
       faceTarpTop
@@ -563,55 +637,69 @@ function ElevationView({ state, dispatch, face }) {
     const bottomNode = Math.round(Math.max(0, snappedTarpTop - TARP_H) / NODE_STEP);
 
     // Window: snap bottom to nearest node
-    const maxWinBottom = Math.max(0, structureHeight - windowHeight);
+    const maxWinBottom = Math.max(0, hoverBayH - windowHeight);
     const snappedBottom = Math.max(0, Math.min(maxWinBottom,
       Math.round(heightFromGround / NODE_STEP) * NODE_STEP
     ));
 
     // Ledger: snap to nearest 0.5m node, clamped to [0.5, effectiveFaceTop]
     const faceLedgerTop = (faceName !== 'front' && roofType === 'monoPitch')
-      ? structureHeight - 0.5
-      : structureHeight;
+      ? hoverBayH - 0.5
+      : hoverBayH;
     const snappedLedgerH = Math.max(0.5, Math.min(
       Math.round(heightFromGround / NODE_STEP) * NODE_STEP,
       faceLedgerTop
     ));
 
-    // Ladder beam: snap to nearest ledger height (ledgerHeights always includes structureHeight)
+    // Ladder beam: snap to nearest ledger height on the face (union across bays)
     const snappedLadderH = ledgerHeights.length > 0
       ? ledgerHeights.reduce((best, h) =>
           Math.abs(h - heightFromGround) < Math.abs(best - heightFromGround) ? h : best
         )
       : snappedLedgerH;
 
-    // Brace: snap to bay (segIdx already set) and nearest lift span
+    // Off-the-shelf brace: fixed 2 m span, BASE at any 0.5 m node from 0 up to
+    // (face top − 2 m). The 2 m lifts are NOT placement bands. Direction follows
+    // the cursor's half of the bay: left half → base on the left standard ('/'),
+    // right half → base on the right ('\').
+    const isBraceTool = activePlacementMode === 'brace' || activePlacementMode === 'bespoke';
     let braceSegIdx = segIdx;
     // Allow brace hover even between bays (snap to nearest)
-    if (braceSegIdx < 0 && activePlacementMode === 'brace') {
+    if (braceSegIdx < 0 && isBraceTool) {
       braceSegIdx = Math.max(0, Math.min(xSegs.length - 1,
         Math.floor(relX / ((totalX / xSegs.length) * SCALE))
       ));
     }
     let snapLiftBottom = null;
     let snapLiftTop    = null;
-    if (ledgerHeights.length > 0 && braceSegIdx >= 0) {
-      const prev = [0, ...ledgerHeights.slice(0, -1)];
-      let bestLift = 0;
-      let bestDist = Infinity;
-      for (let li = 0; li < ledgerHeights.length; li++) {
-        const midH = (prev[li] + ledgerHeights[li]) / 2;
-        const dist = Math.abs(midH - heightFromGround);
-        if (dist < bestDist) { bestDist = dist; bestLift = li; }
+    let snapDir        = '/';
+    let bespokeSide    = 'L';
+    let bespokeH       = null;
+    if (braceSegIdx >= 0 && isBraceTool) {
+      const faceTop = braceFaceTop(faceName, segToBay(braceSegIdx), bayHeights, gridCols, gridRows, roofType);
+      const segMidX = (xPos[braceSegIdx] + xPos[braceSegIdx + 1]) / 2 * SCALE;
+      const rightHalf = relX > segMidX;
+      if (activePlacementMode === 'brace') {
+        const base = manualBraceBase(heightFromGround, faceTop);
+        if (base !== null) {
+          snapLiftBottom = base;
+          snapLiftTop    = Math.round((base + BRACE_SPAN) * 100) / 100;
+        }
+        snapDir = rightHalf ? '\\' : '/'; // base on the standard nearest the cursor
+      } else {
+        // Bespoke: free node on the nearest standard (or, once a start is fixed
+        // in this bay, on the OTHER standard); any 0.5 m node up to the face top.
+        bespokeH = bespokeNode(heightFromGround, faceTop);
+        const startHere = bespokeStart && bespokeStart.bayIdx === segToBay(braceSegIdx);
+        bespokeSide = startHere ? (bespokeStart.side === 'L' ? 'R' : 'L') : (rightHalf ? 'R' : 'L');
       }
-      snapLiftBottom = prev[bestLift];
-      snapLiftTop    = ledgerHeights[bestLift];
     }
 
-    if (segIdx < 0 && activePlacementMode !== 'ledger' && activePlacementMode !== 'brace'
+    if (segIdx < 0 && activePlacementMode !== 'ledger' && !isBraceTool
         && activePlacement !== 'ladder') return null;
 
     return { segIdx: segIdx < 0 ? 0 : segIdx, heightFromGround, bottomNode, snappedTarpTop, snappedBottom,
-      snappedLedgerH, snappedLadderH, braceSegIdx, snapLiftBottom, snapLiftTop };
+      snappedLedgerH, snappedLadderH, braceSegIdx, snapLiftBottom, snapLiftTop, snapDir, bespokeSide, bespokeH };
   }
 
   function onMouseMove(e) { setHover(computeHover(e)); }
@@ -619,7 +707,27 @@ function ElevationView({ state, dispatch, face }) {
 
   function onSvgClick(e) {
     if (!hover) return;
-    const { segIdx, bottomNode, snappedBottom, heightFromGround, snappedLedgerH, braceSegIdx, snapLiftBottom, snapLiftTop } = hover;
+    const { segIdx, bottomNode, snappedBottom, heightFromGround, snappedLedgerH, braceSegIdx, snapLiftBottom, snapDir, bespokeSide, bespokeH } = hover;
+
+    // Bespoke diagonal mode: two clicks, node to node across the bay
+    if (activePlacementMode === 'bespoke' && braceSegIdx >= 0) {
+      const bayIdx = segToBay(braceSegIdx);
+      if (tool === 'delete') {
+        const hit = braceUnderCursor(bayIdx, heightFromGround);
+        if (hit) dispatch({ type: 'REMOVE_BRACE', key: hit.key });
+        return;
+      }
+      if (bespokeH === null) return;
+      if (!bespokeStart || bespokeStart.bayIdx !== bayIdx) {
+        setBespokeStart({ bayIdx, side: bespokeSide, h: bespokeH });
+        return;
+      }
+      if (Math.abs(bespokeH - bespokeStart.h) < 1e-9) return; // a diagonal needs two different heights
+      const key = bespokeBraceKey(faceName, bayIdx, bespokeStart.h, bespokeStart.side, bespokeH);
+      if (!faceBracing.some(b => b.key === key)) dispatch({ type: 'ADD_BRACE', key });
+      setBespokeStart(null);
+      return;
+    }
 
     // Ledger mode
     if (activePlacementMode === 'ledger' && snappedLedgerH !== null && segIdx >= 0) {
@@ -635,20 +743,20 @@ function ElevationView({ state, dispatch, face }) {
     }
 
     // Brace mode
-    if (activePlacementMode === 'brace' && snapLiftBottom !== null && braceSegIdx >= 0) {
+    if (activePlacementMode === 'brace' && braceSegIdx >= 0) {
       const bayIdx = segToBay(braceSegIdx);
-      const key = `${faceName}-${bayIdx}-${snapLiftBottom}-${snapLiftTop}`;
       if (tool === 'delete') {
-        const hit = faceBracing.find(b =>
-          b.bayIndex === bayIdx &&
-          heightFromGround >= b.liftBottom - 1e-9 &&
-          heightFromGround <= b.liftTop + 1e-9
-        );
+        const hit = braceUnderCursor(bayIdx, heightFromGround);
         if (hit) dispatch({ type: 'REMOVE_BRACE', key: hit.key });
-      } else {
-        if (removedBraceSet.has(key)) dispatch({ type: 'ADD_BRACE', key });
-        else if (!faceBracing.some(b => b.key === key)) dispatch({ type: 'ADD_BRACE', key });
+        return;
       }
+      if (snapLiftBottom === null) return; // bay too short for a 2 m component — not offered
+      // Direction is stored as drawn (the renderer does not mirror directions
+      // on the S/E faces either), so the placed brace matches its ghost.
+      const key = manualBraceKey(faceName, bayIdx, snapLiftBottom, snapDir);
+      const autoKey = `${faceName}-${bayIdx}-${snapLiftBottom}-${Math.round((snapLiftBottom + BRACE_SPAN) * 100) / 100}`;
+      if (removedBraceSet.has(autoKey)) dispatch({ type: 'ADD_BRACE', key: autoKey }); // restore a removed auto brace
+      else if (!faceBracing.some(b => b.key === key || b.key === autoKey)) dispatch({ type: 'ADD_BRACE', key });
       return;
     }
 
@@ -678,7 +786,7 @@ function ElevationView({ state, dispatch, face }) {
         );
         if (hitTarp) dispatch({ type: 'REMOVE_TARP', id: hitTarp.id });
       } else {
-        const faceTop = getEffectiveFaceTop(faceName, structureHeight, roofType);
+        const faceTop = getEffectiveFaceTop(faceName, segBayH(segIdx), roofType);
         const snappedTarpTop = Math.min(
           Math.round(heightFromGround / NODE_STEP) * NODE_STEP,
           faceTop
@@ -698,7 +806,7 @@ function ElevationView({ state, dispatch, face }) {
 
     } else if (activePlacement === 'window') {
       const topHeight = snappedBottom + windowHeight;
-      if (topHeight > structureHeight) return;
+      if (topHeight > segBayH(segIdx) + 1e-9) return;
 
       if (tool === 'delete') {
         const existing = elevWindows.find(wn =>
@@ -720,10 +828,22 @@ function ElevationView({ state, dispatch, face }) {
     }
   }
 
+  // Brace under the cursor in a bay — where braces overlap (e.g. an auto 0–2 m
+  // and a manual 1–3 m), the one whose mid-height is nearest the cursor wins.
+  function braceUnderCursor(bayIdx, h) {
+    let best = null, bestDist = Infinity;
+    for (const b of faceBracing) {
+      if (b.bayIndex !== bayIdx || h < b.liftBottom - 1e-9 || h > b.liftTop + 1e-9) continue;
+      const d = Math.abs((b.liftBottom + b.liftTop) / 2 - h);
+      if (d < bestDist) { bestDist = d; best = b; }
+    }
+    return best;
+  }
+
   // ── Computed hover overlays ─────────────────────────────────────────────────
   const isInteractive = activePlacement === 'tarp' || activePlacement === 'window'
     || activePlacement === 'ladder'
-    || activePlacementMode === 'ledger' || activePlacementMode === 'brace';
+    || activePlacementMode === 'ledger' || activePlacementMode === 'brace' || activePlacementMode === 'bespoke';
   const faceValid     = isFaceValid();
 
   // Tarp conflict helpers
@@ -760,24 +880,20 @@ function ElevationView({ state, dispatch, face }) {
 
   function getElevCursor() {
     if (!hover || !isInteractive) return 'default';
-    if (activePlacementMode === 'ledger' || activePlacementMode === 'brace') {
+    if (activePlacementMode === 'ledger' || activePlacementMode === 'brace' || activePlacementMode === 'bespoke') {
       if (tool === 'delete') {
         if (activePlacementMode === 'ledger' && hover.segIdx >= 0) {
           const bayIdx = segToBay(hover.segIdx);
           const key = `${faceName}-${bayIdx}-${hover.snappedLedgerH}`;
           return faceLedgers.some(l => l.key === key) ? 'pointer' : 'default';
         }
-        if (activePlacementMode === 'brace' && hover.braceSegIdx >= 0) {
-          const bayIdx = segToBay(hover.braceSegIdx);
-          const hit = faceBracing.find(b =>
-            b.bayIndex === bayIdx &&
-            hover.heightFromGround >= b.liftBottom - 1e-9 &&
-            hover.heightFromGround <= b.liftTop + 1e-9
-          );
-          return hit ? 'pointer' : 'default';
+        if (activePlacementMode !== 'ledger' && hover.braceSegIdx >= 0) {
+          return braceUnderCursor(segToBay(hover.braceSegIdx), hover.heightFromGround) ? 'pointer' : 'default';
         }
         return 'default';
       }
+      // Only the off-the-shelf tool has a "bay too short" state; bespoke is free node-to-node.
+      if (activePlacementMode === 'brace' && hover.snapLiftBottom == null) return 'not-allowed';
       return 'crosshair';
     }
     if (activePlacement === 'tarp')   return faceValid ? 'crosshair' : 'not-allowed';
@@ -816,11 +932,13 @@ function ElevationView({ state, dispatch, face }) {
         />
       ))}
 
-      {/* Per-pan elevation indicators */}
+      {/* Per-pan elevation indicators (dimmed where the bay is shorter than the level) */}
       {placedPans.map((pan) => {
         const level = levels.find(l => l.id === pan.levelId);
         if (!level) return null;
         const y = yOf(level.height) - 3;
+        const built = level.height <= (bayHeights[pan.col] ?? 0) + 1e-9;
+        const opacity = built ? 0.65 : 0.12;
         if (isNS) {
           const segIdx = bayToSeg(pan.col);
           if (segIdx < 0 || segIdx >= xSegs.length) return null;
@@ -828,7 +946,7 @@ function ElevationView({ state, dispatch, face }) {
             <rect key={`ep-${pan.id}`}
               x={PAD_L + xPos[segIdx] * SCALE} y={y}
               width={xSegs[segIdx] * SCALE} height={6}
-              fill={level.color} opacity={0.65}
+              fill={level.color} opacity={opacity}
               pointerEvents="none"
             />
           );
@@ -840,18 +958,19 @@ function ElevationView({ state, dispatch, face }) {
           <rect key={`ep-${pan.id}`}
             x={PAD_L + xPos[segIdx] * SCALE + pan.slotIndex * slotW} y={y}
             width={slotW} height={6}
-            fill={level.color} opacity={0.65}
+            fill={level.color} opacity={opacity}
             pointerEvents="none"
           />
         );
       })}
 
-      {/* Standard uprights */}
+      {/* Standard uprights — each leg line to its own height (taller neighbour) */}
       {xPos.map((x, i) => {
         const rowPos = isReversed ? segCount - i : i;
         const isRear = rearRoofRows.has(rowPos)
           || rearColIntersections.has(segCount - i);
-        const topY   = isRear ? yOf(Math.max(0, structureHeight - 0.5)) : PAD_T;
+        const lineH  = lineTopH(i);
+        const topY   = isRear ? yOf(Math.max(0, lineH - 0.5)) : yOf(lineH);
 
         // Suppressed positions (e.g. central base-only collar) — render a stub
         const colIdx = isNS ? (isReversed ? segCount - i : i) : null;
@@ -873,7 +992,8 @@ function ElevationView({ state, dispatch, face }) {
         const rowPos   = isReversed ? segCount - i : i;
         const isRear   = rearRoofRows.has(rowPos)
           || rearColIntersections.has(segCount - i);
-        const topH     = isRear ? Math.max(0, structureHeight - 0.5) : structureHeight;
+        const lineH    = lineTopH(i);
+        const topH     = isRear ? Math.max(0, lineH - 0.5) : lineH;
         const topLifts = Math.round(topH / NODE_STEP);
 
         const colIdx2 = isNS ? (isReversed ? segCount - i : i) : null;
@@ -918,13 +1038,15 @@ function ElevationView({ state, dispatch, face }) {
         const yB = yOf(b.liftBottom);
         const yT = yOf(b.liftTop);
         const [bx1, bx2] = b.direction === '/' ? [x1, x2] : [x2, x1];
-        const isRemainder = (b.liftTop - b.liftBottom) < 2.0 - 1e-9;
+        // Bespoke (free tube: sub-2m remainder lifts and node-to-node manual
+        // diagonals) draws dashed grey; off-the-shelf 2 m components solid gold.
+        const isBespoke = b.bespoke ?? ((b.liftTop - b.liftBottom) < 2.0 - 1e-9);
         return (
           <line key={`brc-${b.key}`}
             x1={bx1} y1={yB} x2={bx2} y2={yT}
-            stroke={isRemainder ? '#8a8a8a' : BRACE_COLOR}
+            stroke={isBespoke ? '#8a8a8a' : BRACE_COLOR}
             strokeWidth={1.5}
-            strokeDasharray={isRemainder ? '6 4' : undefined}
+            strokeDasharray={isBespoke ? '6 4' : undefined}
             pointerEvents="none"
           />
         );
@@ -963,15 +1085,11 @@ function ElevationView({ state, dispatch, face }) {
       })()}
 
       {/* ── Delete mode: brace hover highlight ──────────────────────────────── */}
-      {activePlacementMode === 'brace' && tool === 'delete' && hover?.braceSegIdx >= 0 && (() => {
+      {(activePlacementMode === 'brace' || activePlacementMode === 'bespoke') && tool === 'delete' && hover?.braceSegIdx >= 0 && (() => {
         const seg = hover.braceSegIdx;
         if (seg >= xSegs.length) return null;
         const bayIdx = segToBay(seg);
-        const matchedBrace = faceBracing.find(b =>
-          b.bayIndex === bayIdx &&
-          hover.heightFromGround >= b.liftBottom - 1e-9 &&
-          hover.heightFromGround <= b.liftTop + 1e-9
-        );
+        const matchedBrace = braceUnderCursor(bayIdx, hover.heightFromGround);
         if (!matchedBrace) return null;
         const dir = matchedBrace.direction;
         const x1 = PAD_L + xPos[seg] * SCALE;
@@ -988,14 +1106,37 @@ function ElevationView({ state, dispatch, face }) {
         );
       })()}
 
+      {/* ── Bespoke diagonal ghost: start marker, then start → hovered node ── */}
+      {activePlacementMode === 'bespoke' && tool !== 'delete' && hover?.bespokeH != null && hover.braceSegIdx >= 0 && (() => {
+        const seg = hover.braceSegIdx;
+        if (seg >= xSegs.length) return null;
+        const bayIdx = segToBay(seg);
+        const xL = PAD_L + xPos[seg] * SCALE;
+        const xR = PAD_L + xPos[seg + 1] * SCALE;
+        const xOf = side => side === 'L' ? xL : xR;
+        const hoverX = xOf(hover.bespokeSide), hoverY = yOf(hover.bespokeH);
+        const startHere = bespokeStart && bespokeStart.bayIdx === bayIdx;
+        return (
+          <g pointerEvents="none">
+            {startHere && (
+              <>
+                <circle cx={xOf(bespokeStart.side)} cy={yOf(bespokeStart.h)} r={5} fill="#8a8a8a" />
+                <line x1={xOf(bespokeStart.side)} y1={yOf(bespokeStart.h)} x2={hoverX} y2={hoverY}
+                  stroke="#8a8a8a" strokeWidth={2} strokeDasharray="6 4" />
+              </>
+            )}
+            <circle cx={hoverX} cy={hoverY} r={5} fill="none" stroke="#8a8a8a" strokeWidth={1.5} strokeDasharray="3 2" />
+          </g>
+        );
+      })()}
+
       {/* ── Brace ghost (hover in brace mode) ───────────────────────────────── */}
       {activePlacementMode === 'brace' && tool !== 'delete' && hover?.snapLiftBottom != null && (() => {
         const seg = hover.braceSegIdx >= 0 ? hover.braceSegIdx : 0;
         if (seg >= xSegs.length) return null;
-        const bayIdx = segToBay(seg);
-        // Use same direction formula as getAutoBracing: (bi + liftIdx) % 2
-        const bracingLiftIdx = Math.max(0, Math.round(hover.snapLiftTop / MAX_LIFT_GAP) - 1);
-        const dir = (bayIdx + bracingLiftIdx) % 2 === 0 ? '/' : '\\';
+        // Ghost: fixed 2 m span, base on the standard nearest the cursor
+        // (screen-space direction; stored direction is flipped on mirrored faces)
+        const dir = hover.snapDir;
         const x1 = PAD_L + xPos[seg] * SCALE;
         const x2 = PAD_L + xPos[seg + 1] * SCALE;
         const yB = yOf(hover.snapLiftBottom);
@@ -1093,7 +1234,7 @@ function ElevationView({ state, dispatch, face }) {
           );
         }
         // Place mode: suppress ghost on any conflict, invalid face, or out-of-bounds
-        const ghostFaceTop = getEffectiveFaceTop(faceName, structureHeight, roofType);
+        const ghostFaceTop = getEffectiveFaceTop(faceName, segBayH(idx), roofType);
         if (!faceValid || tarpProposedTop > ghostFaceTop || hasTarpWindowConflict || hasTarpTarpConflict) return null;
         const ghostPBottom = hover.bottomNode * NODE_STEP;
         const ghostPTop    = ghostPBottom > 0 ? ghostPBottom + TARP_H : hover.snappedTarpTop;
@@ -1114,7 +1255,7 @@ function ElevationView({ state, dispatch, face }) {
       {!isNS && roofLine && roofIdxList.map(idx => {
         const xL      = PAD_L + xPos[idx]     * SCALE;
         const xR      = PAD_L + xPos[idx + 1] * SCALE;
-        const yHigh   = activeFace === 'N' ? yOf(structureHeight) : yOf(structureHeight - 0.5);
+        const yHigh   = yOf(roofH - 0.5);
         const apexTopL = roofYatX(xL);
         const apexTopR = roofYatX(xR);
         const points  = `${xL},${apexTopL} ${xR},${apexTopR} ${xR},${yHigh} ${xL},${yHigh}`;
@@ -1151,7 +1292,7 @@ function ElevationView({ state, dispatch, face }) {
         const idx    = hover.segIdx;
         const bottom = hover.snappedBottom;
         const top    = bottom + windowHeight;
-        if (top > structureHeight) return null;
+        if (top > segBayH(idx) + 1e-9) return null;
         const xSeg = PAD_L + xPos[idx] * SCALE;
         const segW = xSegs[idx] * SCALE;
         const yTop = yOf(top);

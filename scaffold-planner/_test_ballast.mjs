@@ -56,8 +56,10 @@ ok(EXPOSURE_STEPUP.sheltered_inland === 1.0 && EXPOSURE_STEPUP.open_summer === 1
 }
 
 // The single reference tower the skeleton lane accepts: 1x1 grid, 2.57 x 2.57 m plan.
+// Heights are PER BAY (bayHeights) since Sep 2026; the legacy single
+// structureHeight is still accepted (checked in the per-leg block below).
 const refTower = (H) => ({
-  gridCols: 1, gridRows: 1, bayWidth: 2.57, bayLengths: [2.57], structureHeight: H,
+  gridCols: 1, gridRows: 1, bayWidth: 2.57, bayLengths: [2.57], bayHeights: [H],
 });
 const sk = (H) => computeBallast(refTower(H), { cladding: 'skeleton', exposure: 'sheltered_inland' });
 
@@ -107,12 +109,12 @@ const sk = (H) => computeBallast(refTower(H), { cladding: 'skeleton', exposure: 
 
   // Non-reference geometry -> hard stop even in-height: multi-bay...
   const multi = computeBallast(
-    { gridCols: 2, gridRows: 1, bayWidth: 2.57, bayLengths: [2.57, 2.57], structureHeight: 4 },
+    { gridCols: 2, gridRows: 1, bayWidth: 2.57, bayLengths: [2.57, 2.57], bayHeights: [4, 4] },
     { cladding: 'skeleton', exposure: 'sheltered_inland' });
   ok(multi.outOfTable === true && multi.ballastKg === null, 'multi-bay skeleton -> off-table, no figure');
   // ...and a non-2.57 m bay width.
   const narrow = computeBallast(
-    { gridCols: 1, gridRows: 1, bayWidth: 2.07, bayLengths: [2.07], structureHeight: 4 },
+    { gridCols: 1, gridRows: 1, bayWidth: 2.07, bayLengths: [2.07], bayHeights: [4] },
     { cladding: 'skeleton', exposure: 'sheltered_inland' });
   ok(narrow.outOfTable === true && narrow.ballastKg === null, '2.07 m skeleton -> off-table, no figure');
 }
@@ -159,7 +161,7 @@ const sk = (H) => computeBallast(refTower(H), { cladding: 'skeleton', exposure: 
   //   F = 0.40 x 6 x 5.14 = 12.336; M = 37.008; Fb = 28.8; W = 40.32 kN -> 4032 kg
   //   ballast = 4032 - 740x2 = 2552 kg -> ceil(2552/1100) = 3 blocks
   const cm = computeBallast(
-    { gridCols: 2, gridRows: 1, bayWidth: 2.57, bayLengths: [2.57, 2.57], structureHeight: 6 },
+    { gridCols: 2, gridRows: 1, bayWidth: 2.57, bayLengths: [2.57, 2.57], bayHeights: [6, 6] },
     { cladding: 'fully_clad', exposure: 'sheltered_inland' });
   ok(cm.geom.L_long === 5.14 && cm.geom.L_short === 2.57 && cm.geom.N_bays === 2,
      'clad 2x1: geometry mapped L_long 5.14 / L_short 2.57 / 2 bays');
@@ -172,6 +174,74 @@ const sk = (H) => computeBallast(refTower(H), { cladding: 'skeleton', exposure: 
     [o.id, computeBallast(refTower(4), { cladding: o.id, exposure: 'sheltered_inland' }).lane]));
   ok(lanes.skeleton === 'skeleton' && lanes.part_clad === 'clad' && lanes.fully_clad === 'clad',
      'cladding gate routes skeleton -> table lane; part/fully clad -> overturning lane');
+}
+
+// ── PER-LEG-LINE ballast (per-bay heights, Sep 2026) ─────────────────────────
+// Each leg line (standard column line) is estimated at ITS OWN height — the
+// taller of its two neighbouring bays — with a tributary share of the plan:
+// wind face = L_long × (half of each adjacent bay length / run); self-weight =
+// 740 kg × tributary bays (half of each adjacent bay × rows). Results are SUMMED.
+{
+  const seven = (heights) => ({
+    gridCols: 7, gridRows: 1, bayWidth: 2.57, bayLengths: Array(7).fill(2.57), bayHeights: heights,
+  });
+  const clad = (st) => computeBallast(st, { cladding: 'fully_clad', exposure: 'sheltered_inland' });
+
+  // (a) UNIFORM 7 x 2.57 m run at 6 m: the per-leg sum must reproduce the
+  // whole-structure figure exactly (slices are proportional).
+  //   L_long = 17.99, L_short = 2.57, N_bays = 7
+  //   F = 0.40 x 6 x 17.99 = 43.176; M = 129.528; Fb = 129.528/1.285 = 100.8
+  //   W = 141.12 kN -> 14112 kg; ballast = 14112 - 740x7 = 8932 kg -> ceil(8932/1100) = 9
+  const u = clad(seven(Array(7).fill(6)));
+  ok(u.legs.length === 8, `uniform: 8 leg lines (got ${u.legs.length})`);
+  ok(u.ballastKg === 8932 && u.blocks.concrete === 9,
+     `uniform 7-bay 6 m: 8932 kg, 9 blocks (got ${u.ballastKg} kg, ${u.blocks.concrete})`);
+  ok(u.detail.F === 43.18 && u.detail.W_req_kg === 14112 && u.detail.self_kg === 5180,
+     'uniform: summed intermediates equal the whole-structure derivation');
+  ok(u.stepped === false && !u.notes.some(n => n.includes('stepped builds')),
+     'uniform: not stepped, no stepped caveat');
+  // Legacy single structureHeight -> identical result (every bay takes it).
+  const legacyState = { ...seven(undefined), structureHeight: 6 };
+  delete legacyState.bayHeights;
+  const l = clad(legacyState);
+  ok(l.ballastKg === u.ballastKg && l.blocks.concrete === u.blocks.concrete && l.assumptions === u.assumptions,
+     'legacy structureHeight state gives the identical per-leg sum');
+
+  // (b) STEPPED acceptance case: 2/4/6/8/6/4/2 lifts -> 4/8/12/16/12/8/4 m.
+  // Leg heights [4,8,12,16,16,12,8,4]. Interior legs: share = 2.57/17.99 = 1/7 ->
+  // face width 2.57 = L_short, so W_kg = 1.4 x 0.4 x H^2 x 100 = 56·H^2; self 740.
+  // End legs: share 1/14 -> 28·H^2, self 370.
+  //   H=4 end:  28x16  = 448  - 370 = 78
+  //   H=8:      56x64  = 3584 - 740 = 2844
+  //   H=12:     56x144 = 8064 - 740 = 7324
+  //   H=16:     56x256 = 14336 - 740 = 13596
+  //   total = 2 x (78 + 2844 + 7324 + 13596) = 47684 kg -> ceil(47684/1100) = 44 blocks
+  const s = clad(seven([4, 8, 12, 16, 12, 8, 4]));
+  ok(s.stepped === true, 'stepped: flag set');
+  ok(s.legs.map(x => x.H).join(',') === '4,8,12,16,16,12,8,4',
+     `stepped: per-leg heights follow the taller-neighbour rule (got ${s.legs.map(x => x.H).join(',')})`);
+  ok(s.legs.map(x => x.ballastKg).join(',') === '78,2844,7324,13596,13596,7324,2844,78',
+     `stepped: per-leg kg 78/2844/7324/13596 mirrored (got ${s.legs.map(x => x.ballastKg).join(',')})`);
+  ok(s.ballastKg === 47684 && s.blocks.concrete === 44,
+     `stepped: summed 47684 kg, 44 blocks (got ${s.ballastKg} kg, ${s.blocks.concrete})`);
+  ok(s.notes[0] === 'Clad ballast figures assume a uniform structure; stepped builds need engineer confirmation.',
+     'stepped: ballast caveat is the FIRST note');
+  ok(s.notes.some(n => n.includes('Above the validated')),
+     'stepped: height-triggered caveat keys off the TALLEST bay (16 m > 7.5 m)');
+  ok(s.assumptions.includes('per leg line') && s.assumptions.includes('tallest 16m'),
+     'stepped: assumptions readout lists per-leg heights and the tallest bay');
+  ok(s.geom.H === 16 && s.geom.bayHeights.length === 7, 'stepped: geom carries tallest H + bay heights');
+
+  // (c) Skeleton lane per leg on the reference tower: two legs, same H, half
+  // the table figure each (H=3.25 -> 137.5 kg total -> 68.75 per leg -> round0 69).
+  const sk2 = computeBallast(refTower(3.25), { cladding: 'skeleton', exposure: 'sheltered_inland' });
+  ok(sk2.legs.length === 2 && sk2.legs.every(x => x.H === 3.25 && x.ballastKg === 69) && sk2.ballastKg === 138,
+     `skeleton per-leg: 2 x 69 kg -> 138 kg (got ${JSON.stringify(sk2.legs)}, ${sk2.ballastKg})`);
+  // A stepped skeleton run is multi-bay -> off-table (no figure) but still flagged stepped + caveated.
+  const sks = computeBallast(seven([4, 8, 12, 16, 12, 8, 4]), { cladding: 'skeleton', exposure: 'sheltered_inland' });
+  ok(sks.outOfTable === true && sks.ballastKg === null && sks.stepped === true &&
+     sks.notes[0].includes('stepped builds'),
+     'skeleton stepped: off-table (multi-bay), stepped caveat still shown');
 }
 
 done();

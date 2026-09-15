@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { calculateBom } from '../state/scaffoldStore';
+import { resolveBayHeights, describeHeights } from '../utils/scaffoldGeometry';
 import BallastEstimate from './BallastEstimate';
 
 // ── BOM → quote items serialisation ──────────────────────────────────────────
@@ -98,12 +99,16 @@ function buildAutoName(config) {
   const firstBay = config.bayLengths?.[0] ?? 2.57;
   const totalWidth = (cols * firstBay).toFixed(2).replace(/\.?0+$/, '');
   const totalDepth = ((config.gridRows ?? 1) * (config.bayWidth ?? 2.57)).toFixed(2).replace(/\.?0+$/, '');
-  const height = config.structureHeight ?? '?';
+  // Per-bay heights: "@ 4m" for a uniform run, "@ 4–16m stepped" otherwise
+  const heights = config.bayHeights ?? [];
+  const height = heights.length === 0 ? '?'
+    : heights.every(h => h === heights[0]) ? `${heights[0]}m`
+    : describeHeights(heights);
   const descriptors = [];
   if (config.hasRoof) descriptors.push('mono-pitch roof');
   if (config.tarps?.length > 0) descriptors.push('tarps');
   const suffix = descriptors.length > 0 ? ` — ${descriptors.join(', ')}` : '';
-  return `${totalWidth}m × ${totalDepth}m Layher scaffold @ ${height}m${suffix}`;
+  return `${totalWidth}m × ${totalDepth}m Layher scaffold @ ${height}${suffix}`;
 }
 
 const EMPTY = {
@@ -155,8 +160,14 @@ function QuoteModal({ bom, onClose, config }) {
     }
     for (const g of Object.values(topLiftGroups)) {
       warnings.push(
-        `Top lift bracing (rigger's discretion): ${g.count}× ${g.liftHeight}m lift on ${g.span}m bay${g.count > 1 ? 's' : ''} — no standard diagonal. Cut tube ≈${g.diagLen}m ×${g.count} + ${g.swivels} swivel clamps if required.`
+        `Bespoke / top-lift bracing (rigger's discretion): ${g.count}× ${g.liftHeight}m lift on ${g.span}m bay${g.count > 1 ? 's' : ''} — no standard diagonal. Cut tube ≈${g.diagLen}m ×${g.count} + ${g.swivels} swivel clamps if required.`
       );
+    }
+    for (const c of bom.openingCaveats ?? []) warnings.push(`⚠ ${c}`);
+    // Stepped structure (per-bay heights not all equal): both caveats ride with the quote.
+    if (bom.stepped) {
+      warnings.push(`Bay heights (m): ${bom.bayHeights.join('/')} — leg lines (m) ${bom.legHeights.join('/')}.`);
+      for (const c of bom.steppedCaveats ?? []) warnings.push(`⚠ ${c}`);
     }
     warnings.push('Base plate spec requires engineering confirmation per job.');
     const notes = [f.notes.trim(), ...warnings].filter(Boolean).join('\n');
@@ -499,8 +510,37 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
           <div className="bom-note">Approximate — confirm final count with engineer</div>
         </BomSection>
 
-        {(bom.removedLedgerCount > 0 || bom.removedBraceCount > 0 || bom.bracingConflicts?.length > 0) && (
+        {bom.stepped && (
+          <BomSection title="Heights (stepped)">
+            <div className="bom-row">
+              <span className="bom-label">Bays (m)</span>
+              <span className="bom-qty">{bom.bayHeights.join(' / ')}</span>
+            </div>
+            <div className="bom-row">
+              <span className="bom-label">Leg lines (m)</span>
+              <span className="bom-qty">{bom.legHeights.join(' / ')}</span>
+            </div>
+            <div className="bom-note">
+              Leg line = taller of its two bays. Tallest bay {bom.maxHeight}m.
+            </div>
+          </BomSection>
+        )}
+
+        {(bom.stepped || bom.openingCaveats?.length > 0 || bom.pansAboveBay > 0 || bom.removedLedgerCount > 0 || bom.removedBraceCount > 0 || bom.bracingConflicts?.length > 0) && (
           <BomSection title="Warnings">
+            {(bom.steppedCaveats ?? []).map((c, i) => (
+              <div key={`sc-${i}`} className="bom-note bom-note--warn">⚠ {c}</div>
+            ))}
+            {(bom.openingCaveats ?? []).map((c, i) => (
+              <div key={`oc-${i}`} className="bom-note bom-note--warn">
+                ⚠ {c} ({bom.bracingOpenings.length} auto brace position{bom.bracingOpenings.length !== 1 ? 's' : ''} skipped at openings)
+              </div>
+            ))}
+            {bom.pansAboveBay > 0 && (
+              <div className="bom-note bom-note--warn">
+                ⚠ {bom.pansAboveBay} pan{bom.pansAboveBay !== 1 ? 's' : ''} sit on a level above their bay's height — not built, not counted
+              </div>
+            )}
             {bom.removedLedgerCount > 0 && (
               <div className="bom-note bom-note--warn">
                 ⚠ {bom.removedLedgerCount} ledger{bom.removedLedgerCount !== 1 ? 's' : ''} manually removed — verify structural adequacy
@@ -624,7 +664,7 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
             bayLengths: state.bayLengths,
             gridRows: state.gridRows,
             bayWidth: state.bayWidth,
-            structureHeight: state.structureHeight,
+            bayHeights: resolveBayHeights(state),
             hasRoof: state.roofBays?.length > 0,
             tarps: state.tarps,
           }}
@@ -642,7 +682,7 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
             bayLengths: state.bayLengths,
             gridRows: state.gridRows,
             bayWidth: state.bayWidth,
-            structureHeight: state.structureHeight,
+            bayHeights: resolveBayHeights(state),
             hasRoof: state.roofBays?.length > 0,
             tarps: state.tarps,
           }}

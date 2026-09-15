@@ -384,6 +384,53 @@ select, input {
   gap: 6px;
 }
 
+/* Per-bay deck-level ticks (15 Sep 2026) — one checkbox per level per bay,
+   disabled where the bay is shorter than the level. */
+.bay-levels {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+.bay-level-tick { display: inline-flex; align-items: center; cursor: pointer; }
+.bay-level-tick input { width: 14px; height: 14px; margin: 0; cursor: pointer; }
+.bay-level-tick.is-unavailable { opacity: 0.28; cursor: not-allowed; }
+.bay-level-tick.is-unavailable input { cursor: not-allowed; }
+.bay-len-row--head { min-height: 12px; }
+.bay-len-row--head .bay-len-col { width: auto; min-width: 22px; }
+.bay-len-spacer { flex: 1; }
+.bay-level-head {
+  display: inline-block;
+  width: 17px;
+  text-align: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.level-bays {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.level-bays--none { color: #e0a040; }
+.level-all {
+  height: 18px;
+  padding: 0 5px;
+  background: transparent;
+  border: 1px solid var(--button-border);
+  color: var(--text-faint);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 10px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.level-all:hover:not(:disabled) { color: var(--text); border-color: var(--gold); }
+.level-all:disabled { opacity: 0.35; cursor: default; }
+
 .bay-len-col {
   font-size: 11px;
   color: var(--text-faint);

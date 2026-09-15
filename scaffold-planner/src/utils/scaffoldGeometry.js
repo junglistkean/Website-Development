@@ -73,6 +73,41 @@ export function standardHeights(bayHeights) {
   return out;
 }
 
+// ─── Deck-level membership (per bay, 15 Sep 2026) ────────────────────────────
+// A deck level is a named definition { id, height, color, bays } where `bays`
+// lists the COLUMN indices it exists in (a column = a bay along the run, every
+// row in it — the same axis as bayHeights). A bay is eligible for a level when
+// the level's height ≤ the bay's height (equal = a top platform). A level
+// without a `bays` list (legacy save / old fixture) counts as "every eligible
+// bay" — the pre-per-bay blanket behaviour.
+
+export function eligibleBays(height, bayHeights) {
+  const out = [];
+  for (let c = 0; c < bayHeights.length; c++) {
+    if (height <= bayHeights[c] + 1e-9) out.push(c);
+  }
+  return out;
+}
+
+// Effective member columns of a level: its own list restricted to eligible bays
+// (sorted, deduplicated); legacy levels take every eligible bay.
+export function levelBays(level, bayHeights) {
+  const elig = eligibleBays(level.height, bayHeights);
+  if (!Array.isArray(level.bays)) return elig;
+  const set = new Set(level.bays.map(Number));
+  return elig.filter(c => set.has(c));
+}
+
+// Deck-level heights per column — the per-bay ledger seed list. Column c's
+// ledgers are seeded only by the levels that exist in bay c.
+export function levelHeightsByCol(levels, bayHeights) {
+  const out = bayHeights.map(() => []);
+  for (const l of levels ?? []) {
+    for (const c of levelBays(l, bayHeights)) out[c].push(l.height);
+  }
+  return out;
+}
+
 // Height of the bay a face-ledger/brace belongs to. Front/back bays index by
 // column; the left/right faces are the end columns, so every row bay on them
 // takes that column's height.
@@ -126,18 +161,32 @@ export function getLedgerHeights(structureHeight, deckLevels = []) {
   return safe.filter(h => h > 1e-9);
 }
 
+// Column behind a face-bay: front/back bays index by column; the left face is
+// column 0 and the right face the last column (every row bay on a side shares it).
+export function faceBayColumn(face, bayIndex, bayColumns) {
+  if (face === 'left') return 0;
+  if (face === 'right') return bayColumns - 1;
+  return bayIndex;
+}
+
 // Ledger heights for every face-bay, keyed `${face}-${bayIndex}`. Each bay's
 // list is derived from ITS OWN height, so a ledger at a given lift exists only
-// in bays whose height reaches that lift.
+// in bays whose height reaches that lift. `deckLevels` is either a flat list of
+// level heights applied to every bay (legacy / global) or a PER-COLUMN list of
+// lists (levelHeightsByCol) so a level seeds ledgers only in its member bays.
 export function getFaceLedgerHeights(bayColumns, bayRows, bayHeights, deckLevels = []) {
+  const perColumn = Array.isArray(deckLevels) && deckLevels.some(Array.isArray);
+  const levelsForCol = c => perColumn ? (deckLevels[c] ?? []) : deckLevels;
   const out = {};
   const cache = {};
   for (const face of ['front', 'back', 'left', 'right']) {
     const count = (face === 'left' || face === 'right') ? bayRows : bayColumns;
     for (let bi = 0; bi < count; bi++) {
-      const h = faceBayHeight(face, bi, bayHeights, bayColumns);
-      cache[h] ??= getLedgerHeights(h, deckLevels);
-      out[`${face}-${bi}`] = cache[h];
+      const h  = faceBayHeight(face, bi, bayHeights, bayColumns);
+      const lv = levelsForCol(faceBayColumn(face, bi, bayColumns));
+      const k  = `${h}|${lv.join(',')}`;
+      cache[k] ??= getLedgerHeights(h, lv);
+      out[`${face}-${bi}`] = cache[k];
     }
   }
   return out;

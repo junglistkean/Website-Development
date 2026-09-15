@@ -1,5 +1,5 @@
 import React from 'react';
-import { resolveBayHeights, describeHeights } from '../utils/scaffoldGeometry';
+import { resolveBayHeights, describeHeights, levelBays } from '../utils/scaffoldGeometry';
 
 export default function StatusBar({ state }) {
   const {
@@ -9,8 +9,12 @@ export default function StatusBar({ state }) {
 
   const totalWidth = bayLengths.reduce((a, b) => a + b, 0).toFixed(2);
   const totalDepth = (gridRows * bayWidth).toFixed(2);
-  const heightLabel = describeHeights(resolveBayHeights(state));
+  const bayHeights  = resolveBayHeights(state);
+  const heightLabel = describeHeights(bayHeights);
   const activeLevel = levels.find(l => l.id === activeLevelId);
+  // Bays the active level is in (per-bay deck levels). The old "(Litedeck)"
+  // label here keyed off a `deckMode` field that never existed in the store.
+  const activeBays  = activeLevel ? levelBays(activeLevel, bayHeights) : [];
   const activeLabel = activePlacement ?? tool;
 
   return (
@@ -26,7 +30,7 @@ export default function StatusBar({ state }) {
         <>
           <span className="status-sep">|</span>
           <span className="status-level" style={{ color: activeLevel.color }}>
-            ● {activeLevel.id.split('_')[0]} @ {activeLevel.height}m ({activeLevel.deckMode === 'alipan' ? 'Ali Pan' : 'Litedeck'})
+            ● {activeLevel.id.split('_')[0]} @ {activeLevel.height}m ({activeBays.length === 0 ? 'in no bays' : `bays ${activeBays.map(c => `C${c + 1}`).join(' ')}`})
           </span>
         </>
       )}

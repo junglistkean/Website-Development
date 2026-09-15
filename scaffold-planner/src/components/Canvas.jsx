@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TARP_SIDE_HEIGHT, TARP_BAY_WIDTH } from '../constants/layher';
+import { derivedPans } from '../state/scaffoldStore';
 import {
   getFaceLedgerHeights,
+  levelBays,
+  eligibleBays,
+  levelHeightsByCol,
   getAutoLedgersWithOverrides,
   getAutoBracingWithOverrides,
   getEffectiveFaceTop,
@@ -71,16 +75,22 @@ function PlanView({ state, dispatch }) {
     gridCols, gridRows, bayLengths, bayWidth,
     levels, activeLevelId, tool,
     activePlacement, activePlacementMode, activeFace, tarps, windows, roofBays, renderMode,
-    placedPans,
   } = state;
 
   const svgRef = useRef(null);
   const [hover, setHover] = useState(null); // { col, row, slotIndex } | null
 
   const bayHeights = resolveBayHeights(state);
-  const levelHeightById = Object.fromEntries(levels.map(l => [l.id, l.height]));
-  // A pan is only built where its bay reaches the level's height (per-bay rule)
-  const panBuilt = pan => (levelHeightById[pan.levelId] ?? Infinity) <= (bayHeights[pan.col] ?? 0) + 1e-9;
+  // Decking is derived from per-bay deck-level membership (minus carved slots).
+  const placedPans = derivedPans(state);
+  const activeLevelBays = (() => {
+    const l = levels.find(x => x.id === activeLevelId);
+    return l ? levelBays(l, bayHeights) : [];
+  })();
+  const activeLevelEligible = (() => {
+    const l = levels.find(x => x.id === activeLevelId);
+    return l ? eligibleBays(l.height, bayHeights) : [];
+  })();
 
   const xPos   = buildXPos(gridCols, bayLengths);
   const totalW = xPos[gridCols];
@@ -127,6 +137,8 @@ function PlanView({ state, dispatch }) {
     if (isCladMode) return 'default';
     if (!isDeckMode || !activeLevel) return 'default';
     const { col, row, slotIndex } = hover;
+    // A bay shorter than the active level can never host it.
+    if (!activeLevelEligible.includes(col)) return 'not-allowed';
     const occupied = placedPans.some(
       p => p.col === col && p.row === row && p.slotIndex === slotIndex && p.levelId === activeLevelId
     );
@@ -172,7 +184,10 @@ function PlanView({ state, dispatch }) {
     if (isCladMode) return base;
     if (!isDeckMode || !isHov || !activeLevel) return base;
     if (tool === 'delete') return base;
-
+    if (!activeLevelEligible.includes(col)) return base;           // too short for the level
+    if (!activeLevelBays.includes(col)) {                          // click adds the level to this bay
+      return { fill: activeLevel.color, fillOpacity: 0.12, stroke: activeLevel.color, strokeWidth: 1.5 };
+    }
     return { fill: activeLevel.color, fillOpacity: 0.06, stroke: GRID_STROKE, strokeWidth: 1 };
   }
 
@@ -216,14 +231,12 @@ function PlanView({ state, dispatch }) {
         const y = PAD_T + pan.row * bayWidth * SCALE + pan.slotIndex * slotH;
         const w = (bayLengths[pan.col] ?? 2.07) * SCALE;
         const isActive = pan.levelId === activeLevelId;
-        const built = panBuilt(pan);
         return (
           <rect
             key={pan.id}
             x={x} y={y} width={w} height={slotH}
-            fill={level.color} fillOpacity={!built ? 0.08 : isActive ? 0.55 : 0.3}
+            fill={level.color} fillOpacity={isActive ? 0.55 : 0.3}
             stroke={level.color} strokeWidth={0.5}
-            strokeDasharray={built ? undefined : '3 3'}
             pointerEvents="none"
           />
         );
@@ -242,17 +255,29 @@ function PlanView({ state, dispatch }) {
             fontFamily="Barlow Condensed, sans-serif" letterSpacing="0.03em"
             pointerEvents="none"
           >
-            H {h.toFixed(1)}m
+            H {h.toFixed(1)}m{isDeckMode && activeLevel && !activeLevelEligible.includes(col) ? ' · below deck' : ''}
           </text>
         );
       })}
 
       {/* Slot ghost preview */}
-      {hover && !isCladMode && activePlacement !== 'roof' && activeLevel && (() => {
+      {hover && !isCladMode && activePlacement !== 'roof' && activeLevel && activeLevelEligible.includes(hover.col) && (() => {
         const { col, row, slotIndex } = hover;
         const x = PAD_L + xPos[col] * SCALE;
         const y = PAD_T + row * bayWidth * SCALE + slotIndex * slotH;
         const w = (bayLengths[col] ?? 2.07) * SCALE;
+        if (!activeLevelBays.includes(col)) {
+          // The level is not in this bay yet: placing adds the whole bay (every row).
+          if (tool === 'delete') return null;
+          return (
+            <rect
+              x={x} y={PAD_T} width={w} height={totalH * SCALE}
+              fill={activeLevel.color} fillOpacity={0.1}
+              stroke={activeLevel.color} strokeWidth={1.5} strokeDasharray="6 3"
+              pointerEvents="none"
+            />
+          );
+        }
         const occupied = placedPans.some(
           p => p.col === col && p.row === row && p.slotIndex === slotIndex && p.levelId === activeLevelId
         );
@@ -405,7 +430,7 @@ function clientToSvgCoords(e, svgEl, vbW, vbH) {
 function ElevationView({ state, dispatch, face }) {
   const {
     gridCols, gridRows, bayLengths, bayWidth,
-    levels, placedPans,
+    levels,
     tarps, windows, roofBays, ladderBeams = [],
     activePlacement, activePlacementMode, activeFace, tool,
     windowHeight = 1.0,
@@ -486,8 +511,10 @@ function ElevationView({ state, dispatch, face }) {
   const beamsOnFace = ladderBeams.filter(b => b.face === faceName && b.height != null);
 
   const roofType = roofBays && roofBays.length > 0 ? 'monoPitch' : null;
-  const levelHeights = levels.map(l => l.height);
+  // Deck levels seed ledgers only in their member bays (per-bay deck levels).
+  const levelHeights = levelHeightsByCol(levels, bayHeights);
   const faceLedgerHeights = getFaceLedgerHeights(gridCols, gridRows, bayHeights, levelHeights);
+  const placedPans = derivedPans(state);
   const ledgerHeightsFor = seg => faceLedgerHeights[`${faceName}-${segToBay(Math.max(0, seg))}`] ?? [];
   // Union across the face — ladder beams span the whole face
   const ledgerHeights = Array.from(new Set(
@@ -932,13 +959,12 @@ function ElevationView({ state, dispatch, face }) {
         />
       ))}
 
-      {/* Per-pan elevation indicators (dimmed where the bay is shorter than the level) */}
+      {/* Per-pan elevation indicators (derived: only member bay-levels have pans) */}
       {placedPans.map((pan) => {
         const level = levels.find(l => l.id === pan.levelId);
         if (!level) return null;
         const y = yOf(level.height) - 3;
-        const built = level.height <= (bayHeights[pan.col] ?? 0) + 1e-9;
-        const opacity = built ? 0.65 : 0.12;
+        const opacity = 0.65;
         if (isNS) {
           const segIdx = bayToSeg(pan.col);
           if (segIdx < 0 || segIdx >= xSegs.length) return null;

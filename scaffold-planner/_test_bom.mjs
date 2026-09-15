@@ -206,15 +206,16 @@ function makeState(over = {}) {
      'both stepped caveats present with the handover wording');
   ok(eq(bom.steppedCaveats, STEPPED_CAVEATS), 'caveats come from the shared STEPPED_CAVEATS constant');
 
-  // Decking per lift only where the bay exists at that lift: a 12 m level fully
-  // panned across all 7 bays (56 pans) is built only in the three bays >= 12 m.
+  // Decking only where the bay reaches the level: a 12 m level (legacy global
+  // level, no `bays` list = every eligible bay) exists only in the three bays
+  // >= 12 m → 24 pans; the four shorter bays are not members (per-bay deck levels,
+  // 15 Sep 2026 — replaces the old "pans above their bay" count).
   const decked = calculateBom(makeState({
     ...state,
     levels: [{ id: 'L1', height: 12 }],
-    placedPans: deckPansForBays(Array.from({ length: 7 }, (_, c) => [c, 0]), 2.57, [{ id: 'L1' }]),
   }));
-  ok(eq(decked.deckPans, { 2.57: 24 }) && decked.pansAboveBay === 32,
-     `12 m level: 24 pans built (bays 12/16/12 m), 32 above their bay (got ${JSON.stringify(decked.deckPans)}, ${decked.pansAboveBay})`);
+  ok(eq(decked.deckPans, { 2.57: 24 }) && eq(decked.deckLevels[0].bays, [2, 3, 4]),
+     `12 m level: 24 pans in the 12/16/12 m bays only (got ${JSON.stringify(decked.deckPans)}, bays ${JSON.stringify(decked.deckLevels?.[0]?.bays)})`);
   // The level sits on a 1 m node so it adds no extra ledger heights — total unchanged.
   ok(eq(decked.ledgers, { 2.57: 136 }), 'ledgers unchanged by a level sitting on a 1 m node');
 }
@@ -637,6 +638,202 @@ function makeState(over = {}) {
   ok(eq(calculateBom(run([4, 3, 5, 3, 4], 3)), calculateBom(run([4, 3, 5, 3, 4], 3, { bracingPattern: { left: { mode: 'same', lean: 'R' }, right: { mode: 'same', lean: 'L' } } }))),
      'side patterns: BOM identical');
 }
+
+// ── Fixture N — PER-BAY DECK LEVELS (15 Sep 2026) ────────────────────────────
+// Deck levels are named definitions (id, height on 0.5 m nodes) with PER-BAY
+// membership: `level.bays` = the column indices where the level exists (a
+// column = a bay along the run, every row in it — the same axis as bayHeights).
+// A bay is eligible for a level when level.height ≤ bay height (equal = a top
+// platform). Pans and gap fillers exist ONLY in member bays; a level's ledger
+// seed (its height) is likewise applied only in member bays. Membership that
+// becomes ineligible (bay lowered / level raised) auto-drops in the reducer —
+// never a phantom deck in the counts. Legacy saves (no `bays`, `placedPans`
+// list) load as "member of every eligible bay" with identical counts.
+//
+// Run used throughout: 5 × 2.57 m bays at 2 / 3 / 5 / 3 / 2 m (the Task A
+// report), L1 at 2 m.
+{
+  const H = [2, 3, 5, 3, 2];
+  const run = (over = {}) => makeState({
+    gridCols: 5, gridRows: 1, bayLengths: Array(5).fill(2.57), bayWidth: 2.57, bayHeights: H,
+    panOpenings: [], history: [], ...over,
+  });
+  const L1 = (bays, height = 2) => ({ id: 'L1', height, color: '#C9A84C', bays });
+
+  // (N0) TASK A PIN — the reported build, driven through the REAL reducer from
+  // CLEAR exactly as the sidebar does it (cols stepper, then per-bay heights).
+  // L1 (2 m) is eligible for every bay, so decking must be counted in all 5:
+  // first bay 2.57 m (8 pans) + 4 new 2.07 m-long bays (8 each, 2.57 m width).
+  {
+    let s = reducer({ history: [] }, { type: 'CLEAR' });
+    s = reducer(s, { type: 'SET_GRID_COLS', value: 5 });
+    H.forEach((h, c) => { s = reducer(s, { type: 'SET_BAY_HEIGHT', col: c, value: h }); });
+    const bom = calculateBom(s);
+    ok(eq(bom.deckPans, { 2.57: 8, 2.07: 32 }) && bom.gapFillers === 0,
+       `TASK A: 2/3/5/3/2 m run, L1 @ 2 m → decking in all 5 bays (got ${JSON.stringify(bom.deckPans)})`);
+    ok(eq(s.levels[0].bays, [0, 1, 2, 3, 4]), `TASK A: L1 is a member of every bay (got ${JSON.stringify(s.levels[0].bays)})`);
+    ok(bom.deckLevels?.length === 1 && eq(bom.deckLevels[0].bays, [0, 1, 2, 3, 4]) && bom.deckLevels[0].pans === 40,
+       `TASK A: BOM reports L1 in bays 1–5 with 40 pans (got ${JSON.stringify(bom.deckLevels)})`);
+  }
+
+  // (N1) Membership = the two 3 m bays only → pans for exactly those two bays;
+  // the 5 m bay and both 2 m bays contribute NO decking of any kind.
+  {
+    const bom = calculateBom(run({ levels: [L1([1, 3])] }));
+    ok(eq(bom.deckPans, { 2.57: 16 }) && bom.gapFillers === 0,
+       `L1 in C2+C4 only: 16 pans, no fillers (got ${JSON.stringify(bom.deckPans)}, ${bom.gapFillers})`);
+    ok(eq(bom.deckLevels[0].bays, [1, 3]) && bom.deckLevels[0].pans === 16, 'BOM deck summary lists C2, C4');
+    // 2.07 m-wide variant: 6 pans + 1 gap filler per member bay-level.
+    const w = calculateBom(run({ bayWidth: 2.07, levels: [L1([1, 3])] }));
+    ok(eq(w.deckPans, { 2.57: 12 }) && w.gapFillers === 2,
+       `2.07 m width: 12 pans + 2 gap fillers for the two member bays (got ${JSON.stringify(w.deckPans)}, ${w.gapFillers})`);
+    // The level's ledger seed applies only in member bays: L1 at 1.5 m in C2 only.
+    // 3 m bay WITH a 1.5 m level: seeds {0,1.5,3}; 0→1.5 gap (1.5 > 1 m) filled at 0.75 →
+    // snapped 1; 1.5→3 gap filled at 2.25 → snapped 2.5 → [1, 1.5, 2.5, 3]; the other
+    // 3 m bay (C4, not a member) keeps [1, 2, 3].
+    const lb = calculateBom(run({ levels: [L1([1], 1.5)] }));
+    const front = getAutoLedgers(5, 1, H, lb.levelHeightsByCol ?? [], null).filter(l => l.face === 'front');
+    const at = c => front.filter(l => l.bayIndex === c).map(l => l.height);
+    ok(eq(at(1), [1, 1.5, 2.5, 3]) && eq(at(3), [1, 2, 3]),
+       `ledger seed only in member bays: C2 [1,1.5,2.5,3], C4 [1,2,3] (got ${JSON.stringify(at(1))}, ${JSON.stringify(at(3))})`);
+    ok(eq(lb.levelHeightsByCol, [[], [1.5], [], [], []]), `BOM exposes per-column level heights (got ${JSON.stringify(lb.levelHeightsByCol)})`);
+    // Ledger totals: per bay 2 m → [1,2] (2), 3 m → [1,2,3] (3), 5 m → 5, C2 with the
+    // 1.5 m seed → [1,1.5,2.5,3] (4): front = back = 2+4+5+3+2 = 16; sides (2 m end bays) 2 each → 36.
+    // The same level in EVERY bay seeds every bay: 2 m → [1,1.5,2] (3), 3 m → 4,
+    // 5 m → seeds {0,1.5,5}: 1, then 1.5→5 in 4 → 2.5/3.5/4 → [1,1.5,2.5,3.5,4,5] (6):
+    // front = back = 3+4+6+4+3 = 20; sides 3 each → 46.
+    ok(eq(lb.ledgers, { 2.57: 36 }), `ledgers with a 1.5 m level in C2 only: 36 (got ${JSON.stringify(lb.ledgers)})`);
+    const glob = calculateBom(run({ levels: [L1([0, 1, 2, 3, 4], 1.5)] }));
+    ok(eq(glob.ledgers, { 2.57: 46 }), `same level in every bay seeds every bay: 46 ledgers (got ${JSON.stringify(glob.ledgers)})`);
+    // No membership at all → no decking, and the BOM says so.
+    const none = calculateBom(run({ levels: [L1([])] }));
+    ok(eq(none.deckPans, {}) && none.gapFillers === 0 && none.deckLevels[0].pans === 0 && eq(none.deckLevels[0].bays, []),
+       'level with no member bays: no decking, reported as such');
+  }
+
+  // (N2) L1 at 2 m ticked in a 2 m bay = a valid TOP platform (equal heights).
+  {
+    const bom = calculateBom(run({ levels: [L1([0, 1, 3])] }));
+    ok(eq(bom.deckPans, { 2.57: 24 }) && eq(bom.deckLevels[0].bays, [0, 1, 3]),
+       `2 m level in a 2 m bay counts as a top deck: 24 pans across C1/C2/C4 (got ${JSON.stringify(bom.deckPans)})`);
+    // A bay SHORTER than the level can never be a member — the reducer rejects it.
+    const s = reducer(run({ levels: [L1([1])] }), { type: 'TOGGLE_LEVEL_BAY', id: 'L1', col: 0 });
+    ok(eq(s.levels[0].bays, [0, 1]), 'TOGGLE_LEVEL_BAY ticks an eligible bay (2 m bay for a 2 m level)');
+    const s3 = reducer(run({ levels: [L1([1], 3)] }), { type: 'TOGGLE_LEVEL_BAY', id: 'L1', col: 0 });
+    ok(eq(s3.levels[0].bays, [1]), 'a 2 m bay cannot be ticked for a 3 m level (rejected, state unchanged)');
+    const off = reducer(s, { type: 'TOGGLE_LEVEL_BAY', id: 'L1', col: 1 });
+    ok(eq(off.levels[0].bays, [0]), 'toggling a member bay un-ticks it');
+    const all = reducer(run({ levels: [L1([], 3)] }), { type: 'SET_LEVEL_BAYS', id: 'L1', bays: [0, 1, 2, 3, 4] });
+    ok(eq(all.levels[0].bays, [1, 2, 3]), `SET_LEVEL_BAYS keeps only eligible bays (3 m level → C2/C3/C4) (got ${JSON.stringify(all.levels[0].bays)})`);
+  }
+
+  // (N3) Bay height reduced below a member level → membership drops, counts follow.
+  {
+    const start = run({ levels: [L1([1, 2, 3], 3)] });
+    ok(eq(calculateBom(start).deckPans, { 2.57: 24 }), 'setup: L1 @ 3 m in C2/C3/C4 → 24 pans');
+    const lowered = reducer(start, { type: 'SET_BAY_HEIGHT', col: 1, value: 2.5 });
+    ok(eq(lowered.levels[0].bays, [2, 3]), `C2 lowered to 2.5 m: L1 @ 3 m drops C2 (got ${JSON.stringify(lowered.levels[0].bays)})`);
+    ok(eq(calculateBom(lowered).deckPans, { 2.57: 16 }), 'counts follow: 16 pans');
+    // Raising the LEVEL above a member bay drops that bay too.
+    const raised = reducer(start, { type: 'UPDATE_LEVEL', id: 'L1', changes: { height: 4 } });
+    ok(eq(raised.levels[0].bays, [2]) && eq(calculateBom(raised).deckPans, { 2.57: 8 }),
+       `L1 raised to 4 m keeps only the 5 m bay (got ${JSON.stringify(raised.levels[0].bays)})`);
+    // SET ALL to a height below the level empties the membership — never a phantom.
+    const flat = reducer(start, { type: 'SET_ALL_BAY_HEIGHTS', value: 2 });
+    ok(eq(flat.levels[0].bays, []) && eq(calculateBom(flat).deckPans, {}), 'SET ALL 2 m under a 3 m level: no member bays, no pans');
+    // Carved openings in a dropped bay go with it; those in remaining bays stay.
+    const carved = reducer(reducer(start, { type: 'REMOVE_PAN', col: 1, row: 0, slotIndex: 0, levelId: 'L1' }),
+                           { type: 'REMOVE_PAN', col: 2, row: 0, slotIndex: 5, levelId: 'L1' });
+    ok(eq(calculateBom(carved).deckPans, { 2.57: 22 }), 'two carved slots → 22 pans');
+    const carvedLowered = reducer(carved, { type: 'SET_BAY_HEIGHT', col: 1, value: 2 });
+    ok(carvedLowered.panOpenings.length === 1 && carvedLowered.panOpenings[0].col === 2 && eq(calculateBom(carvedLowered).deckPans, { 2.57: 15 }),
+       `openings in a dropped bay are discarded, others kept (got ${JSON.stringify(carvedLowered.panOpenings)})`);
+    // PLACE_PAN on a carved slot re-fills it; on a non-member eligible bay it ticks the bay in.
+    const refilled = reducer(carved, { type: 'PLACE_PAN', col: 2, row: 0, slotIndex: 5, levelId: 'L1' });
+    ok(refilled.panOpenings.length === 1 && eq(calculateBom(refilled).deckPans, { 2.57: 23 }), 'PLACE_PAN re-fills a carved slot');
+    const ticked = reducer(run({ levels: [L1([1])] }), { type: 'PLACE_PAN', col: 3, row: 0, slotIndex: 2, levelId: 'L1' });
+    ok(eq(ticked.levels[0].bays, [1, 3]), 'PLACE_PAN on a non-member eligible bay ticks the whole bay in');
+    ok(reducer(run({ levels: [L1([1], 3)] }), { type: 'PLACE_PAN', col: 0, row: 0, slotIndex: 2, levelId: 'L1' }).levels[0].bays.length === 1,
+       'PLACE_PAN on an ineligible bay does nothing');
+    // New columns inherit the previous column's membership (like heights).
+    const grown = reducer(run({ levels: [L1([3, 4])] }), { type: 'SET_GRID_COLS', value: 6 });
+    ok(eq(grown.levels[0].bays, [3, 4, 5]) && eq(calculateBom(grown).deckPans, { 2.57: 16, 2.07: 8 }),
+       `new column inherits membership from the previous bay (got ${JSON.stringify(grown.levels[0].bays)})`);
+    const shrunk = reducer(carved, { type: 'SET_GRID_COLS', value: 2 });
+    ok(eq(shrunk.levels[0].bays, [1]) && shrunk.panOpenings.length === 1 && shrunk.panOpenings[0].col === 1,
+       'removing columns drops their membership and openings');
+    // ADD_LEVEL: a new level joins every bay that can host it.
+    const added = reducer(run({ levels: [L1([1, 3])] }), { type: 'ADD_LEVEL' });
+    ok(added.levels[1].height === 2.5 && eq(added.levels[1].bays, [1, 2, 3]),
+       `ADD_LEVEL (next node 2.5 m) is a member of every eligible bay (got ${added.levels[1].height} m, ${JSON.stringify(added.levels[1].bays)})`);
+  }
+
+  // (N4) LEGACY SAVE with a global deck level + placedPans list → loads as
+  // membership of every eligible bay with counts identical to the old behaviour.
+  {
+    const legacyLevel = { id: 'L1', height: 2, color: '#C9A84C' }; // no `bays`
+    const base = {
+      gridCols: 5, gridRows: 1, bayLengths: Array(5).fill(2.57), bayWidth: 2.57, bayHeights: H,
+      levels: [legacyLevel], tarps: [], windows: [], roofBays: [], ladderBeams: [],
+      ledgerOverrides: { removed: [], added: [] }, bracingOverrides: { removed: [], added: [] },
+      suppressedStdPositions: [], bomExtras: [],
+    };
+    const allPans = deckPansForBays(Array.from({ length: 5 }, (_, c) => [c, 0]), 2.57, [{ id: 'L1' }]);
+    // (a) fully panned everywhere (the common post-6-Jul save): 40 pans before and after.
+    const a = reducer({ history: [] }, { type: 'LOAD_STATE', payload: { ...base, placedPans: allPans } });
+    ok(eq(a.levels[0].bays, [0, 1, 2, 3, 4]) && a.placedPans === undefined && eq(a.panOpenings, []),
+       `legacy global level → member of every eligible bay, placedPans retired (got ${JSON.stringify(a.levels[0].bays)})`);
+    ok(eq(calculateBom(a).deckPans, { 2.57: 40 }), 'legacy load: 40 pans — identical to the old count');
+    // (b) a carved opening (one slot missing in C3) is preserved as an opening.
+    const carvedPans = allPans.filter(p => !(p.col === 2 && p.slotIndex === 4));
+    const b = reducer({ history: [] }, { type: 'LOAD_STATE', payload: { ...base, placedPans: carvedPans } });
+    ok(b.panOpenings.length === 1 && b.panOpenings[0].col === 2 && b.panOpenings[0].slotIndex === 4 && eq(calculateBom(b).deckPans, { 2.57: 39 }),
+       `legacy carved slot → panOpening, 39 pans (got ${JSON.stringify(b.panOpenings)})`);
+    // (c) pre-6-Jul pan-less level (zero pans) → filled, as the 6 Jul migration did.
+    const c = reducer({ history: [] }, { type: 'LOAD_STATE', payload: { ...base, placedPans: [] } });
+    ok(eq(c.levels[0].bays, [0, 1, 2, 3, 4]) && eq(calculateBom(c).deckPans, { 2.57: 40 }), 'legacy zero-pan level fills every eligible bay');
+    // (d) a level ABOVE some bays (12 m level on the 4/8/12/16/12/8/4 tree, Fixture D):
+    //     old behaviour counted 24 pans and flagged 32 "above their bay"; now the
+    //     three tall bays are the members and the count is the same 24.
+    const tree = { ...base, gridCols: 7, bayLengths: Array(7).fill(2.57), bayHeights: [4, 8, 12, 16, 12, 8, 4],
+      levels: [{ id: 'L1', height: 12 }],
+      placedPans: deckPansForBays(Array.from({ length: 7 }, (_, c) => [c, 0]), 2.57, [{ id: 'L1' }]) };
+    const d = reducer({ history: [] }, { type: 'LOAD_STATE', payload: tree });
+    ok(eq(d.levels[0].bays, [2, 3, 4]) && eq(calculateBom(d).deckPans, { 2.57: 24 }),
+       `legacy 12 m level on the tree → members C3/C4/C5, 24 pans as before (got ${JSON.stringify(d.levels[0].bays)})`);
+    // (e) Litedeck-decked legacy save (bomExtras mention Litedeck, pan-less level):
+    //     stays aluminium-pan-free — the level exists (member, ledger seeded) with
+    //     every slot open.
+    const e = reducer({ history: [] }, { type: 'LOAD_STATE', payload: { ...base, placedPans: [],
+      bomExtras: [{ description: "8' × 4' Litedeck panel", qty: 4 }] } });
+    ok(eq(e.levels[0].bays, [0, 1, 2, 3, 4]) && eq(calculateBom(e).deckPans, {}) && e.panOpenings.length === 40,
+       `Litedeck legacy save: level present in every bay, zero aluminium pans (got ${JSON.stringify(calculateBom(e).deckPans)}, ${e.panOpenings.length} open slots)`);
+    // (f) a post-Task-B save round-trips unchanged (membership + openings honoured, ineligible members pruned).
+    const saved = { ...base, levels: [L1([1, 3, 4])], panOpenings: [{ col: 1, row: 0, slotIndex: 7, levelId: 'L1' }, { col: 0, row: 0, slotIndex: 0, levelId: 'L1' }] };
+    const f = reducer({ history: [] }, { type: 'LOAD_STATE', payload: saved });
+    ok(eq(f.levels[0].bays, [1, 3, 4]) && f.panOpenings.length === 1 && eq(calculateBom(f).deckPans, { 2.57: 23 }),
+       `new-format save round-trips: C2/C4/C5, one opening kept, stray opening dropped, 23 pans (got ${JSON.stringify(f.panOpenings)})`);
+    const g = reducer({ history: [] }, { type: 'LOAD_STATE', payload: { ...base, levels: [L1([0, 2], 3)] } });
+    ok(eq(g.levels[0].bays, [2]), 'a saved member bay that is too short for the level is pruned on load');
+    // (h) a legacy save with a single structureHeight (pre-Sep-2026) + global level.
+    const legacyH = { ...base, bayHeights: undefined, structureHeight: 4, placedPans: allPans };
+    delete legacyH.bayHeights;
+    const h = reducer({ history: [] }, { type: 'LOAD_STATE', payload: legacyH });
+    ok(eq(h.bayHeights, [4, 4, 4, 4, 4]) && eq(h.levels[0].bays, [0, 1, 2, 3, 4]) && eq(calculateBom(h).deckPans, { 2.57: 40 }),
+       'pre-Sep-2026 save (structureHeight) + global level: every bay a member, 40 pans');
+  }
+
+  // (N5) The 5m-stage preset keeps its Litedeck semantics: L1 present in both
+  // bays (deck-frame ledgers at 0.5 m), every aluminium slot open, no pans.
+  {
+    const p = reducer({ history: [] }, { type: 'LOAD_PRESET', presetId: '5m-stage' });
+    const bom = calculateBom(p);
+    ok(eq(p.levels[0].bays, [0, 1]) && eq(bom.deckPans, {}) && bom.gapFillers === 0,
+       `preset: L1 in both bays, no aluminium pans (got ${JSON.stringify(p.levels[0].bays)}, ${JSON.stringify(bom.deckPans)})`);
+    ok(eq(bom.ledgers, { 2.57: 17 }), `preset ledgers unchanged by the deck-level model (got ${JSON.stringify(bom.ledgers)})`);
+  }
+}
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

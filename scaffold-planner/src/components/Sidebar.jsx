@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { BAY_LENGTHS, BAY_WIDTHS, WINDOW_HEIGHTS } from '../constants/layher';
 import {
   clampBayHeight, maxBayHeight, MIN_BAY_HEIGHT, MAX_BAY_HEIGHT, facePattern,
+  resolveBayHeights, levelBays, eligibleBays,
 } from '../utils/scaffoldGeometry';
+
+const levelName = id => id.split('_')[0];
 
 const FACE_NAME = { N: 'front', S: 'back', W: 'left', E: 'right' };
 const FACE_LABEL = { front: 'FRONT', back: 'BACK', left: 'SIDE L', right: 'SIDE R' };
@@ -63,7 +66,7 @@ export default function Sidebar({ state, dispatch }) {
   const {
     gridCols, gridRows, bayLengths, bayWidth,
     bayHeights = [],
-    levels, activeLevelId, placedPans,
+    levels, activeLevelId,
     activePlacement, activePlacementMode, tool,
     windowHeight = 1.0,
     activeFace = 'N', bracingPattern = {},
@@ -73,7 +76,12 @@ export default function Sidebar({ state, dispatch }) {
   const pattern = facePattern(bracingPattern, patternFace);
 
   const maxHeight = maxBayHeight(bayHeights);
-  const activeLevel = levels.find(l => l.id === activeLevelId);
+
+  // Per-bay deck-level membership (15 Sep 2026): each level lists the bays it
+  // exists in; a bay can only be ticked when its height reaches the level.
+  const resolvedHeights = resolveBayHeights(state);
+  const memberOf   = Object.fromEntries(levels.map(l => [l.id, new Set(levelBays(l, resolvedHeights))]));
+  const eligibleOf = Object.fromEntries(levels.map(l => [l.id, new Set(eligibleBays(l.height, resolvedHeights))]));
 
   // "Set all" shortcut — seeded from the first bay, applied on button / Enter.
   const [setAllDraft, setSetAllDraft] = useState(null);
@@ -180,8 +188,21 @@ export default function Sidebar({ state, dispatch }) {
         </div>
 
         <div className="sb-row sb-row--col">
-          <span className="sb-label">Bays — length · height (m)</span>
+          <span className="sb-label">Bays — length · height (m){levels.length > 0 ? ' · deck levels' : ''}</span>
           <div className="bay-lengths-grid">
+            {levels.length > 0 && (
+              <div className="bay-len-row bay-len-row--head" aria-hidden="true">
+                <span className="bay-len-col" />
+                <span className="bay-len-spacer" />
+                <span className="bay-levels">
+                  {levels.map(l => (
+                    <span key={l.id} className="bay-level-head" style={{ color: l.color }} title={`${levelName(l.id)} @ ${l.height} m`}>
+                      {levelName(l.id)}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
             {bayLengths.map((len, i) => (
               <div key={i} className="bay-len-row">
                 <span className="bay-len-col">C{i + 1}</span>
@@ -203,6 +224,30 @@ export default function Sidebar({ state, dispatch }) {
                   title={`Bay C${i + 1} height in metres (0.5 m steps)`}
                   onCommit={m => dispatch({ type: 'SET_BAY_HEIGHT', col: i, value: m })}
                 />
+                {levels.length > 0 && (
+                  <span className="bay-levels">
+                    {levels.map(l => {
+                      const eligible = eligibleOf[l.id].has(i);
+                      const member   = memberOf[l.id].has(i);
+                      const title = !eligible
+                        ? `${levelName(l.id)} @ ${l.height} m — unavailable: bay C${i + 1} is only ${resolvedHeights[i]} m`
+                        : member
+                          ? `${levelName(l.id)} @ ${l.height} m is in bay C${i + 1} — untick to remove`
+                          : `Add ${levelName(l.id)} @ ${l.height} m to bay C${i + 1}`;
+                      return (
+                        <label key={l.id} className={`bay-level-tick${eligible ? '' : ' is-unavailable'}`} title={title}>
+                          <input
+                            type="checkbox"
+                            checked={member}
+                            disabled={!eligible}
+                            onChange={() => dispatch({ type: 'TOGGLE_LEVEL_BAY', id: l.id, col: i })}
+                            style={{ accentColor: l.color }}
+                          />
+                        </label>
+                      );
+                    })}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -228,7 +273,7 @@ export default function Sidebar({ state, dispatch }) {
                 onClick={() => dispatch({ type: 'SET_ACTIVE_LEVEL', id: level.id })}
               >
                 <span className="level-swatch" style={{ background: level.color }} />
-                <span className="level-name">{level.id.split('_')[0]}</span>
+                <span className="level-name">{levelName(level.id)}</span>
                 <input
                   className="level-h-input"
                   type="number"
@@ -248,6 +293,23 @@ export default function Sidebar({ state, dispatch }) {
                   }}
                 />
                 <span className="level-unit">m</span>
+                <span
+                  className={`level-bays${memberOf[level.id].size === 0 ? ' level-bays--none' : ''}`}
+                  title="Bays this level is in — tick bays in the Bays list above"
+                >
+                  {memberOf[level.id].size === 0
+                    ? 'no bays'
+                    : [...memberOf[level.id]].sort((a, b) => a - b).map(c => `C${c + 1}`).join(' ')}
+                </span>
+                <button
+                  className="level-all"
+                  onClick={e => {
+                    e.stopPropagation();
+                    dispatch({ type: 'SET_LEVEL_BAYS', id: level.id, bays: [...eligibleOf[level.id]] });
+                  }}
+                  disabled={eligibleOf[level.id].size === 0 || eligibleOf[level.id].size === memberOf[level.id].size}
+                  title="Put this level in every bay tall enough for it"
+                >ALL</button>
                 <button
                   className="level-del"
                   onClick={e => {

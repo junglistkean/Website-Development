@@ -14,6 +14,9 @@ import {
   maxBayHeight,
   isStepped,
   clampBayHeight,
+  eligibleBays,
+  levelBays,
+  levelHeightsByCol,
   STEPPED_CAVEATS,
   OPENING_CAVEAT,
   FACES,
@@ -31,9 +34,9 @@ function slotsForWidth(bayWidth) {
   return bayWidth === 2.07 ? PANS_PER_BAY_207 : PANS_PER_BAY_257;
 }
 
-// Full pan set for the given bay cells at each level — a deck level always
-// starts fully panned (a level with no deck under it isn't buildable); the
-// delete tool carves openings from there.
+// Full pan set for the given bay cells at each level (8 × 0.32 m in a 2.57 m
+// bay, 6 in a 2.07 m bay). A member bay-level is always fully panned; the
+// delete tool carves per-slot openings (panOpenings) from there.
 // Exported for _test_bom.mjs (the 6 Jul auto-fill acceptance case) — no
 // component imports it.
 export function deckPansForBays(bays, bayWidth, levels) {
@@ -47,6 +50,60 @@ export function deckPansForBays(bays, bayWidth, levels) {
     }
   }
   return pans;
+}
+
+// ─── Per-bay deck levels (15 Sep 2026) ────────────────────────────────────────
+// Deck levels are named definitions { id, height, color, bays } — `bays` is the
+// list of COLUMN indices the level exists in (see levelBays in the geometry
+// module). Decking is DERIVED: every member bay-level is a full pan set minus
+// the slots listed in `panOpenings` ({ col, row, slotIndex, levelId }, the
+// delete tool's carved hatches). There is no stored pan list any more — the
+// old `placedPans` (blanket-filled on every grid/level change) is migrated on
+// load and never written again.
+
+const openingKey = o => `${o.col}|${o.row}|${o.slotIndex}|${o.levelId}`;
+
+// The pans that exist: member bay-levels × slots, minus openings. The ONLY
+// source of decking for the BOM and the canvas.
+export function derivedPans(state) {
+  const bayHeights = resolveBayHeights(state);
+  const rows       = state.gridRows ?? 1;
+  const bayWidth   = state.bayWidth ?? DEFAULT_BAY_WIDTH;
+  const open       = new Set((state.panOpenings ?? []).map(openingKey));
+  const pans = [];
+  for (const level of state.levels ?? []) {
+    const cells = [];
+    for (const c of levelBays(level, bayHeights)) {
+      for (let r = 0; r < rows; r++) cells.push([c, r]);
+    }
+    for (const p of deckPansForBays(cells, bayWidth, [level])) {
+      if (!open.has(openingKey(p))) pans.push(p);
+    }
+  }
+  return pans;
+}
+
+// Invariants after any height / level / grid change: membership ⊆ eligible bays
+// (a bay lowered below a level, or a level raised above a bay, drops out —
+// never a phantom deck in the counts), stored sorted and deduplicated; openings
+// only for member bay-levels, in-range rows/slots, no duplicates.
+function syncLevels(state) {
+  const bayHeights = resolveBayHeights(state);
+  const rows  = state.gridRows ?? 1;
+  const slots = slotsForWidth(state.bayWidth ?? DEFAULT_BAY_WIDTH);
+  const levels = (state.levels ?? []).map(l => ({ ...l, bays: levelBays(l, bayHeights) }));
+  const member = new Set();
+  for (const l of levels) for (const c of l.bays) member.add(`${c}|${l.id}`);
+  const seen = new Set();
+  const panOpenings = (state.panOpenings ?? []).filter(o => {
+    if (!member.has(`${o.col}|${o.levelId}`)) return false;
+    if (o.row < 0 || o.row >= rows || o.slotIndex < 0 || o.slotIndex >= slots) return false;
+    const k = openingKey(o);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return { ...state, levels, panOpenings };
 }
 
 // Transoms are DISABLED across all layouts — they generate height-driven (2 per
@@ -69,10 +126,15 @@ function makeBayHeights(cols, existing = []) {
   return out;
 }
 
-// Lower any deck level that no longer fits under the tallest bay.
-function clampLevels(levels, bayHeights) {
-  const maxH = maxBayHeight(bayHeights);
-  return levels.map(l => l.height > maxH ? { ...l, height: maxH } : l);
+// New columns inherit the previous column's deck-level membership (as they do
+// its height); columns beyond the new count are dropped. Eligibility is
+// re-checked by syncLevels afterwards.
+function growLevelBays(levels, oldCols, cols) {
+  return levels.map(l => {
+    const set = new Set((l.bays ?? []).filter(c => c < cols));
+    for (let c = oldCols; c < cols; c++) if (set.has(c - 1)) set.add(c);
+    return { ...l, bays: [...set].sort((a, b) => a - b) };
+  });
 }
 
 const initialState = {
@@ -90,11 +152,13 @@ const initialState = {
       id: 'L1',
       height: 2.0,
       color: LEVEL_COLORS[0],
+      bays: [0],          // per-bay membership (column indices) — see derivedPans
     },
   ],
   activeLevelId: 'L1',
 
-  placedPans: deckPansForBays([[0, 0]], DEFAULT_BAY_WIDTH, [{ id: 'L1' }]),
+  // Carved pan slots (delete tool) on member bay-levels — see derivedPans.
+  panOpenings: [],
   tarps: [],
   windows: [],
   roofBays: [],
@@ -154,45 +218,53 @@ function migrateTarps(state) {
 function migrateHeights(state) {
   const { structureHeight, ...rest } = state;
   const bayHeights = resolveBayHeights({ ...rest, structureHeight }).map(clampBayHeight);
-  return { ...rest, bayHeights, levels: clampLevels(rest.levels ?? [], bayHeights) };
+  return { ...rest, bayHeights };
 }
 
-// ─── Pan migration (pre-Jul-2026 saves: deck levels with no pans) ─────────────
-// Deck levels now start fully panned (deckPansForBays), but saves written before
-// that carry pan-less levels. On load, any bay-level with ZERO pans is filled;
-// one or more pans means a deliberately carved opening — left untouched. Runs on
-// the in-memory state only: the saved file is never rewritten until the user
-// saves again. Saves decked via Litedeck bomExtras (the 5m-stage preset) are
-// not filled — they must stay aluminium-pan-free.
-function migratePans(state) {
-  const cols     = state.gridCols ?? 1;
-  const rows     = state.gridRows ?? 1;
-  const bayWidth = state.bayWidth ?? DEFAULT_BAY_WIDTH;
-  const levels   = state.levels ?? [];
-  const levelIds = new Set(levels.map(l => l.id));
+// ─── Deck-level migration (saves without per-bay membership) ─────────────────
+// Saves written before per-bay deck levels (15 Sep 2026) carry GLOBAL levels
+// (no `bays`) and a stored `placedPans` list (blanket-filled since 6 Jul 2026,
+// pan-less before that). On load a global level becomes the same named level
+// with membership = every bay whose height reaches it — the counts it produces
+// are identical to the old behaviour:
+//   • a member bay-level with ≥ 1 legacy pan is a deliberately carved opening:
+//     its missing slots become panOpenings;
+//   • zero legacy pans = a pre-6-Jul pan-less level → filled (as the 6 Jul
+//     migration did) — except on a Litedeck-decked save (bomExtras mention
+//     Litedeck, e.g. the 5m-stage preset), where every slot stays open so the
+//     level exists (deck-frame ledgers) with no aluminium pans;
+//   • legacy pans on a level above their bay were never counted and are dropped
+//     (the bay is not eligible, so it cannot be a member).
+// New-format saves (levels with `bays`, `panOpenings`) pass through syncLevels
+// only. `placedPans` is retired from the state either way. In-memory only —
+// the saved file is untouched until the user saves again.
+function migrateLevels(state) {
+  const { placedPans, ...rest } = state;
+  const rows       = rest.gridRows ?? 1;
+  const bayWidth   = rest.bayWidth ?? DEFAULT_BAY_WIDTH;
+  const bayHeights = resolveBayHeights(rest);
+  const slots      = slotsForWidth(bayWidth);
+  const isLitedeckDecked = (rest.bomExtras ?? []).some(e => /litedeck/i.test(e.description ?? ''));
+  const legacyPans = Array.isArray(placedPans) ? placedPans : null;
+  const openings   = [...(rest.panOpenings ?? [])];
 
-  // Hygiene: drop pans that reference a missing level or an out-of-range slot
-  // (can happen when a partial payload is spread over the panned initial state)
-  const slots = slotsForWidth(bayWidth);
-  const placedPans = (state.placedPans ?? []).filter(p =>
-    levelIds.has(p.levelId) && p.col < cols && p.row < rows && p.slotIndex < slots
-  );
-
-  const isLitedeckDecked = (state.bomExtras ?? []).some(e => /litedeck/i.test(e.description ?? ''));
-  if (isLitedeckDecked || levels.length === 0) return { ...state, placedPans };
-
-  const decked = new Set(placedPans.map(p => `${p.col}|${p.row}|${p.levelId}`));
-  const added = [];
-  for (const level of levels) {
-    for (let c = 0; c < cols; c++) {
+  const levels = (rest.levels ?? []).map(level => {
+    if (Array.isArray(level.bays)) return level;
+    const bays = eligibleBays(level.height, bayHeights);
+    for (const c of bays) {
       for (let r = 0; r < rows; r++) {
-        if (!decked.has(`${c}|${r}|${level.id}`)) {
-          added.push(...deckPansForBays([[c, r]], bayWidth, [level]));
+        const here = new Set((legacyPans ?? [])
+          .filter(p => p.col === c && p.row === r && p.levelId === level.id)
+          .map(p => p.slotIndex));
+        if (here.size === 0 && !isLitedeckDecked) continue;           // fill
+        for (let sl = 0; sl < slots; sl++) {
+          if (!here.has(sl)) openings.push({ col: c, row: r, slotIndex: sl, levelId: level.id });
         }
       }
     }
-  }
-  return { ...state, placedPans: [...placedPans, ...added] };
+    return { ...level, bays };
+  });
+  return syncLevels({ ...rest, levels, panOpenings: openings });
 }
 
 // ─── Undo helpers ─────────────────────────────────────────────────────────────
@@ -221,9 +293,12 @@ function preset5mStage() {
     bayLengths: [2.57, 2.57],
     bayWidth: 2.57,
     bayHeights: [3.0, 3.0],
-    levels: [{ id: 'L1', height: 0.5, color: LEVEL_COLORS[0] }],
+    // L1 is the 0.5 m deck frame in BOTH bays (ledgers seeded), decked with
+    // Litedeck via bomExtras — every aluminium slot is left open, so no pans.
+    levels: [{ id: 'L1', height: 0.5, color: LEVEL_COLORS[0], bays: [0, 1] }],
     activeLevelId: 'L1',
-    placedPans: [],
+    panOpenings: deckPansForBays([[0, 0], [1, 0]], 2.57, [{ id: 'L1' }])
+      .map(({ col, row, slotIndex, levelId }) => ({ col, row, slotIndex, levelId })),
     roofBays: [[0, 0], [1, 0]],
     ladderBeams: [
       { id: 'preset-lb-front',   face: 'front', height: 3.0 },
@@ -270,18 +345,9 @@ function reducer(state, action) {
 
     case 'SET_BAY_WIDTH': {
       if (action.value === state.bayWidth) return state;
-      // Slot count changes with width (8 ↔ 6): rebuild every decked bay-level
-      // to a full pan set under the new width; bays cleared of pans stay cleared.
-      const decked = [];
-      const seen = new Set();
-      for (const p of state.placedPans) {
-        const k = `${p.col}|${p.row}|${p.levelId}`;
-        if (!seen.has(k)) { seen.add(k); decked.push([[p.col, p.row], p.levelId]); }
-      }
-      const placedPans = decked.flatMap(([bay, levelId]) =>
-        deckPansForBays([bay], action.value, [{ id: levelId }])
-      );
-      return record({ ...state, bayWidth: action.value, placedPans }, state);
+      // Slot count changes with width (8 ↔ 6): membership is unchanged, every
+      // member bay-level goes back to a full pan set (carved slots are dropped).
+      return record({ ...state, bayWidth: action.value, panOpenings: [] }, state);
     }
 
     // Per-bay height (metres, 0.5 m nodes — entered in metres by the Sidebar).
@@ -292,57 +358,46 @@ function reducer(state, action) {
       if (h === state.bayHeights[col]) return state;
       const bayHeights = [...state.bayHeights];
       bayHeights[col] = h;
-      return record({ ...state, bayHeights, levels: clampLevels(state.levels, bayHeights) }, state);
+      // Deck levels this bay can no longer host drop out of it (syncLevels).
+      return record(syncLevels({ ...state, bayHeights }), state);
     }
 
     // "Set all" shortcut — a uniform structure is still one entry.
     case 'SET_ALL_BAY_HEIGHTS': {
       const h = clampBayHeight(action.value);
       const bayHeights = Array.from({ length: state.gridCols }, () => h);
-      return record({ ...state, bayHeights, levels: clampLevels(state.levels, bayHeights) }, state);
+      return record(syncLevels({ ...state, bayHeights }), state);
     }
 
     case 'SET_GRID_COLS': {
       const cols = Math.max(1, Math.min(16, action.value));
       const newLengths = makeBayLengths(cols, state.bayLengths);
       const newHeights = makeBayHeights(cols, state.bayHeights);
-      // New columns start fully panned on every level (see deckPansForBays)
-      const newColBays = [];
-      for (let c = state.gridCols; c < cols; c++)
-        for (let r = 0; r < state.gridRows; r++) newColBays.push([c, r]);
-      return record({
+      // New columns inherit the previous bay's deck levels (growLevelBays);
+      // dropped columns lose their membership and openings (syncLevels).
+      return record(syncLevels({
         ...state,
         gridCols: cols,
         bayLengths: newLengths,
         bayHeights: newHeights,
-        levels: clampLevels(state.levels, newHeights),
-        placedPans: [
-          ...state.placedPans.filter(p => p.col < cols),
-          ...deckPansForBays(newColBays, state.bayWidth, state.levels),
-        ],
+        levels: growLevelBays(state.levels, state.gridCols, cols),
         tarps: state.tarps.filter(t => (t.face === 'left' || t.face === 'right') || t.bayIndex < cols),
         windows: state.windows.filter(w => w.col < cols),
         roofBays: state.roofBays.filter(([c]) => c < cols),
-      }, state);
+      }), state);
     }
 
     case 'SET_GRID_ROWS': {
       const rows = Math.max(1, Math.min(16, action.value));
-      // New rows start fully panned on every level (see deckPansForBays)
-      const newRowBays = [];
-      for (let c = 0; c < state.gridCols; c++)
-        for (let r = state.gridRows; r < rows; r++) newRowBays.push([c, r]);
-      return record({
+      // Membership is per column, so new rows are decked wherever the column is;
+      // openings in dropped rows go (syncLevels).
+      return record(syncLevels({
         ...state,
         gridRows: rows,
-        placedPans: [
-          ...state.placedPans.filter(p => p.row < rows),
-          ...deckPansForBays(newRowBays, state.bayWidth, state.levels),
-        ],
         tarps: state.tarps.filter(t => (t.face === 'front' || t.face === 'back') || t.bayIndex < rows),
         windows: state.windows.filter(w => w.row < rows),
         roofBays: state.roofBays.filter(([, r]) => r < rows),
-      }, state);
+      }), state);
     }
 
     case 'SET_BAY_LENGTH': {
@@ -355,22 +410,18 @@ function reducer(state, action) {
       const idx = state.levels.length;
       const maxExisting = idx > 0 ? Math.max(...state.levels.map(l => l.height)) : 0;
       const nextH = Math.round((maxExisting + 0.5) * 2) / 2;
+      const height = Math.min(maxBayHeight(state.bayHeights), Math.max(0.5, nextH));
+      // A new level joins every bay that can host it, fully panned.
       const newLevel = {
         id: `L${idx + 1}_${Date.now()}`,
-        height: Math.min(maxBayHeight(state.bayHeights), Math.max(0.5, nextH)),
+        height,
         color: LEVEL_COLORS[idx % LEVEL_COLORS.length],
+        bays: eligibleBays(height, resolveBayHeights(state)),
       };
-      const allBays = [];
-      for (let c = 0; c < state.gridCols; c++)
-        for (let r = 0; r < state.gridRows; r++) allBays.push([c, r]);
       return record({
         ...state,
         levels: [...state.levels, newLevel],
         activeLevelId: newLevel.id,
-        placedPans: [
-          ...state.placedPans,
-          ...deckPansForBays(allBays, state.bayWidth, [newLevel]),
-        ],
       }, state);
     }
 
@@ -383,7 +434,7 @@ function reducer(state, action) {
         ...state,
         levels: remaining,
         activeLevelId: nextActiveId,
-        placedPans: state.placedPans.filter(p => p.levelId !== action.id),
+        panOpenings: (state.panOpenings ?? []).filter(o => o.levelId !== action.id),
       }, state);
     }
 
@@ -391,38 +442,73 @@ function reducer(state, action) {
       const changes = action.changes.height !== undefined
         ? { ...action.changes, height: Math.min(maxBayHeight(state.bayHeights), action.changes.height) }
         : action.changes;
-      return record({
+      // A raised level drops out of bays that can no longer host it (syncLevels).
+      return record(syncLevels({
         ...state,
         levels: state.levels.map(l =>
           l.id === action.id ? { ...l, ...changes } : l
         ),
-      }, state);
+      }), state);
+    }
+
+    // Per-bay membership: set the whole list (ineligible bays are dropped).
+    case 'SET_LEVEL_BAYS': {
+      if (!state.levels.some(l => l.id === action.id)) return state;
+      const bays = [...new Set((action.bays ?? []).map(Number).filter(c => c >= 0 && c < state.gridCols))];
+      return record(syncLevels({
+        ...state,
+        levels: state.levels.map(l => l.id === action.id ? { ...l, bays } : l),
+      }), state);
+    }
+
+    // Tick / un-tick one bay for a level. Ticking a bay shorter than the level
+    // is rejected (state unchanged) — it can never host the deck.
+    case 'TOGGLE_LEVEL_BAY': {
+      const level = state.levels.find(l => l.id === action.id);
+      const { col } = action;
+      if (!level || col < 0 || col >= state.gridCols) return state;
+      const bayHeights = resolveBayHeights(state);
+      const current = levelBays(level, bayHeights);
+      let bays;
+      if (current.includes(col)) {
+        bays = current.filter(c => c !== col);
+      } else {
+        if (!eligibleBays(level.height, bayHeights).includes(col)) return state;
+        bays = [...current, col];
+      }
+      return record(syncLevels({
+        ...state,
+        levels: state.levels.map(l => l.id === action.id ? { ...l, bays } : l),
+      }), state);
     }
 
     case 'SET_ACTIVE_LEVEL':
       return { ...state, activeLevelId: action.id, activePlacementMode: 'deck', activePlacement: null, activeView: 'plan' };
 
+    // Plan-view place tool. On a bay the level is NOT in: tick the whole bay in
+    // (if eligible). On a member bay: re-fill a carved slot. Otherwise no-op.
     case 'PLACE_PAN': {
       const { col, row, slotIndex, levelId } = action;
-      const occupied = state.placedPans.some(
-        p => p.col === col && p.row === row && p.slotIndex === slotIndex && p.levelId === levelId
-      );
-      if (occupied) return state;
-      const id = `pan-${col}-${row}-${slotIndex}-${levelId}`;
-      return record({
-        ...state,
-        placedPans: [...state.placedPans, { id, col, row, slotIndex, levelId }],
-      }, state);
+      const level = state.levels.find(l => l.id === levelId);
+      if (!level) return state;
+      if (!levelBays(level, resolveBayHeights(state)).includes(col)) {
+        return reducer(state, { type: 'TOGGLE_LEVEL_BAY', id: levelId, col });
+      }
+      const k = openingKey({ col, row, slotIndex, levelId });
+      const panOpenings = (state.panOpenings ?? []).filter(o => openingKey(o) !== k);
+      if (panOpenings.length === (state.panOpenings ?? []).length) return state;
+      return record({ ...state, panOpenings }, state);
     }
 
+    // Plan-view delete tool: carve one slot out of a member bay-level.
     case 'REMOVE_PAN': {
       const { col, row, slotIndex, levelId } = action;
-      return record({
-        ...state,
-        placedPans: state.placedPans.filter(
-          p => !(p.col === col && p.row === row && p.slotIndex === slotIndex && p.levelId === levelId)
-        ),
-      }, state);
+      const level = state.levels.find(l => l.id === levelId);
+      if (!level || !levelBays(level, resolveBayHeights(state)).includes(col)) return state;
+      if (slotIndex < 0 || slotIndex >= slotsForWidth(state.bayWidth) || row < 0 || row >= state.gridRows) return state;
+      const opening = { col, row, slotIndex, levelId };
+      if ((state.panOpenings ?? []).some(o => openingKey(o) === openingKey(opening))) return state;
+      return record({ ...state, panOpenings: [...(state.panOpenings ?? []), opening] }, state);
     }
 
     case 'SET_TOOL':
@@ -640,7 +726,7 @@ function reducer(state, action) {
       return { ...initialState, history: [] };
 
     case 'LOAD':
-      return migratePans(migrateHeights({ ...migrateTarps(action.state), history: [] }));
+      return migrateLevels(migrateHeights({ ...migrateTarps(action.state), history: [] }));
 
     case 'LOAD_STATE': {
       // A legacy save (structureHeight, no bayHeights) must not inherit the
@@ -649,7 +735,7 @@ function reducer(state, action) {
       const p = action.payload ?? {};
       const legacy = !Array.isArray(p.bayHeights) && typeof p.structureHeight === 'number';
       const base = legacy ? { ...initialState, bayHeights: undefined } : initialState;
-      return migratePans(migrateHeights(migrateTarps({ ...base, ...p, history: [] })));
+      return migrateLevels(migrateHeights(migrateTarps({ ...base, ...p, history: [] })));
     }
 
     // Stamp the QB stage-lineage id after a successful "pending layout" push.
@@ -685,7 +771,7 @@ function calcStandardStack(height, stackPref) {
 export function calculateBom(state) {
   const {
     gridCols, gridRows, bayLengths, bayWidth,
-    levels, placedPans = [], tarps, windows, roofBays, ladderBeams,
+    levels = [], tarps, windows, roofBays, ladderBeams,
     ledgerOverrides = { removed: [], added: [] },
     bracingOverrides = { removed: [], added: [] },
     suppressedStdPositions = [],
@@ -759,11 +845,12 @@ export function calculateBom(state) {
   // Ledgers — derive from geometry with overrides. Each bay's ledger heights
   // come from ITS OWN height, so a lift's ledgers exist only in bays that reach it.
   const roofType = roofBays && roofBays.length > 0 ? 'monoPitch' : null;
-  const levelHeights = levels.map(l => l.height);
-  const faceLedgerHeights = getFaceLedgerHeights(gridCols, gridRows, bayHeights, levelHeights);
+  // Deck levels seed ledgers only in their member bays (per-bay deck levels).
+  const levelsByCol = levelHeightsByCol(levels, bayHeights);
+  const faceLedgerHeights = getFaceLedgerHeights(gridCols, gridRows, bayHeights, levelsByCol);
 
   const { ledgers: ledgerList, removedCount: removedLedgerCount } =
-    getAutoLedgersWithOverrides(gridCols, gridRows, bayHeights, levelHeights, ledgerOverrides, roofType);
+    getAutoLedgersWithOverrides(gridCols, gridRows, bayHeights, levelsByCol, ledgerOverrides, roofType);
 
   // Ledgers at the same face+height as a ladder beam are replaced by the beam — suppress them
   const beamFaceHeights = new Set(
@@ -861,17 +948,10 @@ export function calculateBom(state) {
     ledgers[2.57] = (ledgers[2.57] ?? 0) + 3;
   }
 
-  // Decking — one entry per placed pan; pan length = bay length. A pan is only
-  // built where its bay exists at that level's height (per-bay rule): pans on a
-  // level above a shorter bay are kept in state (they return if the bay is
-  // raised again) but excluded here and reported in pansAboveBay.
-  const levelHeightById = Object.fromEntries(levels.map(l => [l.id, l.height]));
-  const panExists = p => {
-    const lh = levelHeightById[p.levelId];
-    return lh !== undefined && lh <= (bayHeights[p.col] ?? maxHeight) + 1e-9;
-  };
-  const builtPans = placedPans.filter(panExists);
-  const pansAboveBay = placedPans.length - builtPans.length;
+  // Decking — derived per bay, per level, only where the level is a member of
+  // the bay (derivedPans: member bay-levels × slots, minus carved openings).
+  // Pan length = bay length. Non-member bays contribute no decking of any kind.
+  const builtPans = derivedPans({ ...state, levels, bayHeights });
 
   const deckPans = {};
   for (const pan of builtPans) {
@@ -885,6 +965,17 @@ export function calculateBom(state) {
     bayWidth === 2.07 ? builtPans.map(p => `${p.col},${p.row},${p.levelId}`) : []
   );
   const gapFillers = gapFillerBays.size;
+
+  // Per-level summary for the schedule: member bays, pans and fillers each.
+  const deckLevels = levels.map(l => {
+    const mine = builtPans.filter(p => p.levelId === l.id);
+    return {
+      id: l.id, height: l.height,
+      bays: levelBays(l, bayHeights),
+      pans: mine.length,
+      gapFillers: bayWidth === 2.07 ? new Set(mine.map(p => `${p.col},${p.row}`)).size : 0,
+    };
+  });
 
   // Roof kits
   const roofKitCount = roofBays.length;
@@ -955,7 +1046,8 @@ export function calculateBom(state) {
     bracingOpenings,
     openingCaveats,
     braceOverlaps,
-    pansAboveBay,
+    deckLevels,
+    levelHeightsByCol: levelsByCol,
     standards,
     ledgers,
     transoms,

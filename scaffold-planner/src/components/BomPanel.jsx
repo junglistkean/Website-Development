@@ -164,6 +164,12 @@ function QuoteModal({ bom, onClose, config }) {
       );
     }
     for (const c of bom.openingCaveats ?? []) warnings.push(`⚠ ${c}`);
+    // Per-bay deck levels: say where each deck is (and flag any level in no bay).
+    for (const l of bom.deckLevels ?? []) {
+      const name = l.id.split('_')[0];
+      if (l.bays.length === 0) warnings.push(`⚠ Deck level ${name} @ ${l.height}m is not in any bay — no decking counted for it`);
+      else warnings.push(`Deck ${name} @ ${l.height}m in bay${l.bays.length > 1 ? 's' : ''} ${l.bays.map(c => `C${c + 1}`).join(', ')} — ${l.pans} pan${l.pans !== 1 ? 's' : ''}${l.gapFillers ? ` + ${l.gapFillers} gap filler${l.gapFillers !== 1 ? 's' : ''}` : ''}`);
+    }
     // Stepped structure (per-bay heights not all equal): both caveats ride with the quote.
     if (bom.stepped) {
       warnings.push(`Bay heights (m): ${bom.bayHeights.join('/')} — leg lines (m) ${bom.legHeights.join('/')}.`);
@@ -526,7 +532,7 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
           </BomSection>
         )}
 
-        {(bom.stepped || bom.openingCaveats?.length > 0 || bom.braceOverlaps?.length > 0 || bom.pansAboveBay > 0 || bom.removedLedgerCount > 0 || bom.removedBraceCount > 0 || bom.bracingConflicts?.length > 0) && (
+        {(bom.stepped || bom.openingCaveats?.length > 0 || bom.braceOverlaps?.length > 0 || (bom.deckLevels ?? []).some(l => l.bays.length === 0) || bom.removedLedgerCount > 0 || bom.removedBraceCount > 0 || bom.bracingConflicts?.length > 0) && (
           <BomSection title="Warnings">
             {(bom.steppedCaveats ?? []).map((c, i) => (
               <div key={`sc-${i}`} className="bom-note bom-note--warn">⚠ {c}</div>
@@ -536,11 +542,11 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
                 ⚠ {c} ({bom.bracingOpenings.length} auto brace position{bom.bracingOpenings.length !== 1 ? 's' : ''} skipped at openings)
               </div>
             ))}
-            {bom.pansAboveBay > 0 && (
-              <div className="bom-note bom-note--warn">
-                ⚠ {bom.pansAboveBay} pan{bom.pansAboveBay !== 1 ? 's' : ''} sit on a level above their bay's height — not built, not counted
+            {(bom.deckLevels ?? []).filter(l => l.bays.length === 0).map(l => (
+              <div key={`dl-${l.id}`} className="bom-note bom-note--warn">
+                ⚠ Deck level {l.id.split('_')[0]} @ {l.height}m is not in any bay — no decking counted for it
               </div>
-            )}
+            ))}
             {(bom.braceOverlaps ?? []).map((o, i) => (
               <div key={`bo-${i}`} className="bom-note bom-note--warn">
                 ⚠ Manual brace {o.face} bay {o.bayIndex + 1} ({o.manual[0]}–{o.manual[1]} m) overlaps auto brace ({o.auto[0]}–{o.auto[1]} m) — draws as an X; delete one if unintended
@@ -579,6 +585,11 @@ export default function BomPanel({ state, dispatch, isInternal, visible = true, 
             {bom.gapFillers > 0 && (
               <BomRow label="0.19m gap filler" qty={bom.gapFillers} />
             )}
+            {(bom.deckLevels ?? []).filter(l => l.bays.length > 0).map(l => (
+              <div key={`dk-${l.id}`} className="bom-note">
+                {l.id.split('_')[0]} @ {l.height}m — bay{l.bays.length > 1 ? 's' : ''} {l.bays.map(c => `C${c + 1}`).join(', ')}: {l.pans} pan{l.pans !== 1 ? 's' : ''}{l.gapFillers ? ` + ${l.gapFillers} gap filler${l.gapFillers !== 1 ? 's' : ''}` : ''}
+              </div>
+            ))}
           </BomSection>
         )}
 

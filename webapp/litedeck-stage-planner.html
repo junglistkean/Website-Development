@@ -1120,6 +1120,48 @@ const CLAMP_DEDUCT = 40;
 // ── Ramp constants ────────────────────────────────────────────────────────────
 const RAMP_HINGE_DEPTH_MM  = 50;       // measured physical hardware — do not change
 const RAMP_BOTTOM_MM       = 1219.2;   // 4'×4' ramp bottom unit, always 1 per width column
+
+// ── Deck-floor rule (2026-09-29, ported from the internal planner) ───────────
+// A LiteDeck is 175mm deep. A deck end AT the floor sits directly on the floor at
+// 175mm with no legs; no deck end can ever be lower. A flight whose target end
+// would land below 175mm ends AT 175mm — gentler than the target, never steeper.
+const DECK_FLOOR_MM = PANEL_BODY_MM;
+function deckFloorRise(startMm, riseMm) { return Math.min(riseMm, Math.max(0, startMm - DECK_FLOOR_MM)); }
+// ── Ramp gradient labelling (2026-09-28, ported from the internal planner) ──
+// `gradient` is the ratio the FLIGHTS are laid at; the 4ft ramp bottom takes the
+// remaining drop from the last flight's end (≥175mm by the deck-floor rule) to
+// the ground, so its own transition gradient is steeper by design.
+// Labels state both parts. Derived from stored fields — old layouts re-label on
+// load. Red flag ONLY when a flight itself is steeper than 1:12.
+function rampBottomDropMm(ramp) {
+  if (!ramp || ramp.runMode === 'fixed') return null;
+  const fl = (ramp.flights || []).filter(s => s.type === 'flight');
+  let end = null;
+  if (fl.length && fl[fl.length - 1].heightAtEnd != null) end = fl[fl.length - 1].heightAtEnd;
+  else if (ramp.stageHeight != null && ramp.slopedRun > 0 && ramp.gradient > 0)
+    end = ramp.stageHeight - ramp.slopedRun / ramp.gradient;
+  else if (ramp.stageHeight != null) end = ramp.stageHeight;
+  if (end == null || !isFinite(end)) return null;
+  return end;   // true geometry — the deck-floor rule guarantees ≥175mm
+}
+function fmtGradientRatio(x) {
+  const r = Math.round(x * 10) / 10;
+  return '1:' + (Number.isInteger(r) ? String(r) : r.toFixed(1));
+}
+function rampBottomTransition(ramp) {
+  const d = rampBottomDropMm(ramp);
+  return d == null ? null : fmtGradientRatio(RAMP_BOTTOM_MM / d);
+}
+function rampFlightTooSteep(ramp) {
+  const fl = (ramp.flights || []).filter(s => s.type === 'flight');
+  if (fl.length) return fl.some(f => f.riseMm > 0 && f.goingMm / f.riseMm < 12 - 1e-6);
+  return ramp.gradient < 12;
+}
+function rampGradientLabel(ramp, sep) {
+  const bt = rampBottomTransition(ramp);
+  return 'Ramp 1:' + ramp.gradient + (bt ? (sep == null ? ' · ' : sep) + 'bottom transition ' + bt : '');
+}
+
 const USE_LANDING_SPLITS   = true;
 const LANDING_PANEL_DEPTH_MM = 1219.2;                       // one 4ft panel
 const LANDING_DEPTH_MM       = 2 * LANDING_PANEL_DEPTH_MM;  // 2,438.4mm
@@ -1261,6 +1303,11 @@ function rampPanelFill(theoreticalRun, riseMm, gradientDenominator, heightTolera
   const checkOvershoot = riseMm != null && gradientDenominator != null && heightTolerance != null;
   while (remaining > 0) {
     const sz = remaining > 1219.2 ? SIZES[0] : SIZES[1];
+    // Ramp-bottom stop, 225mm (Raven ruling 2026-09-28): panels run at the target
+    // gradient down to near the minimum deck height; the 4ft ramp bottom takes the
+    // final drop from minimum deck height (175mm) to the floor, so the fill stops
+    // once the remaining rise at the target is ≤225mm. The bottom's own transition
+    // gradient is labelled (rampBottomTransition) — the fill is not extended.
     if (gradientDenominator != null && remaining / gradientDenominator <= 225) break;
     if (checkOvershoot && (goingSoFar + sz.lengthMm) / gradientDenominator > riseMm + heightTolerance) break;
     result.push({ ...sz });
@@ -1289,7 +1336,7 @@ function splitRampIntoFlights(totalRiseMm, gradientDenominator) {
     const theoreticalGoing = theoreticalRise * gradientDenominator;
     const panels           = rampPanelFill(theoreticalGoing, theoreticalRise, gradientDenominator, 100);
     const actualGoing      = panels.reduce((s, p) => s + p.lengthMm, 0);
-    const actualRise       = actualGoing / gradientDenominator;
+    const actualRise       = deckFloorRise(heightNow, actualGoing / gradientDenominator);   // deck-floor rule: never below 175mm
     segments.push({
       type: 'flight', riseMm: actualRise, goingMm: actualGoing,
       heightAtStart: heightNow, heightAtEnd: heightNow - actualRise,
@@ -1364,7 +1411,7 @@ function computeRampFlights(anchorGx, anchorGy, direction, gradient, widthCols, 
           const panelCount = countPanelsAtRampNode(rowIdx, colIdx, totalRows, widthCols);
           const nodeType   = panelCount >= 3 ? 'internal' : panelCount >= 2 ? 'edge' : 'corner';
           const splCount   = nodeType === 'corner' ? 0 : 1;
-          if (effectiveH < PANEL_BODY_MM) {
+          if (effectiveH <= PANEL_BODY_MM + 1e-6) {   // at the floor (175mm) = floor joint, no leg
             const leg = { rowIdx, colIdx, heightAtNode: Math.round(heightAtNode), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: depthPanels[rowIdx-1].sizeFt, nodeType, splitterCount: splCount, legResult: null, lowNode: true };
             fLegs.push(leg); allFltLegs.push(leg);
             continue;
@@ -1484,7 +1531,7 @@ function addRamp(anchorGx, anchorGy, direction, gradient, widthFt, tierId) {
         const panelCount = countPanelsAtRampNode(rowIdx, colIdx, totalRows, widthCols);
         const nodeType   = panelCount >= 3 ? 'internal' : panelCount >= 2 ? 'edge' : 'corner';
         const splCount   = nodeType === 'corner' ? 0 : 1;
-        if (effectiveH < PANEL_BODY_MM) {
+        if (effectiveH <= PANEL_BODY_MM + 1e-6) {   // at the floor (175mm) = floor joint, no leg
           legs.push({ rowIdx, colIdx, heightAtNode: Math.round(heightAtNode), effectiveH: Math.round(effectiveH), cumDepthMm: Math.round(cumDepthMm), panelSizeFt: depthPanels[rowIdx-1].sizeFt, nodeType, splitterCount: splCount, legResult: null, lowNode: true });
           continue;
         }
@@ -3513,8 +3560,11 @@ function drawRampsOnCanvas() {
         if (bMin >= 30) {
           ctx.fillStyle = labelCol; ctx.font = `bold 11px "Barlow Condensed"`;
           ctx.fillText(`R${rn}`, bCx, bCy - (bMin >= 50 ? 9 : 0));
-          if (bMin >= 40) { ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillText(`1:${gradient}`, bCx, bCy + 5); }
-          if (bMin >= 72) { ctx.font = `9px "Barlow Condensed"`; ctx.fillStyle = 'rgba(232,62,140,0.7)'; ctx.fillText(`${Math.round(ramp.slopedRun).toLocaleString()}mm`, bCx, bCy + 18); }
+          const steep = rampFlightTooSteep(ramp), bt = rampBottomTransition(ramp);
+          if (bMin >= 40) { ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillStyle = steep ? '#ef4444' : labelCol; ctx.fillText(`${steep ? '⚠ ' : ''}Ramp 1:${gradient}`, bCx, bCy + 5); }
+          const btLine = !!bt && bMin >= 60;
+          if (btLine) { ctx.font = `bold 8px "Barlow Condensed"`; ctx.fillStyle = labelCol; ctx.fillText(`bottom transition ${bt}`, bCx, bCy + 17); }
+          if (bMin >= 72) { ctx.font = `9px "Barlow Condensed"`; ctx.fillStyle = 'rgba(232,62,140,0.7)'; ctx.fillText(`${Math.round(ramp.slopedRun).toLocaleString()}mm`, bCx, bCy + (btLine ? 29 : 18)); }
         } else if (bMin >= 14) {
           ctx.fillStyle = labelCol; ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillText(`R${rn}`, bCx, bCy);
         }
@@ -3621,8 +3671,11 @@ function drawRampsOnCanvas() {
     if (bodyMinDim >= 30) {
       ctx.fillStyle = labelCol; ctx.font = `bold 11px "Barlow Condensed"`;
       ctx.fillText(`R${rampNum}`, bodyCx, bodyCy - (bodyMinDim >= 50 ? 9 : 0));
-      if (bodyMinDim >= 40) { ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillText(`1:${gradient}`, bodyCx, bodyCy + 5); }
-      if (bodyMinDim >= 72) { ctx.font = `9px "Barlow Condensed"`; ctx.fillStyle = 'rgba(232,62,140,0.7)'; ctx.fillText(`${Math.round(ramp.slopedRun).toLocaleString()}mm`, bodyCx, bodyCy + 18); }
+      const steep = rampFlightTooSteep(ramp), bt = rampBottomTransition(ramp);
+      if (bodyMinDim >= 40) { ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillStyle = steep ? '#ef4444' : labelCol; ctx.fillText(`${steep ? '⚠ ' : ''}Ramp 1:${gradient}`, bodyCx, bodyCy + 5); }
+      const btLine = !!bt && bodyMinDim >= 60;
+      if (btLine) { ctx.font = `bold 8px "Barlow Condensed"`; ctx.fillStyle = labelCol; ctx.fillText(`bottom transition ${bt}`, bodyCx, bodyCy + 17); }
+      if (bodyMinDim >= 72) { ctx.font = `9px "Barlow Condensed"`; ctx.fillStyle = 'rgba(232,62,140,0.7)'; ctx.fillText(`${Math.round(ramp.slopedRun).toLocaleString()}mm`, bodyCx, bodyCy + (btLine ? 29 : 18)); }
     } else if (bodyMinDim >= 14) {
       ctx.fillStyle = labelCol; ctx.font = `bold 9px "Barlow Condensed"`; ctx.fillText(`R${rampNum}`, bodyCx, bodyCy);
     }
@@ -3677,7 +3730,7 @@ function openRampSideView(ramp) {
             letter-spacing:0.08em;text-transform:uppercase;color:var(--text);">
         Ramp R${rampNum}
         <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:5px;">
-          Side Elevation&nbsp;&middot;&nbsp;1:${ramp.gradient}&nbsp;&middot;&nbsp;${ramp.widthFt}ft wide
+          Side Elevation&nbsp;&middot;&nbsp;${rampGradientLabel(ramp, '&nbsp;&middot;&nbsp;')}&nbsp;&middot;&nbsp;${ramp.widthFt}ft wide
         </span>
       </span>
       <div class="ramp-sv-zoom-group">
@@ -3975,6 +4028,23 @@ function drawRampSideViewCanvas(ramp, canvas) {
     }
   }
 
+  // ── Ramp-bottom transition gradient, on the wedge ─────────────────────────
+  {
+    const bt = rampBottomTransition(ramp);
+    const bx0 = xPx(rbStartMm), bx1 = xPx(rbStartMm + RAMP_BOTTOM_MM);
+    if (bt && bx1 - bx0 > 44) {
+      const lbl = 'bottom ' + bt;
+      ctx.font = 'bold 10px Barlow Condensed,sans-serif';
+      const tw = ctx.measureText(lbl).width;
+      const lx = (bx0 + bx1) / 2, ly = groundY - 12;
+      ctx.fillStyle = 'rgba(15,17,23,0.78)';
+      ctx.fillRect(lx - tw / 2 - 3, ly - 7, tw + 6, 14);
+      ctx.fillStyle = '#e83e8ccc';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(lbl, lx, ly);
+    }
+  }
+
   ctx.fillStyle = '#6b7280'; ctx.font = '9px DM Mono,monospace';
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   ctx.fillText(Math.round(ramp.stageHeight) + 'mm', LPAD - 5, yPxRaw(ramp.stageHeight));
@@ -4021,7 +4091,7 @@ function drawRampSideViewCanvas(ramp, canvas) {
     ctx.fillStyle = '#f5a623'; ctx.font = 'bold 11px Barlow Condensed,sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(
-      `R${rn}  ·  SIDE ELEVATION  ·  1:${ramp.gradient}  ·  ${ramp.widthFt}ft wide  ·  ${Math.round(ramp.stageHeight)}mm deck ht`,
+      `R${rn}  ·  SIDE ELEVATION  ·  ${rampGradientLabel(ramp, ' · ')}  ·  ${ramp.widthFt}ft wide  ·  ${Math.round(ramp.stageHeight)}mm deck ht`,
       LPAD, 6
     );
   }
@@ -4550,7 +4620,7 @@ function appendRampSchedule() {
 
     html += `<div class="tier-schedule-block" style="margin-top:14px">
       <div class="tier-schedule-label" style="border-color:#e83e8c;color:#e83e8c;display:flex;align-items:center;gap:8px">
-        <span>${ramp.id} — ${tierLabel} &bull; ${ramp.widthFt}ft wide &bull; 1:${ramp.gradient} &bull; ${DIR_LABEL[ramp.direction]}${landingNote}</span>
+        <span>${ramp.id} — ${tierLabel} &bull; ${ramp.widthFt}ft wide &bull; ${rampFlightTooSteep(ramp) ? '<span style="color:var(--danger);font-weight:700">⚠ ' + rampGradientLabel(ramp, ' &middot; ') + '</span>' : rampGradientLabel(ramp, ' &middot; ')} &bull; ${DIR_LABEL[ramp.direction]}${landingNote}</span>
         <button onclick="deleteRamp('${ramp.id}')"
           style="font-size:10px;padding:2px 7px;cursor:pointer;margin-left:auto;
                  background:transparent;border:1px solid var(--danger);color:var(--danger);
@@ -5054,7 +5124,7 @@ function printScheduleAdvanced() {
         }
         const mixDesc = ['8x4','4x4','4x2'].filter(k => fullSummary[k]).map(k => `${fullSummary[k]}× ${RAMP_PANEL_NAMES[k]}`).join(', ');
         const landingNote = ramp.numLandings ? ` &bull; ${ramp.numLandings} landing${ramp.numLandings > 1 ? 's' : ''} (${Math.round(LANDING_DEPTH_MM).toLocaleString()}mm ea.)` : '';
-        totalsRows += `<tr><td colspan="2" style="font-size:9.5pt;padding:5px 10px;border-bottom:1px solid #ddd;color:#333;"><strong>${ramp.id}</strong> — ${ramp.widthFt}ft wide, 1:${ramp.gradient}, ${DIR_LABEL_PRINT[ramp.direction]}${landingNote}<br><span style="font-size:9pt;color:#555;line-height:1.8">${mixDesc}<br>Sloped run: ${ramp.slopedRun.toLocaleString()}mm &bull; Hinge: 50mm &bull; Ramp bottom: 1,219mm &bull; <strong>Total footprint: ${ramp.totalFootprintMm.toLocaleString()}mm</strong></span></td></tr>`;
+        totalsRows += `<tr><td colspan="2" style="font-size:9.5pt;padding:5px 10px;border-bottom:1px solid #ddd;color:#333;"><strong>${ramp.id}</strong> — ${ramp.widthFt}ft wide, ${(rampFlightTooSteep(ramp) ? '⚠ ' : '') + rampGradientLabel(ramp, ' &middot; ')}, ${DIR_LABEL_PRINT[ramp.direction]}${landingNote}<br><span style="font-size:9pt;color:#555;line-height:1.8">${mixDesc}<br>Sloped run: ${ramp.slopedRun.toLocaleString()}mm &bull; Hinge: 50mm &bull; Ramp bottom: 1,219mm &bull; <strong>Total footprint: ${ramp.totalFootprintMm.toLocaleString()}mm</strong></span></td></tr>`;
       }
       for (const [type, qty] of Object.entries(rd.panelCounts)) {
         if (qty) totalsRows += row(qty, RAMP_PANEL_NAMES[type] || `${type} ramp panel`);
@@ -5274,13 +5344,14 @@ function printSchedule() {
     if (ramps.length) {
       const rampGroups = {};
       for (const ramp of ramps) {
-        const key = `${ramp.widthFt}|${ramp.gradient}|${ramp.totalFootprintMm}`;
-        if (!rampGroups[key]) rampGroups[key] = { widthFt: ramp.widthFt, gradient: ramp.gradient, totalFootprintMm: ramp.totalFootprintMm, count: 0 };
+        const gradLabel = (rampFlightTooSteep(ramp) ? '⚠ ' : '') + rampGradientLabel(ramp, ' &middot; ');
+        const key = `${ramp.widthFt}|${gradLabel}|${ramp.totalFootprintMm}`;
+        if (!rampGroups[key]) rampGroups[key] = { widthFt: ramp.widthFt, gradient: ramp.gradient, gradLabel, totalFootprintMm: ramp.totalFootprintMm, count: 0 };
         rampGroups[key].count++;
       }
       for (const g of Object.values(rampGroups)) {
         const footprintM = (g.totalFootprintMm / 1000).toFixed(1);
-        rampRows += `<tr><td class="qty">${g.count} no.</td><td>Ramp &mdash; ${g.widthFt}ft wide, 1:${g.gradient} gradient (~${footprintM}m total footprint)</td></tr>`;
+        rampRows += `<tr><td class="qty">${g.count} no.</td><td>Ramp &mdash; ${g.widthFt}ft wide, ${g.gradLabel} (~${footprintM}m total footprint)</td></tr>`;
       }
     }
 
